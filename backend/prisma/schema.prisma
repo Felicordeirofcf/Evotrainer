@@ -1,0 +1,69 @@
+// Este é o ficheiro de configuração da sua Base de Dados configurado para PostgreSQL (Neon).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql" // Alterado de sqlite para postgresql
+  url      = env("DATABASE_URL") // Agora lê o link do Neon do seu ficheiro .env
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String   @unique
+  password  String   @default("") 
+  role      String   @default("STUDENT") 
+  streak    Int      @default(0)         
+  status    String   @default("Ativo")   
+  
+  // --- CAMPOS DO PERFIL DO ALUNO ---
+  phone     String?
+  age       String?
+  weight    String?
+  height    String?
+  goal      String?  @default("Hipertrofia")
+  notes     String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  history   WorkoutHistory[]
+  workouts  WorkoutTemplate[] 
+}
+
+model WorkoutTemplate {
+  id          Int        @id @default(autoincrement())
+  title       String
+  duration    String
+  dayOfWeek   String?    @default("Segunda") 
+  
+  userId      Int?       
+  user        User?      @relation(fields: [userId], references: [id])
+  
+  exercises   Exercise[]
+}
+
+model Exercise {
+  id          Int      @id @default(autoincrement())
+  name        String
+  sets        String   
+  weight      String   
+  youtubeId   String?  
+  
+  // --- CAMPOS PARA CONJUGADO ---
+  isConjugado  Boolean  @default(false)
+  conjugadoCom String? 
+  
+  workoutId   Int
+  workout     WorkoutTemplate @relation(fields: [workoutId], references: [id], onDelete: Cascade) 
+}
+
+model WorkoutHistory {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  user        User     @relation(fields: [userId], references: [id])
+  workoutName String
+  completedAt DateTime @default(now()) 
+}
