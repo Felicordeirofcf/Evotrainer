@@ -10,12 +10,12 @@ import {
 // ==========================================
 // 🚀 CONFIGURAÇÃO DA REDE LOCAL
 // ==========================================
-const MEU_IP = '192.168.1.2'; 
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://192.168.1.2:3001';
 
-const API_URL = typeof window !== 'undefined' 
-  ? `http://${MEU_IP}:3001/api`
-  : 'http://localhost:3001/api';
-
+// Garante que a URL termine corretamente com /api
+const API_URL = BASE_URL.endsWith('/') 
+  ? `${BASE_URL}api` 
+  : `${BASE_URL}/api`;
 
 export default function App() {
   // --- ESTADOS DE AUTENTICAÇÃO ---
