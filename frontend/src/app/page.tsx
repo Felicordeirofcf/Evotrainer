@@ -765,7 +765,7 @@ export default function App() {
                 <div className="bg-gradient-to-br from-indigo-600 to-purple-800 p-6 rounded-[2.5rem] shadow-2xl relative overflow-hidden">
                   <div className="relative z-10">
                     <h2 className="text-2xl font-black text-white flex items-center gap-2 leading-none"><Sparkles fill="currentColor"/> Mágico de IA</h2>
-                    <p className="text-indigo-200 text-xs mt-3 leading-relaxed font-medium">A IA gera o esquema completo do aluno com base na divisão escolhida, mapeando diretamente para os dias da semana e procurando os vídeos no Youtube.</p>
+                    <p className="text-indigo-200 text-xs mt-3 leading-relaxed font-medium">A IA organiza uma proposta inicial de treino com base na divisão escolhida, otimizando o processo. Recomendamos a revisão do personal antes de aplicar ao aluno.</p>
                   </div>
                   <Sparkles size={120} className="absolute -bottom-6 -right-6 text-white opacity-10 transform -rotate-12" />
                 </div>
