@@ -1108,7 +1108,7 @@ export default function App() {
               <span className="text-[10px] font-black uppercase tracking-wider mt-1">Perfil</span>
             </button>
           </div>
-        )}
+        )}9
       </div>
     </div>
   );
