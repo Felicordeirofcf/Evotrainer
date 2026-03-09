@@ -7,6 +7,7 @@ generator client {
 datasource db {
   provider = "postgresql" // Alterado de sqlite para postgresql
   url      = env("DATABASE_URL") // Agora lê o link do Neon do seu ficheiro .env
+  directUrl = env("DIRECT_URL") // Faltava esta linha!
 }
 
 model User {
