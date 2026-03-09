@@ -5,7 +5,7 @@ const nextConfig = {
     ignoreDuringBuilds: true,
   },
   typescript: {
-    // Ignora os erros de tipagem do TypeScript durante o build no Vercel
+    // Ignora os erros de tsipagem do TypeScript durante o build no Vercel
     ignoreBuildErrors: true,
   },
 };
