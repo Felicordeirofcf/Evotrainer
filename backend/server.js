@@ -10,8 +10,9 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const YOUTUBE_API_KEY = "AIzaSyAzUFb4SbFTC96uhJ7uqiO6yQ5KdRPLcgg";
-const JWT_SECRET = "treino-ai-super-secreto-123"; 
+const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;
+const JWT_SECRET = process.env.JWT_SECRET || "fallback-secreto-apenas-para-desenvolvimento";
+
 
 // ==========================================
 // MIDDLEWARES DE SEGURANÇA 
