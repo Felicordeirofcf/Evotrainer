@@ -8,15 +8,12 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Pesquisa obrigatória' }, { status: 400 });
   }
 
-  // O SERVIDOR lê a chave do ambiente do Vercel
-  // IMPORTANTE: No Vercel a variável deve chamar-se YOUTUBE_API_KEY
   const apiKey = process.env.YOUTUBE_API_KEY;
 
   if (!apiKey) {
-    console.error("ERRO CRÍTICO: YOUTUBE_API_KEY não encontrada no ambiente do servidor.");
     return NextResponse.json({ 
-      error: 'Configuração em falta no servidor',
-      details: 'A chave YOUTUBE_API_KEY não foi definida nas Environment Variables do Vercel.'
+      error: 'Configuração em falta',
+      details: 'Chave API não configurada no servidor.'
     }, { status: 500 });
   }
 
@@ -25,25 +22,26 @@ export async function GET(request: Request) {
     
     const response = await fetch(url, {
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      next: { revalidate: 86400 } // Cache opcional de 24h para poupar quota
+      headers: { 'Content-Type': 'application/json' },
+      next: { revalidate: 86400 } // Cache de 24h para economizar sua quota
     });
 
     const data = await response.json();
 
     if (!response.ok) {
-      console.error("YouTube API Error:", data);
-      return NextResponse.json({ 
-        error: 'Erro na resposta do YouTube', 
-        details: data.error?.message || 'Erro desconhecido' 
-      }, { status: response.status });
+      // Se o erro for de Quota Excedida
+      if (data.error?.errors?.some((e: any) => e.reason === 'quotaExceeded')) {
+        return NextResponse.json({ 
+          error: 'quota_exceeded', 
+          message: 'Limite diário do YouTube atingido.' 
+        }, { status: 403 });
+      }
+
+      return NextResponse.json({ error: 'Erro API YouTube', details: data.error?.message }, { status: response.status });
     }
 
     return NextResponse.json(data);
   } catch (error) {
-    console.error("Fetch Error:", error);
-    return NextResponse.json({ error: 'Erro de ligação ao servidor do YouTube' }, { status: 500 });
+    return NextResponse.json({ error: 'Erro de conexão' }, { status: 500 });
   }
 }
