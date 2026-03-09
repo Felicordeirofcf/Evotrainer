@@ -24,7 +24,7 @@ const API_URL = BASE_URL.endsWith('/')
   ? `${BASE_URL}api` 
   : `${BASE_URL}/api`;
 
-// NOVO: Função para extrair o ID colado manualmente
+// Função para extrair o ID colado manualmente
 const extractYouTubeId = (url: string) => {
   if (!url) return '';
   if (url.length === 11 && !url.includes('http')) return url;
@@ -33,28 +33,28 @@ const extractYouTubeId = (url: string) => {
   return (match && match[2].length === 11) ? match[2] : url;
 };
 
-// NOVO: Função de Busca Automática no YouTube
+// Função de Busca Automática no YouTube (Agora 100% Camuflada através do backend)
 const buscarVideoNoYouTube = async (nomeExercicio: string) => {
-  const apiKey = (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_YOUTUBE_API_KEY) || "";
-  
-  if (!apiKey) {
-    console.warn("Chave da API do YouTube ausente. Ignorando busca automática.");
-    return '';
-  }
-
   try {
-    // Adicionamos contexto para garantir que o YouTube devolve um tutorial de musculação
-    const query = encodeURIComponent(`como fazer ${nomeExercicio} execução correta musculação`);
-    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=1&q=${query}&type=video&key=${apiKey}`;
+    const query = `como fazer ${nomeExercicio} execução correta musculação`;
     
-    const response = await fetch(url);
+    // O frontend não usa a chave da Google! Ele faz o pedido à nossa própria API oculta.
+    // Assim a chave NUNCA aparece na aba Network ou Console do navegador.
+    const response = await fetch(`/api/youtube?q=${encodeURIComponent(query)}`);
+    
+    // Se der erro 403 (quota excedida) ou a chave falhar no servidor, disparamos o Plano B
+    if (!response.ok) {
+      console.warn("Aviso: Falha na API interna (ex: Quota excedida). A ativar Plano B.");
+      return ''; 
+    }
+
     const data = await response.json();
 
     if (data.items && data.items.length > 0) {
       return data.items[0].id.videoId;
     }
   } catch (error) {
-    console.error(`Erro ao buscar vídeo para ${nomeExercicio}:`, error);
+    console.error(`Erro ao comunicar com a API interna para ${nomeExercicio}:`, error);
   }
   
   return '';
@@ -338,15 +338,13 @@ export default function App() {
     showToast("A sincronizar vídeos do YouTube e guardar...");
     
     try {
-      // Array sequencial para não sobrecarregar a API do YouTube
       const exercisesComVideos = [];
       for (const ex of novoTreino.exercises) {
-        // Se o exercício não tiver vídeo inserido manualmente, procuramos automaticamente
         if (!ex.youtubeId || ex.youtubeId.trim() === '') {
           const idEncontrado = await buscarVideoNoYouTube(ex.name);
           exercisesComVideos.push({ ...ex, youtubeId: idEncontrado });
         } else {
-          exercisesComVideos.push(ex); // Mantém o que o professor colocou
+          exercisesComVideos.push(ex); 
         }
       }
 
@@ -379,11 +377,10 @@ export default function App() {
       return;
     }
 
-    const openAiApiKey = (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_OPENAI_API_KEY) 
-                          || "COLE_AQUI_A_SUA_NOVA_CHAVE";
+    const openAiApiKey = typeof process !== 'undefined' ? process.env?.NEXT_PUBLIC_OPENAI_API_KEY : '';
 
-    if (!openAiApiKey || openAiApiKey === "COLE_AQUI_A_SUA_NOVA_CHAVE") {
-      showToast("Por favor, configure a chave da OpenAI no painel do Vercel!");
+    if (!openAiApiKey) {
+      showToast("Por favor, configure a chave da OpenAI no painel do Vercel ou ficheiro .env!");
       setIsGeneratingIA(false);
       return;
     }
@@ -461,7 +458,6 @@ export default function App() {
         const indexDivisao = i % bibliotecasDeTreino.length;
         const treinoData = bibliotecasDeTreino[indexDivisao];
         
-        // Auto-fetch vídeos para a IA
         const exercisesComVideos = [];
         for (const ex of treinoData.exercises) {
           const videoId = await buscarVideoNoYouTube(ex.name);
@@ -616,6 +612,11 @@ export default function App() {
 
   const YoutubeModal = () => {
     if (!videoAtivo) return null;
+    
+    const iframeSrc = videoAtivo.startsWith('SEARCH:') 
+      ? `https://www.youtube.com/embed?listType=search&list=${encodeURIComponent(videoAtivo.replace('SEARCH:', ''))}&autoplay=1`
+      : `https://www.youtube.com/embed/${videoAtivo}?autoplay=1&rel=0`;
+
     return (
       <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[300] flex items-center justify-center p-4 animate-fade-in">
         <div className="bg-slate-900 border border-slate-800 rounded-[2rem] w-full max-w-lg overflow-hidden shadow-2xl flex flex-col relative">
@@ -624,7 +625,7 @@ export default function App() {
             <button onClick={() => setVideoAtivo(null)} className="bg-slate-800 hover:bg-red-500 text-slate-400 hover:text-white p-2 rounded-xl transition-colors"><X size={20} /></button>
           </div>
           <div className="w-full aspect-video bg-black relative">
-            <iframe className="w-full h-full absolute inset-0" src={`https://www.youtube.com/embed/${videoAtivo}?autoplay=1&rel=0`} allowFullScreen></iframe>
+            <iframe className="w-full h-full absolute inset-0" src={iframeSrc} allowFullScreen></iframe>
           </div>
           <div className="p-4 bg-slate-950">
             <button onClick={() => setVideoAtivo(null)} className="w-full py-4 bg-slate-800 hover:bg-slate-700 text-white font-black rounded-xl uppercase tracking-widest text-xs transition-colors">Fechar Vídeo</button>
@@ -1174,7 +1175,7 @@ export default function App() {
                           <div className="flex gap-2 text-[10px] mt-1 text-slate-500 font-black uppercase tracking-widest"><span>{group.main.sets}</span>{group.main.weight && <span>• {group.main.weight}</span>}</div>
                         </div>
                         
-                        {/* NOVO: Botão Youtube à Prova de Falhas INTERNO */}
+                        {/* BOTÃO YOUTUBE À PROVA DE FALHAS (EMBUTIDO) */}
                         <button 
                           onClick={async () => {
                             if (group.main.youtubeId) {
@@ -1185,7 +1186,8 @@ export default function App() {
                               if (id) {
                                 setVideoAtivo(id);
                               } else {
-                                showToast("Vídeo não encontrado.");
+                                // PLANO B SUPREMO: Pesquisa embutida dentro do Modal!
+                                setVideoAtivo(`SEARCH:como fazer ${group.main.name} musculação execução`);
                               }
                             }
                           }} 
@@ -1205,7 +1207,7 @@ export default function App() {
                                     <p className="text-[9px] text-slate-500 uppercase font-black tracking-widest mt-0.5">{p.sets}</p>
                                 </div>
                                 
-                                {/* NOVO: Botão Youtube à Prova de Falhas para Bi-Sets INTERNO */}
+                                {/* BOTÃO YOUTUBE À PROVA DE FALHAS (BI-SET EMBUTIDO) */}
                                 <button 
                                   onClick={async () => {
                                     if (p.youtubeId) {
@@ -1216,7 +1218,7 @@ export default function App() {
                                       if (id) {
                                         setVideoAtivo(id);
                                       } else {
-                                        showToast("Vídeo não encontrado.");
+                                        setVideoAtivo(`SEARCH:como fazer ${p.name} musculação execução`);
                                       }
                                     }
                                   }} 
