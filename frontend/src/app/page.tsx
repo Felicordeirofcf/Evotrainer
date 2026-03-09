@@ -8,11 +8,10 @@ import {
 } from 'lucide-react';
 
 // ==========================================
-// 🚀 CONFIGURAÇÃO DA REDE LOCAL
+// 🚀 CONFIGURAÇÃO DA API (DINÂMICA)
 // ==========================================
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://192.168.1.2:3001';
 
-// Garante que a URL termine corretamente com /api
 const API_URL = BASE_URL.endsWith('/') 
   ? `${BASE_URL}api` 
   : `${BASE_URL}/api`;
@@ -31,7 +30,7 @@ export default function App() {
 
   // --- ESTADOS ADMIN ---
   const [alunos, setAlunos] = useState<any[]>([]);
-  const [buscaAluno, setBuscaAluno] = useState(''); // NOVO: Estado para a pesquisa
+  const [buscaAluno, setBuscaAluno] = useState(''); 
   const [showAddModal, setShowAddModal] = useState(false);
   const [novoAluno, setNovoAluno] = useState({ name: '', email: '', password: '' });
 
@@ -75,6 +74,10 @@ export default function App() {
   const showToast = (msg: string) => {
     setToastMsg(msg);
     setTimeout(() => setToastMsg(''), 3000);
+  };
+
+  const simularUploadFoto = () => {
+    showToast("Funcionalidade de foto em breve!");
   };
 
   useEffect(() => {
@@ -191,7 +194,6 @@ export default function App() {
     } catch (error) { showToast("Erro ao alterar estado."); }
   };
 
-  // NOVO: Função para apagar o aluno do banco de dados
   const excluirAluno = async (alunoId: number, nome: string) => {
     if (!window.confirm(`ATENÇÃO: Tem a certeza absoluta que quer APAGAR o aluno "${nome}"? Esta ação vai apagar todo o histórico e fichas de treino dele e não pode ser desfeita.`)) {
       return;
@@ -205,7 +207,7 @@ export default function App() {
       
       if (res.ok) {
         showToast(`Aluno ${nome} apagado com sucesso.`);
-        fetchAlunos(); // Atualiza a lista
+        fetchAlunos(); 
       } else {
         showToast("Erro ao apagar aluno.");
       }
@@ -370,7 +372,6 @@ export default function App() {
     if (currentUser?.role === 'STUDENT') fetchTreinosAluno();
   }, [currentUser]);
 
-  // NOVO: Filtragem dos Alunos na tabela
   const alunosFiltrados = alunos.filter(aluno => 
     aluno.name.toLowerCase().includes(buscaAluno.toLowerCase()) || 
     aluno.email.toLowerCase().includes(buscaAluno.toLowerCase())
@@ -486,7 +487,6 @@ export default function App() {
           </header>
 
           <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
-            {/* NOVO: Header da Tabela com Barra de Pesquisa */}
             <div className="p-6 border-b border-slate-800 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <h2 className="text-xl font-bold flex items-center gap-2"><Users className="text-blue-500"/> Gestão de Alunos</h2>
               
@@ -552,7 +552,6 @@ export default function App() {
                             {aluno.status === 'Bloqueado' ? <Unlock size={18} /> : <Ban size={18} />}
                           </button>
 
-                          {/* NOVO: Botão de Apagar Aluno */}
                           <button onClick={() => excluirAluno(aluno.id, aluno.name)} title="Apagar Aluno Permanente" className="p-2.5 rounded-lg bg-slate-800 text-slate-500 hover:bg-red-500/20 hover:text-red-500 transition-colors ml-1">
                             <Trash2 size={18} />
                           </button>
@@ -669,7 +668,7 @@ export default function App() {
                 <div>
                   <h4 className="font-bold text-slate-300 mb-4 flex items-center gap-2"><List size={18}/> Lista de Exercícios</h4>
                   
-                  {groupedBuilderExercises.map((group, groupIdx) => (
+                  {groupedBuilderExercises.map((group) => (
                     <div key={group.main.originalIndex} className="flex flex-col gap-2 mb-4 bg-slate-950 p-4 rounded-xl border border-slate-800 shadow-md">
                       
                       <div className="flex gap-3 items-start">
@@ -1030,7 +1029,7 @@ export default function App() {
               </div>
 
               <div className="flex flex-col gap-6">
-                {groupedTreinoSelecionado.map((group: any, idx: number) => {
+                {groupedTreinoSelecionado.map((group, idx) => {
                   const isMainDone = exerciciosFeitos.includes(group.main.id);
 
                   return (
@@ -1108,7 +1107,7 @@ export default function App() {
               <span className="text-[10px] font-black uppercase tracking-wider mt-1">Perfil</span>
             </button>
           </div>
-        )}9
+        )}
       </div>
     </div>
   );
