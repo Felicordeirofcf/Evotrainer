@@ -1,144 +1,161 @@
-🏋️‍♂️ EvoTrainer - O teu Personal Trainer com IA
+🚀 EvoTrainer SaaS - Sistema de Gestão de Consultoria Fitness com IA
 
-<div align="center">
-<img src="public/logo.jpg" alt="EvoTrainer Logo" width="150" height="150" style="border-radius: 20px;" />
+O EvoTrainer é uma plataforma SaaS (Software as a Service) completa, desenvolvida para transformar Personal Trainers em empresas de alta produtividade. O sistema utiliza Inteligência Artificial para automatizar a criação de treinos, oferece uma experiência de App nativo para o aluno (PWA) e permite a monetização automática via assinaturas.
 
+📋 Sumário
 
+Funcionalidades Principais
 
+Arquitetura de Níveis de Acesso
 
+Stack Tecnológica
 
-<p><b>A plataforma definitiva para Personal Trainers gerirem alunos, criarem treinos dinâmicos e utilizarem Inteligência Artificial para periodização automática.</b></p>
+Instalação e Configuração
 
-</div>
+Variáveis de Ambiente
 
-📖 Sobre o Projeto
+White Label (Plano Elite)
 
-O EvoTrainer é uma Progressive Web App (PWA) construída com foco na experiência mobile (Mobile-First). Foi desenhada para resolver o problema da criação manual e demorada de fichas de treino.
+Integração de Pagamentos (Asaas)
 
-Com uma interface imersiva, o Personal Trainer pode gerir a sua carteira de alunos e, com a ajuda da IA (ChatGPT), desenhar estruturas completas de treino (A, AB, ABC, etc.) adaptadas a condições clínicas reais (ex: condromalácia, hipertensão). Além disso, o sistema pesquisa e anexa automaticamente vídeos do YouTube para a execução de cada exercício!
-
-O aluno acede ao seu portal, visualiza a sua sequência ofensiva (🔥 streak), e entra num "Modo Foco" sem distrações para executar o treino do dia.
+Estrutura do Projeto
 
 ✨ Funcionalidades Principais
 
-🧑‍🏫 Painel do Personal Trainer (Admin)
+🧠 Inteligência Artificial (Mágico de IA)
 
-Gestão de Alunos: Dashboard intuitivo para adicionar, bloquear, remover e pesquisar alunos.
+Geração automática de fichas de treino periodizadas baseadas no perfil, objetivo e restrições clínicas do aluno.
 
-Construtor de Treinos: Criação de fichas detalhadas (Séries, Carga, Bi-sets/Conjugados).
+Integração com a API da OpenAI (GPT-4o-mini).
 
-Mágico de IA 🤖: Geração automática de periodização (A, AB, ABC, ABCD, ABCDE) baseada no perfil e restrições médicas do aluno. O sistema faz o loop automático pelos dias da semana.
+Limites de uso automáticos baseados no plano contratado pelo Personal.
 
-Auto-YouTube Fetcher 📺: A app procura automaticamente o melhor vídeo de execução do exercício no YouTube e anexa à ficha do aluno.
+📺 Biblioteca de Vídeos Inteligente
 
-💪 Painel do Aluno
+Busca automática de vídeos de execução no YouTube para cada exercício gerado.
 
-PWA Instalável: Experiência de App nativa com prompt de instalação flutuante.
+Reprodutor de vídeo embutido no sistema para que o aluno não precise sair do App.
 
-Modo Execução (Foco): Interface limpa para marcar os exercícios concluídos.
+Plano de contingência (busca manual via link) caso a API do YouTube falhe.
 
-Player de Vídeo Embutido: Visualização da execução dos exercícios num modal modal interno (o aluno nunca sai da app). Possui Fallback inteligente caso a API do YouTube falhe.
+📱 Experiência do Aluno (PWA)
 
-Gamificação: Sistema de "Streak" (sequência de treinos) para manter o aluno motivado.
+Aplicação instalável no smartphone (Progressive Web App).
 
-Perfil Fisiológico: Atualização de peso, altura, objetivos e WhatsApp.
+Modo Foco: Interface otimizada para ser usada durante o treino, com cronómetro e check-list.
 
-🛠️ Tecnologias Utilizadas
+Gamificação: Sistema de ofensiva (Streak/Foguinhos) para incentivar a constância.
 
-Frontend: React.js, Next.js (App Router)
+📄 Exportação Premium
 
-Estilização: Tailwind CSS (Fluid Design, responsivo)
+Geração nativa de PDFs com design minimalista.
 
-Ícones: Lucide React
+Botões interativos de "Assistir Vídeo" dentro do próprio PDF.
 
-Integrações: * OpenAI API (Geração de Treinos)
+Envio direto para o WhatsApp do aluno com mensagem formatada.
 
-YouTube Data API v3 (Busca de vídeos)
+👤 Arquitetura de Níveis de Acesso
 
-Backend/API: Node.js / Express (Configurável via variável de ambiente)
+O sistema divide-se em três pilares:
 
-🚀 Como Executar o Projeto Localmente
+SUPERADMIN (Dono): Acesso ao Painel Master para gerir todos os Personal Trainers, alterar planos manualmente e limpar a base de dados.
 
-Pré-requisitos
+ADMIN (Personal Trainer): Painel de gestão de alunos, criação de treinos (manual ou IA), gestão de marca (White Label) e assinatura.
 
-Certifique-se de que tem o Node.js e o npm instalados na sua máquina.
+STUDENT (Aluno): Interface simplificada e focada na execução dos treinos recebidos.
 
-1. Clonar o repositório
+🛠 Stack Tecnológica
 
-git clone [https://github.com/SeuUsuario/Evotrainer.git](https://github.com/SeuUsuario/Evotrainer.git)
-cd Evotrainer/frontend
+Frontend: Next.js 14, React, Tailwind CSS, Lucide React (Ícones).
+
+Backend: Node.js, Express.
+
+ORM: Prisma (PostgreSQL).
+
+Base de Dados: PostgreSQL (Hospedado no Neon.tech).
+
+Autenticação: JWT (JSON Web Tokens) e Bcrypt.js.
+
+E-mail: Nodemailer (SMTP).
+
+📦 Instalação e Configuração
+
+1. Clonar o Repositório
+
+git clone [https://github.com/seu-usuario/evotrainer.git](https://github.com/seu-usuario/evotrainer.git)
+cd evotrainer
 
 
-2. Instalar as dependências
+2. Configurar o Backend
 
+cd backend
 npm install
+npx prisma db push # Sincroniza a base de dados
+node server.js
 
 
-3. Configurar as Variáveis de Ambiente
+3. Configurar o Frontend
 
-Crie um ficheiro .env na raiz da pasta frontend e adicione as suas chaves privadas. Aviso: Nunca faça commit deste ficheiro!
-
-# URL do seu Backend (use localhost para desenvolvimento ou o link de produção)
-NEXT_PUBLIC_API_URL=http://localhost:3001
-
-# Chave da OpenAI para o "Mágico de IA"
-NEXT_PUBLIC_OPENAI_API_KEY=sk-proj-sua-chave-openai-aqui
-
-# Chave do Google Cloud para pesquisa automática de vídeos
-NEXT_PUBLIC_YOUTUBE_API_KEY=AIzaSy-sua-chave-youtube-aqui
-
-
-4. Iniciar o servidor de desenvolvimento
-
+cd frontend
+npm install
 npm run dev
 
 
-A aplicação estará disponível em http://localhost:3000.
+🔑 Variáveis de Ambiente
 
-🛡️ Tratamento de Erros e Fallbacks (Resiliência)
+Crie um ficheiro .env na pasta backend com as seguintes chaves:
 
-O EvoTrainer foi desenhado para nunca deixar o utilizador "pendurado":
+# Banco de Dados (Neon.tech)
+DATABASE_URL="postgresql://user:pass@host/neondb?sslmode=require"
 
-Limite da API do YouTube: Se a quota diária da API do YouTube for excedida (Erro 403), o sistema ativa o Plano B Supremo, embutindo uma pesquisa de iframe nativa para que o aluno continue a ver os vídeos dentro do Modal.
+# Segurança
+JWT_SECRET="sua_chave_secreta_super_forte"
 
-Variáveis Inexistentes: Se o ambiente de produção (ex: Vercel) perder o link do backend, o sistema faz fallback automático para o servidor principal (https://evotrainer.onrender.com).
+# APIs Externas
+OPENAI_API_KEY="sk-..."
+YOUTUBE_API_KEY="AIza..."
 
-📱 Capturas de Ecrã (Screenshots)
+# E-mail (Recuperação de Senha)
+SMTP_HOST="smtp.gmail.com"
+SMTP_PORT=587
+SMTP_USER="seu-email@gmail.com"
+SMTP_PASS="sua-senha-de-app"
 
-(Adiciona aqui algumas imagens do teu sistema. Podes arrastar as imagens para o GitHub e colar os links gerados aqui)
 
-Painel Admin
+🎨 White Label (Plano Elite)
 
-Mágico de IA
+O sistema permite que o Personal Trainer Elite tenha a sua própria "App".
 
-Modo Foco (Aluno)
+Link Personalizado: O Personal envia o link app.evotrainer.com/?t=ID.
 
-Player Embutido
+Injeção Dinâmica: O frontend deteta o trainerId na URL e carrega o logótipo e a cor principal do Personal antes mesmo do login.
 
-<img src="link-da-imagem" width="200"/>
+Personalização: O Personal altera as cores e o logótipo diretamente no seu perfil.
 
-<img src="link-da-imagem" width="200"/>
+💳 Integração de Pagamentos (Asaas)
 
-<img src="link-da-imagem" width="200"/>
+A monetização é feita através de Webhooks do Asaas:
 
-<img src="link-da-imagem" width="200"/>
+O Personal clica em upgrade e é levado para o link de checkout.
 
-🤝 Contribuição
+O link carrega o ID do utilizador no campo externalReference.
 
-Contribuições são sempre bem-vindas! Se quiseres melhorar o EvoTrainer:
+Após o pagamento, o Asaas envia um POST para /api/webhooks/asaas.
 
-Faz um Fork do projeto.
+O servidor identifica o valor e atualiza automaticamente o plano:
 
-Cria uma Branch para a tua funcionalidade (git checkout -b feature/NovaFuncionalidade).
+R$ 30: Plano START (Bronze)
 
-Faz o Commit das tuas alterações (git commit -m 'Adiciona NovaFuncionalidade').
+R$ 60: Plano PRO (Prata)
 
-Faz o Push para a branch (git push origin feature/NovaFuncionalidade).
+R$ 100: Plano ELITE (Ouro)
 
-Abre um Pull Request.
+🛡️ Criar Conta Master (Dono)
+
+Para ter acesso ao painel Master, clique no ícone de escudo no ecrã de login e use a chave secreta:
+
+Secret Key: evotrainer2026
 
 📄 Licença
 
-Distribuído sob a licença MIT. Veja LICENSE para mais informações.
-
-Desenvolvido com ☕ e 🏋️‍♂️ para revolucionar a consultoria fitness.
+Propriedade de EvoTrainer Master. Todos os direitos reservados.
