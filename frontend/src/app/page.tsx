@@ -5,19 +5,12 @@ import {
   Users, LogOut, CheckCircle2, Flame, Play, 
   X, User as UserIcon, Plus, Activity, Dumbbell,
   Trash2, Ban, Unlock, Home, Calendar, List, AlertTriangle, Pencil, Link as LinkIcon, Lock, Camera, Save, Search,
-  Download, Sparkles, Youtube, ChevronRight, ChevronLeft, MessageCircle, Crown, Check, ShieldAlert, Palette, Star, MessageSquare
+  Download, Sparkles, Youtube, ChevronRight, ChevronLeft, MessageCircle, Crown, Check, ShieldAlert, Palette
 } from 'lucide-react';
 
-// ==========================================
-// 🚀 CONFIGURAÇÃO DA API
-// ==========================================
 const getBaseUrl = () => {
-  if (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_API_URL) {
-    return process.env.NEXT_PUBLIC_API_URL;
-  }
-  if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
-    return 'http://localhost:3001';
-  }
+  if (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
+  if (typeof window !== 'undefined' && window.location.hostname === 'localhost') return 'http://localhost:3001';
   return 'https://evotrainer.onrender.com';
 };
 
@@ -41,16 +34,28 @@ const extractYouTubeId = (url: string) => {
   return (match && match[2].length === 11) ? match[2] : url;
 };
 
-// ==========================================
-// 🧩 COMPONENTES GLOBAIS UI
-// ==========================================
+function getGroupedExercises(exercisesArray: any[]) {
+  const grouped: any[] = [];
+  const skipIndices = new Set(); 
+  exercisesArray.forEach((ex, idx) => {
+    if (skipIndices.has(idx)) return; 
+    const group = { main: { ...ex, originalIndex: idx }, partners: [] as any[] };
+    if (ex.isConjugado && ex.conjugadoCom) {
+      const pIdx = exercisesArray.findIndex((e, i) => i !== idx && !skipIndices.has(i) && e.name === ex.conjugadoCom);
+      if (pIdx !== -1) { group.partners.push({ ...exercisesArray[pIdx], originalIndex: pIdx }); skipIndices.add(pIdx); }
+    }
+    grouped.push(group);
+  });
+  return grouped;
+}
+
 const InstallBanner = ({ showInstallBanner, setShowInstallBanner, handleInstallClick, brandColor }: any) => {
   if (!showInstallBanner) return null;
   return (
     <div className="fixed bottom-24 left-4 right-4 z-[110] p-4 rounded-2xl shadow-2xl flex items-center justify-between border animate-fade-in sm:max-w-sm sm:mx-auto" style={{ backgroundColor: brandColor || '#2563eb', borderColor: brandColor || '#3b82f6' }}>
       <div className="flex items-center gap-3">
         <div className="bg-white/20 p-2 rounded-xl text-white"><Download size={24} /></div>
-        <div><p className="text-white font-black text-sm">Instalar App</p><p className="text-white/80 text-[10px]">Acesse rápido pela tela inicial!</p></div>
+        <div><p className="text-white font-black text-sm">Instalar App</p><p className="text-white/80 text-[10px]">Acesso rápido!</p></div>
       </div>
       <div className="flex gap-2">
         <button onClick={() => setShowInstallBanner(false)} className="text-white/70 p-2"><X size={18}/></button>
@@ -80,127 +85,7 @@ const YoutubeModal = ({ videoAtivo, setVideoAtivo, brandColor }: any) => {
   );
 };
 
-const TourModal = ({ showTour, setShowTour, tourStep, setTourStep }: any) => {
-  if (!showTour) return null;
-
-  const tourSteps = [
-    { 
-      title: "Bem-vindo ao EvoTrainer! 🚀", 
-      text: "Vamos fazer um tour rápido para você entender como nossa plataforma vai escalar a sua consultoria e economizar horas de trabalho.", 
-      icon: <Sparkles size={60} className="text-blue-500 mx-auto" /> 
-    },
-    { 
-      title: "1. Gestão de Alunos 👥", 
-      text: "Na aba 'Alunos' você cadastra seus clientes. Cada aluno que você adicionar ganhará acesso a um App Exclusivo para visualizar os treinos.", 
-      icon: <Users size={60} className="text-emerald-500 mx-auto" /> 
-    },
-    { 
-      title: "2. Treino Inteligente 🧠", 
-      text: "Vá na aba 'Inteligência' e deixe a nossa IA gerar as fichas para você. Ela entende de periodização, biomecânica e patologias.", 
-      icon: <Activity size={60} className="text-indigo-500 mx-auto" /> 
-    },
-    { 
-      title: "3. Vídeos Automáticos 📺", 
-      text: "Adeus planilhas manuais! Para cada exercício gerado, nós buscamos e anexamos o vídeo correto de execução diretamente do YouTube.", 
-      icon: <Youtube size={60} className="text-red-500 mx-auto" /> 
-    },
-    { 
-      title: "4. A Visão do seu Aluno 📱", 
-      text: "O seu aluno entra no aplicativo, clica no 'Modo Foco' e consegue marcar os exercícios que já fez. Eles também ganham 'foguinhos' de ofensiva a cada treino para gamificar a rotina!", 
-      icon: (
-        <div className="w-32 h-56 bg-slate-950 border-[6px] border-slate-800 rounded-[2rem] mx-auto overflow-hidden relative shadow-lg">
-          <div className="absolute top-0 w-full h-4 bg-slate-800 rounded-b-xl flex justify-center"><div className="w-8 h-1 bg-slate-950 rounded-full mt-1"></div></div>
-          <div className="mt-8 px-3 space-y-2">
-            <div className="h-4 bg-blue-600/30 rounded w-1/2 mb-4"></div>
-            <div className="h-10 bg-slate-900 rounded-xl border border-slate-800 flex items-center px-2 gap-2">
-               <div className="w-4 h-4 bg-blue-600 rounded-full"></div><div className="h-2 bg-slate-700 rounded w-1/2"></div>
-            </div>
-            <div className="h-10 bg-slate-900 rounded-xl border border-slate-800 flex items-center px-2 gap-2">
-               <div className="w-4 h-4 bg-slate-700 rounded-full"></div><div className="h-2 bg-slate-700 rounded w-1/2"></div>
-            </div>
-            <div className="h-10 bg-blue-600 rounded-xl mt-6"></div>
-          </div>
-        </div>
-      )
-    },
-    { 
-      title: "Tudo Pronto! 🎉", 
-      text: "O sistema agora é seu. Comece adicionando o seu primeiro aluno ou testando a Inteligência Artificial.", 
-      icon: <CheckCircle2 size={60} className="text-blue-500 mx-auto" /> 
-    }
-  ];
-
-  const current = tourSteps[tourStep];
-
-  return (
-    <div className="fixed inset-0 bg-black/95 backdrop-blur-md z-[500] flex items-center justify-center p-6 animate-fade-in">
-      <div className="bg-slate-900 border border-slate-800 rounded-[3rem] w-full max-w-sm text-center p-8 shadow-2xl relative overflow-hidden">
-        <div className="absolute -top-10 -right-10 opacity-5">
-          <Sparkles size={200} />
-        </div>
-        
-        <div className="relative z-10">
-          <div className="mb-6 h-24 flex items-center justify-center">
-            {current.icon}
-          </div>
-          <h3 className="text-xl font-black text-white mb-4 leading-tight">{current.title}</h3>
-          <p className="text-slate-400 text-sm font-medium leading-relaxed min-h-[5rem]">
-            {current.text}
-          </p>
-          
-          <div className="flex justify-center gap-2 mt-8 mb-6">
-            {tourSteps.map((_, i) => (
-              <div key={i} className={`h-2 rounded-full transition-all ${i === tourStep ? 'w-8 bg-blue-600' : 'w-2 bg-slate-800'}`}></div>
-            ))}
-          </div>
-
-          <div className="flex gap-3">
-            {tourStep > 0 && (
-              <button onClick={() => setTourStep((prev: number) => prev - 1)} className="p-4 bg-slate-800 text-white rounded-2xl active:scale-95 transition-all">
-                <ChevronLeft size={20}/>
-              </button>
-            )}
-            {tourStep < tourSteps.length - 1 ? (
-              <button onClick={() => setTourStep((prev: number) => prev + 1)} className="flex-1 bg-blue-600 text-white font-black py-4 rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-blue-600/30 active:scale-95 transition-all uppercase tracking-widest text-xs">
-                Próximo <ChevronRight size={18}/>
-              </button>
-            ) : (
-              <button onClick={() => setShowTour(false)} className="flex-1 bg-emerald-600 text-white font-black py-4 rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/30 active:scale-95 transition-all uppercase tracking-widest text-xs">
-                VAMOS LÁ! <Flame size={18}/>
-              </button>
-            )}
-          </div>
-          
-          <button onClick={() => setShowTour(false)} className="mt-6 text-[10px] text-slate-500 font-bold uppercase tracking-widest hover:text-slate-300">
-            Pular Tour
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// Helper: Group conjugate exercises
-function getGroupedExercises(exercisesArray: any[]) {
-  const grouped: any[] = [];
-  const skipIndices = new Set(); 
-  exercisesArray.forEach((ex, idx) => {
-    if (skipIndices.has(idx)) return; 
-    const group = { main: { ...ex, originalIndex: idx }, partners: [] as any[] };
-    if (ex.isConjugado && ex.conjugadoCom) {
-      const pIdx = exercisesArray.findIndex((e, i) => i !== idx && !skipIndices.has(i) && e.name === ex.conjugadoCom);
-      if (pIdx !== -1) { group.partners.push({ ...exercisesArray[pIdx], originalIndex: pIdx }); skipIndices.add(pIdx); }
-    }
-    grouped.push(group);
-  });
-  return grouped;
-}
-
-// ==========================================
-// 🚀 APLICAÇÃO PRINCIPAL
-// ==========================================
 export default function App() {
-  // --- ESTADOS DE AUTENTICAÇÃO ---
   const [currentUser, setCurrentUser] = useState<any>(null); 
   const [token, setToken] = useState<string | null>(null);
   const [currentBrand, setCurrentBrand] = useState<any>(null); 
@@ -222,21 +107,18 @@ export default function App() {
   const [resetTokenUrl, setResetTokenUrl] = useState('');
   const [resetNewPassword, setResetNewPassword] = useState('');
 
-  // --- ESTADOS GERAIS ---
   const [isLoading, setIsLoading] = useState(false);
   const [toastMsg, setToastMsg] = useState('');
+  
+  // PWA Install State
   const [showInstallBanner, setShowInstallBanner] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
 
-  const [showTour, setShowTour] = useState(false);
-  const [tourStep, setTourStep] = useState(0);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
-  // --- ESTADOS ADMIN (PERSONAL) ---
   const [alunos, setAlunos] = useState<any[]>([]);
   const [buscaAluno, setBuscaAluno] = useState(''); 
   const [showAddModal, setShowAddModal] = useState(false);
-  
   const [novoAluno, setNovoAluno] = useState({ name: '', email: '', password: '', phone: '' });
   const [adminTabAtiva, setAdminTabAtiva] = useState('alunos'); 
   
@@ -251,19 +133,16 @@ export default function App() {
   const [treinoParaExcluir, setTreinoParaExcluir] = useState<{id: number, title: string} | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // --- ESTADOS SUPERADMIN (DONO) ---
   const [trainers, setTrainers] = useState<any[]>([]);
   const [buscaTrainer, setBuscaTrainer] = useState('');
   const [filtroPlano, setFiltroPlano] = useState('TODOS');
 
-  // --- IA (TREINO INTELIGENTE) ---
   const [iaPrompt, setIaPrompt] = useState('');
   const [iaAlunoId, setIaAlunoId] = useState('');
   const [iaSplit, setIaSplit] = useState('ABC');
   const [iaFrequencia, setIaFrequencia] = useState('5');
   const [isGeneratingIA, setIsGeneratingIA] = useState(false);
 
-  // --- ESTADOS ALUNO ---
   const [treinosAluno, setTreinosAluno] = useState<any[]>([]);
   const [treinoIniciado, setTreinoIniciado] = useState(false);
   const [exerciciosFeitos, setExerciciosFeitos] = useState<number[]>([]);
@@ -273,49 +152,30 @@ export default function App() {
   const diasCurtos = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
   const [diaAtivo, setDiaAtivo] = useState(diasCompletos[new Date().getDay()]);
 
-  // --- ESTADOS PERFIL ---
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [profileForm, setProfileForm] = useState({ name: '', email: '', phone: '', age: '', weight: '', height: '', goal: 'Hipertrofia', notes: '', avatar: '', brandName: '', brandColor: '#2563eb', brandLogo: '' });
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm: '' });
 
-  // --- FEEDBACK ---
-  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
-  const [feedbackRating, setFeedbackRating] = useState(5);
-  const [feedbackComment, setFeedbackComment] = useState('');
-
-  // --- UTILITÁRIOS ---
   const showToast = (msg: any) => {
-    let textMessage = "Ocorreu um erro inesperado.";
-    if (typeof msg === 'string') textMessage = msg;
-    else if (msg && msg.error) textMessage = String(msg.error);
-    else if (msg && msg.message) textMessage = String(msg.message);
+    let textMessage = typeof msg === 'string' ? msg : (msg?.error || msg?.message || "Erro inesperado.");
     setToastMsg(textMessage);
     setTimeout(() => setToastMsg(''), 3500);
   };
 
-  // DETETAR LINK DE WHITE LABEL E RECUPERAÇÃO DE SENHA NO LOGIN
+  // --- EFEITOS E EVENTOS INICIAIS ---
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
-      
       const tokenUrl = params.get('token');
-      if (tokenUrl) {
-        setResetTokenUrl(tokenUrl);
-        setAuthMode('RESET');
-      }
+      if (tokenUrl) { setResetTokenUrl(tokenUrl); setAuthMode('RESET'); }
 
       const trainerQueryId = params.get('t');
       if (trainerQueryId && !currentUser) {
         fetch(`${API_URL}/brand/${trainerQueryId}`)
-          .then(res => {
-            if(res.ok) return res.json();
-            return null;
-          })
-          .then(data => {
-            if(data) setLoginBrand(data);
-          })
-          .catch(e => console.error("Erro ao buscar White Label:", e));
+          .then(res => res.ok ? res.json() : null)
+          .then(data => data && setLoginBrand(data))
+          .catch(() => {});
       }
     }
   }, [currentUser]);
@@ -345,9 +205,7 @@ export default function App() {
     if (savedToken && savedUser) {
       setToken(savedToken);
       try { setCurrentUser(JSON.parse(savedUser)); } catch (e) { setCurrentUser(null); }
-      if (savedBrand) {
-        try { setCurrentBrand(JSON.parse(savedBrand)); } catch (e) { setCurrentBrand(null); }
-      }
+      if (savedBrand) { try { setCurrentBrand(JSON.parse(savedBrand)); } catch (e) { setCurrentBrand(null); } }
     }
   }, []);
 
@@ -359,10 +217,6 @@ export default function App() {
         goal: currentUser.goal || 'Hipertrofia', notes: currentUser.notes || '', avatar: currentUser.avatar || '',
         brandName: currentUser.brandName || '', brandColor: currentUser.brandColor || '#2563eb', brandLogo: currentUser.brandLogo || ''
       });
-      if (currentUser.role === 'ADMIN' && localStorage.getItem('evotrainer_tour_pending') === 'true') {
-        setShowTour(true);
-        localStorage.removeItem('evotrainer_tour_pending');
-      }
     }
   }, [currentUser]);
 
@@ -372,21 +226,20 @@ export default function App() {
     return headers;
   };
 
+  // --- FUNÇÕES DE COMPORTAMENTO ---
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>, isBrandLogo = false) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 3 * 1024 * 1024) { 
-      showToast("A imagem é muito grande. Escolha uma até 3MB.");
-      return;
-    }
+    if (file.size > 3 * 1024 * 1024) return showToast("A imagem excede 3MB.");
+    
     showToast("A guardar imagem...");
     const reader = new FileReader();
     reader.onloadend = async () => {
       const base64String = reader.result as string;
-      const payloadToUpdate = isBrandLogo ? { brandLogo: base64String } : { avatar: base64String };
-      const updatedProfileForm = { ...profileForm, ...payloadToUpdate };
+      const payload = isBrandLogo ? { brandLogo: base64String } : { avatar: base64String };
+      const updatedProfileForm = { ...profileForm, ...payload };
       setProfileForm(updatedProfileForm);
-      setCurrentUser({ ...currentUser, ...payloadToUpdate });
+      setCurrentUser({ ...currentUser, ...payload });
 
       try {
         const res = await fetch(`${API_URL}/alunos/${currentUser.id}/perfil`, {
@@ -401,9 +254,9 @@ export default function App() {
             setCurrentBrand(newBrand);
             localStorage.setItem('treino_ai_brand', JSON.stringify(newBrand));
           }
-          showToast("Imagem atualizada com sucesso!");
+          showToast("Imagem atualizada!");
         }
-      } catch (error) { showToast("Erro ao guardar a imagem."); }
+      } catch (error) { showToast("Erro ao guardar imagem."); }
     };
     reader.readAsDataURL(file);
   };
@@ -546,26 +399,23 @@ export default function App() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!loginEmail || !loginPassword) return showToast("Preencha todos os campos.");
-    
     setIsLoggingIn(true);
     try {
       const res = await fetch(`${API_URL}/login`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: loginEmail, password: loginPassword })
       });
       const data = await res.json();
-      
       if (res.ok) {
         setToken(data.token); setCurrentUser(data.user);
         localStorage.setItem('treino_ai_token', data.token);
         localStorage.setItem('treino_ai_user', JSON.stringify(data.user));
-        
         if (data.brand) {
           setCurrentBrand(data.brand);
           localStorage.setItem('treino_ai_brand', JSON.stringify(data.brand));
         } else {
           setCurrentBrand(null); localStorage.removeItem('treino_ai_brand');
         }
-        setLoginPassword(''); showToast("Bem-vindo de volta!");
+        setLoginPassword(''); showToast("Bem-vindo!");
       } else { showToast(data.error || "Erro no login."); }
     } catch (error) { showToast(`Erro ao ligar com o servidor.`); } finally { setIsLoggingIn(false); }
   };
@@ -600,7 +450,6 @@ export default function App() {
         setToken(data.token); setCurrentUser(data.user);
         localStorage.setItem('treino_ai_token', data.token);
         localStorage.setItem('treino_ai_user', JSON.stringify(data.user));
-        localStorage.setItem('evotrainer_tour_pending', 'true');
         setSignupName(''); setSignupEmail(''); setSignupPassword(''); setSignupConfirmPassword('');
         showToast("Bem-vindo ao EvoTrainer!");
       } else { showToast(data.error || "Erro ao criar conta."); }
@@ -655,7 +504,7 @@ export default function App() {
   };
 
   const excluirTrainer = async (trainerId: number, name: string) => {
-    if (!window.confirm(`ATENÇÃO: Apagar o Personal "${name}" e todos os alunos/fichas?`)) return;
+    if (!window.confirm(`Apagar o Personal "${name}" e todos os alunos/fichas?`)) return;
     try {
       const res = await fetch(`${API_URL}/superadmin/trainers/${trainerId}`, { method: 'DELETE', headers: getAuthHeaders() });
       if (res.ok) { showToast("Personal apagado."); fetchTrainers(); }
@@ -747,14 +596,14 @@ export default function App() {
     setIsGeneratingIA(true);
     if (!iaAlunoId) { showToast("Selecione um aluno primeiro."); setIsGeneratingIA(false); return; }
     try {
-      showToast("A IA está a analisar o perfil...");
+      showToast("A IA Master está a analisar a biomecânica...");
       const response = await fetch(`${API_URL}/ai/gerar-treino`, {
         method: 'POST', headers: getAuthHeaders(), body: JSON.stringify({ alunoId: iaAlunoId, split: iaSplit, frequencia: iaFrequencia, prompt: iaPrompt })
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Falha ao gerar treino com IA.");
       showToast(data.message); setIaPrompt(''); setIaSplit('ABC'); setIaFrequencia('5'); await fetchAlunos(); setAdminTabAtiva('alunos');
-    } catch (err: any) { showToast(`Aviso: ${err.message}`); } finally { setIsGeneratingIA(false); }
+    } catch (err: any) { showToast(err.message); } finally { setIsGeneratingIA(false); }
   };
 
   const fetchTreinosAluno = async () => {
@@ -845,7 +694,7 @@ export default function App() {
     return {};
   }
 
-  // ==================== RENDERIZAÇÃO: NÃO AUTENTICADO ====================
+  // ==================== RENDERIZAÇÃO: LOGIN ====================
   if (!currentUser) {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 text-slate-50 relative overflow-hidden">
@@ -861,13 +710,8 @@ export default function App() {
         )}
 
         <div className="w-full max-w-md bg-slate-900/80 backdrop-blur-xl border border-slate-800 p-8 rounded-[3rem] shadow-2xl animate-fade-in text-center relative z-10">
-          
           <div className="w-20 h-20 rounded-3xl mx-auto flex items-center justify-center mb-6 shadow-lg overflow-hidden border-2" style={{...getLoginBrandStyle('bg'), borderColor: `${loginColor}50`, backgroundColor: `${loginColor}20` }}>
-            {loginBrand?.logo ? (
-               <img src={loginBrand.logo} alt="Logo" className="w-full h-full object-cover" />
-            ) : (
-               <Dumbbell size={40} style={getLoginBrandStyle('text')} />
-            )}
+            {loginBrand?.logo ? <img src={loginBrand.logo} alt="Logo" className="w-full h-full object-cover" /> : <Dumbbell size={40} style={getLoginBrandStyle('text')} />}
           </div>
           
           <h1 className="text-3xl font-black mb-2 tracking-tighter" style={loginBrand ? getLoginBrandStyle('text') : {}}>
@@ -1190,7 +1034,7 @@ export default function App() {
                 <div className="bg-gradient-to-br from-indigo-600 to-purple-800 p-6 rounded-[2.5rem] shadow-2xl relative overflow-hidden">
                   <div className="relative z-10">
                     <h2 className="text-2xl font-black text-white flex items-center gap-2 leading-none"><Sparkles fill="currentColor"/> Mágico de IA</h2>
-                    <p className="text-indigo-200 text-xs mt-3 leading-relaxed font-medium">A IA organiza uma proposta inicial de treino com base na divisão escolhida, otimizando o processo. Recomendamos a revisão do personal antes de aplicar ao aluno.</p>
+                    <p className="text-indigo-200 text-xs mt-3 leading-relaxed font-medium">Nossa IA Ph.D. em Biomecânica organiza uma periodização com base na divisão escolhida, RPE e limitações.</p>
                   </div>
                   <Sparkles size={120} className="absolute -bottom-6 -right-6 text-white opacity-10 transform -rotate-12" />
                 </div>
@@ -1230,7 +1074,7 @@ export default function App() {
                     <textarea 
                       value={iaPrompt} 
                       onChange={e => setIaPrompt(e.target.value)} 
-                      placeholder="Ex: Treino para hipertrofia. Aluno tem condromalácia patelar e hipertensão. Evitar salto e impacto extremo." 
+                      placeholder="Ex: Treino para hipertrofia com ênfase em pernas. Aluno possui condromalácia patelar grau 1. Evitar cadeira extensora." 
                       rows={4} 
                       className="bg-slate-950 border border-slate-700 rounded-2xl p-4 text-white outline-none focus:border-indigo-500 resize-none font-medium text-sm custom-scrollbar"
                     ></textarea>
@@ -1238,7 +1082,7 @@ export default function App() {
 
                   <button onClick={gerarTreinoInteligente} disabled={isGeneratingIA || !iaAlunoId || !iaPrompt} className="w-full mt-2 bg-indigo-600 hover:bg-indigo-500 text-white font-black text-sm py-5 rounded-[1.5rem] flex items-center justify-center gap-2 shadow-[0_10px_30px_rgba(79,70,229,0.4)] active:scale-95 transition-all disabled:opacity-50 uppercase tracking-widest">
                     {isGeneratingIA ? <Activity className="animate-spin" /> : <Sparkles size={20} />} 
-                    {isGeneratingIA ? 'Criando Estrutura...' : 'Gerar Treino Inteligente'}
+                    {isGeneratingIA ? 'Analisando Biomecânica...' : 'Gerar Treino de Elite'}
                   </button>
                 </div>
               </div>

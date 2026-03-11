@@ -182,7 +182,7 @@ app.delete('/api/superadmin/trainers/:id', authenticateToken, isSuperAdmin, asyn
 });
 
 // ==========================================
-// TREINO INTELIGENTE (ATUALIZADO E RESILIENTE)
+// TREINO INTELIGENTE (IA PhD EM BIOMECÂNICA)
 // ==========================================
 app.post('/api/ai/gerar-treino', authenticateToken, isAdmin, async (req, res) => {
   const { alunoId, split, frequencia, prompt } = req.body;
@@ -193,18 +193,51 @@ app.post('/api/ai/gerar-treino', authenticateToken, isAdmin, async (req, res) =>
     const limitePermitido = IA_LIMITS[planoAtual] || 0;
 
     if (trainer.iaUsadaMes >= limitePermitido) {
-      return res.status(403).json({ error: `Atingiu o limite de IA do plano ${planoAtual}.` });
+      return res.status(403).json({ error: `Você atingiu o limite de treinos gerados por IA do seu plano atual.` });
     }
     
     const aluno = await prisma.user.findUnique({ where: { id: parseInt(alunoId) } });
     if (!aluno || aluno.trainerId !== req.user.id) return res.status(404).json({ error: "Aluno não encontrado." });
 
     if (!OPENAI_API_KEY) {
-      return res.status(500).json({ error: "Chave da OpenAI não está configurada no backend." });
+      return res.status(500).json({ error: "A chave da OpenAI não está configurada no servidor." });
     }
 
-    const systemPrompt = `Você é um Personal Trainer Master. DEVE RETORNAR APENAS UM JSON COM A ESTRUTURA EXATA: { "fichas": [ { "title": "...", "duration": "...", "exercises": [ { "name": "...", "sets": "...", "weight": "...", "isConjugado": false, "conjugadoCom": "" } ] } ] }`;
-    const userPrompt = `Plano para o aluno ${aluno.name}. Divisão: ${split}. Foco: ${prompt}. Crie o JSON de forma válida.`;
+    // --- PROMPT PROFISSIONAL MELHORADO ---
+    const systemPrompt = `Você é um Treinador de Elite, Especialista e PhD em Biomecânica, Cinesiologia e Fisiologia do Exercício.
+Sua missão é prescrever treinos altamente técnicos, otimizados e com base em evidências científicas atuais (ex: Brad Schoenfeld, Chris Beardsley) para hipertrofia, força ou reabilitação.
+
+DIRETRIZES TÉCNICAS OBRIGATÓRIAS:
+1. Seleção de Exercícios: Use terminologia técnica precisa. Priorize exercícios com alta estabilidade e bom perfil de resistência (ex: "Agachamento Búlgaro no Smith", "Puxada Vertical Frontal Pegada Neutra", "Cadeira Extensora com Pico de Contração"). Evite nomes genéricos como "Treino de braço" ou "Abdominal normal".
+2. Volume e Intensidade: Especifique Séries e Repetições usando diretrizes avançadas, incluindo RIR (Repetições na Reserva) ou RPE (Percepção Subjetiva de Esforço). Exemplo de formatação no campo sets: "3x 8-10 (RIR 1-2)".
+3. Carga e Descanso: No campo "weight", você deve sugerir a dinâmica de carga ou o tempo de descanso anatômico ideal. Exemplo: "Progressão de Carga | 120s rest" ou "Carga Desafiadora | 90s rest".
+4. Técnicas Avançadas: Aplique métodos de intensificação (Bi-set, Rest-Pause, Drop-set) apenas quando fizer sentido fisiológico. Marque isConjugado: true SOMENTE se for um Bi-set/Super-set real.
+5. Segurança: Se o usuário mencionar qualquer patologia (ex: hérnia, condromalácia), adapte OBRIGATORIAMENTE os vetores de força e exercícios para evitar compressão/cisalhamento nas articulações afetadas.
+
+FORMATO DE SAÍDA ESTRITO (DEVE SER UM JSON VÁLIDO E NADA MAIS):
+{
+  "fichas": [
+    {
+      "title": "Treino A - [Foco Anatômico Técnico]",
+      "duration": "[Ex: 50 min]",
+      "exercises": [
+        {
+          "name": "Nome Técnico Completo do Exercício",
+          "sets": "Ex: 4x 8-12 (RPE 8)",
+          "weight": "Ex: Progressão | 90s",
+          "isConjugado": false,
+          "conjugadoCom": ""
+        }
+      ]
+    }
+  ]
+}`;
+
+    const userPrompt = `Crie um planejamento de treino profissional para o aluno ${aluno.name}.
+    Divisão solicitada: ${split} (Importante: Crie exatamente a quantidade de fichas necessárias para essa divisão, ex: se a divisão for ABC, retorne exatamente 3 fichas distintas no JSON).
+    Frequência semanal na academia: ${frequencia} dias.
+    Objetivo, Perfil do Aluno e Contexto Clínico: ${prompt}.
+    Aja como um PhD. Não retorne nenhum texto além do JSON validado.`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -212,39 +245,40 @@ app.post('/api/ai/gerar-treino', authenticateToken, isAdmin, async (req, res) =>
       body: JSON.stringify({ 
         model: 'gpt-4o-mini', 
         messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }], 
-        response_format: { type: "json_object" } 
+        response_format: { type: "json_object" },
+        temperature: 0.6 // Reduzido para respostas mais técnicas e menos "criativas/alucinadas"
       })
     });
 
     const data = await response.json();
-    
-    // Log detalhado para identificar o problema de comunicação com a OpenAI
+
+    // Verificação Robusta para evitar o Erro 500 silencioso
     if (data.error) {
-      console.error("ERRO NA API OPENAI:", data.error);
-      return res.status(500).json({ error: "OpenAI rejeitou o pedido: " + data.error.message });
+      console.error("OpenAI API Error:", data.error);
+      return res.status(500).json({ error: `Erro na OpenAI: ${data.error.message}` });
     }
 
     if (!data.choices || !data.choices[0] || !data.choices[0].message) {
-      console.error("RESPOSTA INVÁLIDA DA OPENAI:", data);
-      return res.status(500).json({ error: "Resposta inesperada da IA." });
+      console.error("Resposta Inesperada da OpenAI:", data);
+      return res.status(500).json({ error: "A IA retornou uma resposta vazia ou em formato inesperado." });
     }
 
     let conteudoIA;
     try {
       conteudoIA = JSON.parse(data.choices[0].message.content);
     } catch (parseErr) {
-      console.error("ERRO DE PARSE JSON:", data.choices[0].message.content);
-      return res.status(500).json({ error: "A IA não retornou um formato de dados válido (JSON)." });
+      console.error("Erro ao fazer parse do JSON da IA:", data.choices[0].message.content);
+      return res.status(500).json({ error: "A IA não conseguiu formatar o treino corretamente. Tente gerar novamente." });
     }
 
     const fichas = conteudoIA.fichas;
     if (!fichas || !Array.isArray(fichas) || fichas.length === 0) {
-       return res.status(500).json({ error: "A IA não conseguiu criar nenhuma ficha de treino." });
+       return res.status(500).json({ error: "A IA não conseguiu criar nenhuma ficha de treino. Verifique os dados do aluno." });
     }
 
     const dias = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
 
-    // Gerar as fichas no banco de dados e procurar os vídeos
+    // Gravação no Banco de Dados
     for (let i = 0; i < parseInt(frequencia); i++) {
       const treinoData = fichas[i % fichas.length];
       
@@ -252,27 +286,30 @@ app.post('/api/ai/gerar-treino', authenticateToken, isAdmin, async (req, res) =>
         let youtubeId = null;
         try {
           if (YOUTUBE_API_KEY) {
-            const ytResponse = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(ex.name + ' execução')}&maxResults=1&type=video&key=${YOUTUBE_API_KEY}`);
+            // Busca mais inteligente no YT, juntando o nome do exercício com "musculação execução"
+            const termoBusca = encodeURIComponent(`${ex.name} execução correta musculação`);
+            const ytResponse = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&q=${termoBusca}&maxResults=1&type=video&key=${YOUTUBE_API_KEY}`);
             const ytData = await ytResponse.json();
             if (ytData.items && ytData.items.length > 0) youtubeId = ytData.items[0].id.videoId;
           }
         } catch (err) {
-          console.error("Erro na busca do YouTube:", err);
+          console.error("Falha ao buscar vídeo no YouTube:", err);
         }
+        
         return { 
-          name: ex.name, 
+          name: ex.name || "Exercício não definido", 
           sets: ex.sets || "3x10", 
-          weight: ex.weight || "", 
+          weight: ex.weight || "Moderada", 
           youtubeId, 
           isConjugado: ex.isConjugado || false, 
           conjugadoCom: ex.conjugadoCom || null 
         };
       }));
-      
+
       await prisma.workoutTemplate.create({ 
         data: { 
           title: treinoData.title || `Treino ${i+1}`, 
-          duration: treinoData.duration || "45 min", 
+          duration: treinoData.duration || "50 min", 
           userId: aluno.id, 
           dayOfWeek: dias[i], 
           exercises: { create: exercisesWithVideo } 
@@ -280,9 +317,8 @@ app.post('/api/ai/gerar-treino', authenticateToken, isAdmin, async (req, res) =>
       });
     }
 
-    // Aumenta a quota de IA do treinador após o sucesso
     await prisma.user.update({ where: { id: req.user.id }, data: { iaUsadaMes: trainer.iaUsadaMes + 1 } });
-    res.json({ message: "Treino gerado com sucesso!" });
+    res.json({ message: "Treino de Alta Performance gerado com sucesso!" });
   } catch (error) { 
     console.error("ERRO FATAL NA IA:", error);
     res.status(500).json({ error: "Falha interna no servidor ao processar a Inteligência Artificial." }); 
