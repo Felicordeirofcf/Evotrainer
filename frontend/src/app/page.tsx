@@ -5,7 +5,7 @@ import {
   Users, LogOut, CheckCircle2, Flame, Play, 
   Video, X, User as UserIcon, Plus, Activity, Dumbbell,
   Trash2, Ban, Unlock, Home, Calendar, List, AlertTriangle, Pencil, Link as LinkIcon, Lock, Camera, Save, Search,
-  Download, Sparkles, Youtube, Star, MessageSquare, FileText, ChevronRight, ChevronLeft, MessageCircle
+  Download, Sparkles, Youtube, Star, MessageSquare, FileText, ChevronRight, ChevronLeft, MessageCircle, Crown
 } from 'lucide-react';
 
 // ==========================================
@@ -23,7 +23,6 @@ const getBaseUrl = () => {
 
 const API_URL = getBaseUrl().endsWith('/') ? `${getBaseUrl()}api` : `${getBaseUrl()}/api`;
 
-// Busca de Vídeo Camuflada
 const buscarVideoNoYouTube = async (nomeExercicio: string) => {
   try {
     const query = `como fazer ${nomeExercicio} execução correta musculação`;
@@ -334,7 +333,7 @@ export default function App() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 3 * 1024 * 1024) { // Máximo 3MB
+    if (file.size > 3 * 1024 * 1024) { 
       showToast("A imagem é muito grande. Escolha uma até 3MB.");
       return;
     }
@@ -343,8 +342,6 @@ export default function App() {
     const reader = new FileReader();
     reader.onloadend = async () => {
       const base64String = reader.result as string;
-      
-      // Atualiza visualmente logo
       setCurrentUser({ ...currentUser, avatar: base64String });
       setProfileForm({ ...profileForm, avatar: base64String });
 
@@ -367,7 +364,7 @@ export default function App() {
     reader.readAsDataURL(file);
   };
 
-  // --- EXPORTAÇÃO E WHATSAPP (PDF PREMIUM SEGURO COM VÍDEO) ---
+  // --- EXPORTAÇÃO E WHATSAPP ---
   const exportarTreinoPDF = (treino: any, aluno: any, isStudent = false) => {
     const agrupados = getGroupedExercises(treino.exercises);
     let tableHTML = `
@@ -387,7 +384,6 @@ export default function App() {
     agrupados.forEach((group: any, index: number) => {
        const bgColor = index % 2 === 0 ? '#f9fafb' : '#ffffff';
        
-       // PLANO B ATIVADO: Se não houver youtubeId, gera um link de pesquisa no YouTube!
        const videoUrl = group.main.youtubeId 
           ? `https://youtu.be/${group.main.youtubeId}`
           : `https://www.youtube.com/results?search_query=${encodeURIComponent('como fazer ' + group.main.name + ' musculação execução')}`;
@@ -511,7 +507,6 @@ export default function App() {
 
     const mensagem = `Olá *${aluno.name.split(' ')[0]}*! 💪\n\nA sua nova ficha de treino *${treino.title}* já está configurada.\n\n⏱ *Duração:* ${treino.duration}\n📅 *Dia:* ${treino.dayOfWeek}\n\nAcesse ao seu App EvoTrainer para ver os vídeos de execução perfeitos!\n\nBora esmagar! 🔥`;
 
-    // Apenas abre o WhatsApp. Retirámos a chamada simultânea do PDF para evitar bloqueios de pop-up.
     const url = telefone && telefone.length >= 12 
       ? `https://wa.me/${telefone}?text=${encodeURIComponent(mensagem)}`
       : `https://wa.me/?text=${encodeURIComponent(mensagem)}`;
@@ -855,6 +850,9 @@ export default function App() {
     const ativosCount = alunos.filter(a => a.status !== 'Bloqueado').length;
     const bloqueadosCount = alunos.filter(a => a.status === 'Bloqueado').length;
 
+    // NOVO: Link de Pagamento Asaas simulado via query string com o ID do personal
+    const checkoutLink = `https://fatura.asaas.com/c/SEU_LINK_AQUI?externalReference=${currentUser.id}`;
+
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col text-slate-50 md:items-center md:justify-center relative">
         <div className="w-full h-screen md:h-[850px] md:max-w-md bg-slate-900 md:rounded-[40px] md:border-[8px] border-slate-800 flex flex-col relative overflow-hidden shadow-2xl">
@@ -1015,6 +1013,22 @@ export default function App() {
             {/* ADMIN TAB: PERFIL DO PERSONAL */}
             {adminTabAtiva === 'perfil' && (
               <div className="flex flex-col gap-6 animate-fade-in pb-8">
+                 
+                 {/* NOVO: ÁREA DE ASSINATURA E PLANOS */}
+                 <div className={`bg-gradient-to-r ${currentUser.plano === 'PRO' || currentUser.plano === 'ELITE' ? 'from-amber-500 to-orange-500' : 'from-emerald-600 to-teal-600'} p-6 rounded-[2rem] shadow-lg flex items-center justify-between`}>
+                   <div>
+                     <p className="text-[10px] text-white/80 font-black uppercase tracking-widest flex items-center gap-1">
+                       <Crown size={12}/> Plano Atual
+                     </p>
+                     <h3 className="text-2xl font-black text-white mt-1 drop-shadow-md">{currentUser.plano || 'GRATIS'}</h3>
+                   </div>
+                   {(!currentUser.plano || currentUser.plano === 'GRATIS' || currentUser.plano === 'START') && (
+                     <button onClick={() => window.open(checkoutLink, '_blank')} className="bg-white text-emerald-700 font-black px-5 py-3 rounded-xl shadow-lg active:scale-95 transition-all text-[10px] uppercase tracking-widest flex items-center gap-2 hover:bg-slate-50">
+                       FAZER UPGRADE <ChevronRight size={14}/>
+                     </button>
+                   )}
+                 </div>
+
                  <h2 className="text-2xl font-black flex items-center gap-2 px-1"><UserIcon className="text-blue-500"/> Conta do Personal</h2>
 
                  <div className="flex flex-col items-center justify-center bg-slate-900 border border-slate-800 p-8 rounded-[2.5rem] shadow-lg relative overflow-hidden">

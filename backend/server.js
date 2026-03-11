@@ -7,11 +7,9 @@ const jwt = require('jsonwebtoken');
 const prisma = new PrismaClient();
 const app = express();
 
-// AUMENTAR O LIMITE DO JSON PARA SUPORTAR AS IMAGENS BASE64
 app.use(cors());
 app.use(express.json({ limit: '10mb' })); 
 
-// AS SUAS CHAVES DE API AGORA FICAM SEGURAS AQUI NO BACKEND
 const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY; 
 const JWT_SECRET = process.env.JWT_SECRET || "fallback-secreto-apenas-para-desenvolvimento";
@@ -106,7 +104,7 @@ app.post('/api/ai/gerar-treino', authenticateToken, isAdmin, async (req, res) =>
 
     if (trainer.iaUsadaMes >= limitePermitido) {
       return res.status(403).json({ 
-        error: `Você atingiu o limite de ${limitePermitido} treinos com IA. Faça upgrade do seu plano para liberar mais!` 
+        error: `Atingiu o limite de ${limitePermitido} treinos com IA. Faça upgrade do seu plano para libertar mais!` 
       });
     }
 
@@ -255,7 +253,6 @@ app.delete('/api/alunos/:id', authenticateToken, isAdmin, async (req, res) => {
   } catch (error) { res.status(500).json({ error: "Erro ao excluir aluno." }); }
 });
 
-// AQUI ESTÁ A ATUALIZAÇÃO PARA GUARDAR O AVATAR!
 app.put('/api/alunos/:id/perfil', authenticateToken, async (req, res) => {
   const targetUserId = parseInt(req.params.id);
   if (req.user.role !== 'ADMIN' && req.user.id !== targetUserId) return res.status(403).json({ error: "Acesso negado." });
@@ -368,4 +365,39 @@ app.post('/api/treinos/finalizar', authenticateToken, async (req, res) => {
   } catch (error) { res.status(500).json({ error: "Erro" }); }
 });
 
-app.listen(3001, () => console.log('🚀 Backend rodando na porta 3001'));
+// ==========================================
+// WEBHOOKS (PAGAMENTOS ASAAS)
+// ==========================================
+app.post('/api/webhooks/asaas', async (req, res) => {
+  // O Asaas envia os dados do evento de pagamento no corpo do pedido
+  const { event, payment } = req.body;
+
+  console.log(`🔔 Webhook Asaas recebido: ${event}`);
+
+  // Se o pagamento for confirmado ou recebido
+  if (event === 'PAYMENT_RECEIVED' || event === 'PAYMENT_CONFIRMED') {
+    
+    // O 'externalReference' é o ID do Personal Trainer que vamos passar 
+    // no momento em que criarmos o link de pagamento.
+    const userId = payment.externalReference; 
+
+    if (userId) {
+      try {
+        await prisma.user.update({
+          where: { id: parseInt(userId) },
+          data: { plano: 'PRO' } // Faz o upgrade automático
+        });
+        console.log(`✅ Sucesso: O Personal Trainer (ID: ${userId}) foi atualizado para o plano PRO!`);
+      } catch (error) {
+        console.error(`❌ Erro ao atualizar o plano do utilizador ${userId}:`, error);
+      }
+    } else {
+      console.warn("⚠️ Pagamento recebido, mas sem 'externalReference' (ID do Personal).");
+    }
+  }
+
+  // O Asaas exige sempre que respondamos com 200 OK para saber que recebemos o aviso
+  res.status(200).json({ received: true });
+});
+
+app.listen(3001, () => console.log('🚀 Backend a correr na porta 3001'));
