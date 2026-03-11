@@ -52,7 +52,10 @@ app.post('/api/login', async (req, res) => {
     const { password: _, ...userWithoutPassword } = user;
     
     res.json({ token, user: userWithoutPassword });
-  } catch (error) { res.status(500).json({ error: "Erro ao fazer login." }); }
+  } catch (error) { 
+    console.error("ERRO NO LOGIN:", error); // Log detalhado no terminal
+    res.status(500).json({ error: "Erro ao fazer login. Verifique o terminal do servidor." }); 
+  }
 });
 
 app.post('/api/register', async (req, res) => {
@@ -70,7 +73,10 @@ app.post('/api/register', async (req, res) => {
     const { password: _, ...userWithoutPassword } = user;
     
     res.status(201).json({ message: "Conta criada com sucesso!", token, user: userWithoutPassword });
-  } catch (error) { res.status(500).json({ error: "Erro ao criar conta." }); }
+  } catch (error) { 
+    console.error("ERRO NO REGISTRO:", error);
+    res.status(500).json({ error: "Erro ao criar conta." }); 
+  }
 });
 
 app.post('/api/setup-admin', async (req, res) => {
@@ -203,7 +209,7 @@ app.get('/api/alunos', authenticateToken, isAdmin, async (req, res) => {
 });
 
 app.post('/api/alunos', authenticateToken, isAdmin, async (req, res) => {
-  const { name, email, password } = req.body;
+  const { name, email, password, phone } = req.body;
   try {
     const trainerInfo = await prisma.user.findUnique({
       where: { id: req.user.id },
@@ -221,10 +227,13 @@ app.post('/api/alunos', authenticateToken, isAdmin, async (req, res) => {
     const hashedPassword = await bcrypt.hash(passToHash, 10);
 
     const novo = await prisma.user.create({ 
-        data: { name, email, password: hashedPassword, role: 'STUDENT', status: 'Novo', streak: 0, trainerId: req.user.id } 
+        data: { name, email, password: hashedPassword, phone, role: 'STUDENT', status: 'Novo', streak: 0, trainerId: req.user.id } 
     });
     res.status(201).json(novo);
-  } catch (error) { res.status(400).json({ error: "Erro ao criar aluno" }); }
+  } catch (error) { 
+    console.error("ERRO AO CRIAR ALUNO:", error);
+    res.status(400).json({ error: "Erro ao criar aluno" }); 
+  }
 });
 
 app.put('/api/alunos/:id/status', authenticateToken, isAdmin, async (req, res) => {

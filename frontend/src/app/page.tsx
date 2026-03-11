@@ -218,8 +218,11 @@ export default function App() {
   const [alunos, setAlunos] = useState<any[]>([]);
   const [buscaAluno, setBuscaAluno] = useState(''); 
   const [showAddModal, setShowAddModal] = useState(false);
-  const [novoAluno, setNovoAluno] = useState({ name: '', email: '', password: '' });
+  
+  // ADICIONADO: Campo phone no formulário de Novo Aluno
+  const [novoAluno, setNovoAluno] = useState({ name: '', email: '', password: '', phone: '' });
   const [adminTabAtiva, setAdminTabAtiva] = useState('alunos'); 
+  
   const [showTreinoModal, setShowTreinoModal] = useState(false);
   const [showGerenciarTreinosModal, setShowGerenciarTreinosModal] = useState(false);
   const [alunoSelecionado, setAlunoSelecionado] = useState<any>(null);
@@ -342,33 +345,46 @@ export default function App() {
         <thead>
           <tr>
             <th style="width: 5%; text-align: center;">#</th>
-            <th style="width: 45%; text-align: left;">Exercício</th>
-            <th style="width: 25%; text-align: center;">Séries</th>
-            <th style="width: 25%; text-align: center;">Carga/RPE</th>
+            <th style="width: 35%; text-align: left;">Exercício</th>
+            <th style="width: 20%; text-align: center;">Séries</th>
+            <th style="width: 20%; text-align: center;">Carga/RPE</th>
+            <th style="width: 20%; text-align: center;">Vídeo</th>
           </tr>
         </thead>
         <tbody>
     `;
 
     agrupados.forEach((group: any, index: number) => {
-       // Exercício Principal
+       const bgColor = index % 2 === 0 ? '#f9fafb' : '#ffffff';
+       
+       // Criação do link do YouTube para o Exercício Principal
+       const videoLink = group.main.youtubeId 
+          ? `<a href="https://youtu.be/${group.main.youtubeId}" target="_blank" style="display: inline-block; background-color: #fee2e2; color: #dc2626; padding: 6px 12px; border-radius: 6px; text-decoration: none; font-size: 11px; font-weight: bold; border: 1px solid #fca5a5;">▶ Assistir</a>` 
+          : '<span style="color:#94a3b8;">-</span>';
+
        tableHTML += `
-          <tr>
+          <tr style="background-color: ${bgColor};">
             <td style="text-align: center; font-weight: 800; color: #2563eb;">${index + 1}</td>
             <td style="font-weight: 700; color: #1e293b;">${group.main.name}</td>
             <td style="text-align: center;"><span class="set-badge">${group.main.sets}</span></td>
             <td style="text-align: center; color: #64748b;">${group.main.weight || '-'}</td>
+            <td style="text-align: center;">${videoLink}</td>
           </tr>
        `;
 
        // Exercícios Conjugados (Bi-sets)
        group.partners.forEach((p: any) => {
+         const pVideoLink = p.youtubeId 
+            ? `<a href="https://youtu.be/${p.youtubeId}" target="_blank" style="display: inline-block; background-color: #fee2e2; color: #dc2626; padding: 6px 12px; border-radius: 6px; text-decoration: none; font-size: 11px; font-weight: bold; border: 1px solid #fca5a5;">▶ Assistir</a>` 
+            : '<span style="color:#94a3b8;">-</span>';
+
          tableHTML += `
-            <tr class="conjugado-row">
+            <tr style="background-color: ${bgColor};" class="conjugado-row">
               <td style="text-align: center; color: #06b6d4; font-weight: 800; font-size: 16px;">↳</td>
               <td style="padding-left: 20px; color: #475569;">${p.name}</td>
               <td style="text-align: center;"><span class="set-badge">${p.sets}</span></td>
               <td style="text-align: center; color: #64748b;">${p.weight || '-'}</td>
+              <td style="text-align: center;">${pVideoLink}</td>
             </tr>
          `;
        });
@@ -398,20 +414,22 @@ export default function App() {
             .meta-info { color: #64748b; font-size: 14px; margin: 0; }
             table { width: 100%; border-collapse: collapse; }
             th { background: #f8fafc; color: #475569; font-weight: 600; text-transform: uppercase; font-size: 11px; padding: 16px 12px; border-bottom: 2px solid #e2e8f0; }
-            td { padding: 16px 12px; border-bottom: 1px solid #f1f5f9; font-size: 14px; }
-            .set-badge { background: #f8fafc; border: 1px solid #e2e8f0; padding: 4px 8px; border-radius: 6px; font-weight: 600; font-size: 12px; color: #334155; }
-            .conjugado-row td { background-color: #fafaf9; }
+            td { padding: 16px 12px; border-bottom: 1px solid #e2e8f0; font-size: 14px; }
+            .set-badge { background: #f1f5f9; border: 1px solid #e2e8f0; padding: 4px 8px; border-radius: 6px; font-weight: 600; font-size: 12px; color: #334155; }
             .footer { margin-top: 60px; text-align: center; font-size: 12px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 24px; }
             .print-alert { background: #eff6ff; border-left: 4px solid #2563eb; color: #1e3a8a; padding: 16px; border-radius: 0 8px 8px 0; margin-bottom: 30px; font-weight: 600; font-size: 14px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);}
             @media print {
               .print-alert { display: none; }
               body { -webkit-print-color-adjust: exact; print-color-adjust: exact; padding: 0; }
+              /* Forçar cores de fundo na impressão */
+              * { -webkit-print-color-adjust: exact !important; color-adjust: exact !important; }
+              a { text-decoration: none !important; }
             }
           </style>
         </head>
         <body>
           <div class="print-alert">
-            ℹ️ Na janela de impressão, escolha a opção <strong>"Guardar como PDF"</strong> para baixar a sua ficha!
+            ℹ️ Na janela de impressão, escolha a opção <strong>"Guardar como PDF"</strong> para baixar a sua ficha. <strong>Os botões de vídeo continuarão a funcionar no PDF!</strong>
           </div>
           <div class="header">
             <div>
@@ -452,10 +470,20 @@ export default function App() {
     let telefone = aluno.phone || '';
     telefone = telefone.replace(/\D/g, ''); // Limpa tudo que não for número
 
-    if (!telefone) {
-      const inputPhone = prompt("O aluno não tem telefone registado no perfil. Digite o número (ex: 5511999999999):");
+    // Verifica e formata o telefone para o padrão do Brasil (55)
+    if (telefone.startsWith('0')) telefone = telefone.substring(1);
+    if (telefone.length === 10 || telefone.length === 11) {
+      telefone = '55' + telefone;
+    }
+
+    if (!telefone || telefone.length < 12) {
+      const inputPhone = prompt("O aluno não tem um WhatsApp válido registado. Digite o número com DDD (ex: 11999999999):");
       if (!inputPhone) return;
       telefone = inputPhone.replace(/\D/g, '');
+      if (telefone.startsWith('0')) telefone = telefone.substring(1);
+      if (telefone.length === 10 || telefone.length === 11) {
+        telefone = '55' + telefone;
+      }
     }
 
     // Aciona a geração da página de PDF para o Personal ter o arquivo pronto
@@ -520,13 +548,11 @@ export default function App() {
       const data = await res.json();
       
       if (res.ok) {
-        // Salva login direto
         setToken(data.token);
         setCurrentUser(data.user);
         localStorage.setItem('treino_ai_token', data.token);
         localStorage.setItem('treino_ai_user', JSON.stringify(data.user));
         
-        // Define a flag para exibir o tour guiado
         localStorage.setItem('evotrainer_tour_pending', 'true');
         
         setSignupName(''); setSignupEmail(''); setSignupPassword(''); setSignupConfirmPassword('');
@@ -561,7 +587,7 @@ export default function App() {
     e.preventDefault();
     try {
       const res = await fetch(`${API_URL}/alunos`, { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify(novoAluno) });
-      if (res.ok) { showToast("Aluno registado!"); setShowAddModal(false); setNovoAluno({ name: '', email: '', password: '' }); fetchAlunos(); }
+      if (res.ok) { showToast("Aluno registado!"); setShowAddModal(false); setNovoAluno({ name: '', email: '', password: '', phone: '' }); fetchAlunos(); }
       else { const d = await res.json(); showToast(d.error || "Erro."); }
     } catch (e) { showToast("Erro de ligação."); }
   };
@@ -1027,6 +1053,7 @@ export default function App() {
                 <form onSubmit={criarAluno} className="flex flex-col gap-4">
                   <input type="text" required placeholder="Nome Completo" value={novoAluno.name} onChange={e => setNovoAluno({...novoAluno, name: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white outline-none focus:border-blue-500 font-bold" />
                   <input type="email" required placeholder="E-mail de acesso" value={novoAluno.email} onChange={e => setNovoAluno({...novoAluno, email: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white outline-none focus:border-blue-500" />
+                  <input type="tel" required placeholder="WhatsApp (ex: 11999999999)" value={novoAluno.phone} onChange={e => setNovoAluno({...novoAluno, phone: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white outline-none focus:border-blue-500" />
                   <input type="text" placeholder="Senha (Padrão 123456)" value={novoAluno.password} onChange={e => setNovoAluno({...novoAluno, password: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white outline-none focus:border-blue-500" />
                   <div className="flex gap-2 mt-4">
                     <button type="button" onClick={() => setShowAddModal(false)} className="flex-1 py-4 text-slate-500 font-black uppercase text-[10px] tracking-widest">Cancelar</button>
