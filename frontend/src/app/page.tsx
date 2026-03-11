@@ -15,6 +15,10 @@ const getBaseUrl = () => {
   if (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_API_URL) {
     return process.env.NEXT_PUBLIC_API_URL;
   }
+  // Deteção inteligente: se estiver a rodar localmente, usa o backend local automaticamente
+  if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+    return 'http://localhost:3001';
+  }
   return 'https://evotrainer.onrender.com';
 };
 
@@ -330,42 +334,41 @@ export default function App() {
     return grouped;
   };
 
-  // --- EXPORTAÇÃO E WHATSAPP ---
-  const exportarTreinoPDF = (treino: any, aluno: any) => {
+  // --- EXPORTAÇÃO E WHATSAPP (PDF PREMIUM OTIMIZADO) ---
+  const exportarTreinoPDF = (treino: any, aluno: any, isStudent = false) => {
     const agrupados = getGroupedExercises(treino.exercises);
     let tableHTML = `
-      <table style="width: 100%; border-collapse: collapse; margin-top: 20px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;">
+      <table>
         <thead>
-          <tr style="background-color: #2563eb; color: white;">
-            <th style="padding: 12px; border: 1px solid #e5e7eb; text-align: center; width: 10%;">#</th>
-            <th style="padding: 12px; border: 1px solid #e5e7eb; text-align: left; width: 50%;">Exercício</th>
-            <th style="padding: 12px; border: 1px solid #e5e7eb; text-align: center; width: 20%;">Séries</th>
-            <th style="padding: 12px; border: 1px solid #e5e7eb; text-align: center; width: 20%;">Carga/RPE</th>
+          <tr>
+            <th style="width: 5%; text-align: center;">#</th>
+            <th style="width: 45%; text-align: left;">Exercício</th>
+            <th style="width: 25%; text-align: center;">Séries</th>
+            <th style="width: 25%; text-align: center;">Carga/RPE</th>
           </tr>
         </thead>
         <tbody>
     `;
 
     agrupados.forEach((group: any, index: number) => {
-       const bgColor = index % 2 === 0 ? '#f9fafb' : '#ffffff';
        // Exercício Principal
        tableHTML += `
-          <tr style="background-color: ${bgColor};">
-            <td style="padding: 12px; border: 1px solid #e5e7eb; text-align: center; font-weight: bold; color: #1f2937;">${index + 1}</td>
-            <td style="padding: 12px; border: 1px solid #e5e7eb; font-weight: bold; color: #1f2937;">${group.main.name}</td>
-            <td style="padding: 12px; border: 1px solid #e5e7eb; text-align: center; color: #4b5563;">${group.main.sets}</td>
-            <td style="padding: 12px; border: 1px solid #e5e7eb; text-align: center; color: #4b5563;">${group.main.weight || '-'}</td>
+          <tr>
+            <td style="text-align: center; font-weight: 800; color: #2563eb;">${index + 1}</td>
+            <td style="font-weight: 700; color: #1e293b;">${group.main.name}</td>
+            <td style="text-align: center;"><span class="set-badge">${group.main.sets}</span></td>
+            <td style="text-align: center; color: #64748b;">${group.main.weight || '-'}</td>
           </tr>
        `;
 
        // Exercícios Conjugados (Bi-sets)
        group.partners.forEach((p: any) => {
          tableHTML += `
-            <tr style="background-color: ${bgColor};">
-              <td style="padding: 12px; border: 1px solid #e5e7eb; text-align: center; color: #9ca3af; font-size: 18px;">↳</td>
-              <td style="padding: 12px; border: 1px solid #e5e7eb; color: #4b5563; padding-left: 24px;">${p.name}</td>
-              <td style="padding: 12px; border: 1px solid #e5e7eb; text-align: center; color: #4b5563;">${p.sets}</td>
-              <td style="padding: 12px; border: 1px solid #e5e7eb; text-align: center; color: #4b5563;">${p.weight || '-'}</td>
+            <tr class="conjugado-row">
+              <td style="text-align: center; color: #06b6d4; font-weight: 800; font-size: 16px;">↳</td>
+              <td style="padding-left: 20px; color: #475569;">${p.name}</td>
+              <td style="text-align: center;"><span class="set-badge">${p.sets}</span></td>
+              <td style="text-align: center; color: #64748b;">${p.weight || '-'}</td>
             </tr>
          `;
        });
@@ -373,97 +376,75 @@ export default function App() {
 
     tableHTML += `</tbody></table>`;
 
-    // Abrir janela de impressão que servirá como gerador nativo de PDF do browser
-    const printWindow = window.open('', '_blank');
-    if(!printWindow) {
-        showToast("Por favor, permita pop-ups no seu navegador para gerar o PDF.");
-        return;
-    }
+    const geradoPor = isStudent ? 'Gerado via EvoTrainer App' : `Personal: ${currentUser?.name || 'Treinador'}`;
 
-    printWindow.document.write(`
+    // Layout Moderno para o PDF Nativo
+    const htmlContent = `
       <!DOCTYPE html>
       <html lang="pt">
         <head>
           <meta charset="UTF-8">
           <title>Treino_${aluno.name.split(' ')[0]}_${treino.title}</title>
           <style>
-            body { 
-              font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; 
-              padding: 40px; 
-              color: #333; 
-              margin: 0 auto;
-              max-width: 900px;
-            }
-            .header { 
-              display: flex; 
-              justify-content: space-between; 
-              align-items: flex-end; 
-              border-bottom: 3px solid #2563eb; 
-              padding-bottom: 20px; 
-              margin-bottom: 30px; 
-            }
-            .brand { 
-              color: #2563eb; 
-              font-size: 32px; 
-              font-weight: 900; 
-              letter-spacing: -1px; 
-              margin: 0; 
-            }
-            .brand span { color: #1e40af; }
-            .info-group { margin-top: 15px; }
-            .info-group p { margin: 6px 0; font-size: 15px; color: #374151; }
-            .info-group strong { color: #111827; }
-            .footer { 
-              margin-top: 50px; 
-              text-align: center; 
-              font-size: 12px; 
-              color: #9ca3af; 
-              border-top: 1px solid #e5e7eb;
-              padding-top: 20px;
-            }
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+            body { font-family: 'Inter', sans-serif; padding: 40px; color: #0f172a; max-width: 800px; margin: 0 auto; background: #fff;}
+            .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #e2e8f0; padding-bottom: 24px; margin-bottom: 32px; }
+            .logo { font-size: 28px; font-weight: 900; letter-spacing: -1px; margin: 0 0 16px 0; color: #0f172a;}
+            .logo span { color: #2563eb; }
+            .student-title { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: #64748b; margin: 0 0 4px 0; }
+            .student-name { font-size: 24px; font-weight: 800; margin: 0; color: #0f172a;}
+            .meta-box { text-align: right; }
+            .badge { display: inline-block; background: #2563eb; color: #fff; padding: 8px 16px; border-radius: 8px; font-weight: 700; font-size: 14px; margin-bottom: 8px; }
+            .meta-info { color: #64748b; font-size: 14px; margin: 0; }
+            table { width: 100%; border-collapse: collapse; }
+            th { background: #f8fafc; color: #475569; font-weight: 600; text-transform: uppercase; font-size: 11px; padding: 16px 12px; border-bottom: 2px solid #e2e8f0; }
+            td { padding: 16px 12px; border-bottom: 1px solid #f1f5f9; font-size: 14px; }
+            .set-badge { background: #f8fafc; border: 1px solid #e2e8f0; padding: 4px 8px; border-radius: 6px; font-weight: 600; font-size: 12px; color: #334155; }
+            .conjugado-row td { background-color: #fafaf9; }
+            .footer { margin-top: 60px; text-align: center; font-size: 12px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 24px; }
+            .print-alert { background: #eff6ff; border-left: 4px solid #2563eb; color: #1e3a8a; padding: 16px; border-radius: 0 8px 8px 0; margin-bottom: 30px; font-weight: 600; font-size: 14px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);}
             @media print {
-              @page { margin: 1.5cm; }
-              body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-              .no-print { display: none; }
+              .print-alert { display: none; }
+              body { -webkit-print-color-adjust: exact; print-color-adjust: exact; padding: 0; }
             }
           </style>
         </head>
         <body>
-          <div class="no-print" style="background-color: #fef3c7; color: #92400e; padding: 12px; border-radius: 8px; margin-bottom: 20px; text-align: center; font-weight: bold;">
-            Para guardar, escolha a opção "Guardar como PDF" no destino da impressão.
+          <div class="print-alert">
+            ℹ️ Na janela de impressão, escolha a opção <strong>"Guardar como PDF"</strong> para baixar a sua ficha!
           </div>
           <div class="header">
             <div>
-              <h1 class="brand">EVO<span>TRAINER</span></h1>
-              <div class="info-group">
-                <p><strong>Aluno:</strong> ${aluno.name}</p>
-                <p><strong>Ficha:</strong> ${treino.title} (${treino.dayOfWeek})</p>
-                <p><strong>Duração Estimada:</strong> ${treino.duration}</p>
-              </div>
+              <h1 class="logo">EVO<span>TRAINER</span></h1>
+              <p class="student-title">Ficha de Treino de</p>
+              <h2 class="student-name">${aluno.name}</h2>
             </div>
-            <div style="text-align: right;">
-              <p style="font-size: 12px; color: #6b7280; margin: 0; text-transform: uppercase; letter-spacing: 1px;">Gerado por</p>
-              <p style="font-size: 18px; font-weight: bold; margin: 4px 0 0 0; color: #111827;">${currentUser?.name || 'Personal Trainer'}</p>
+            <div class="meta-box">
+              <div class="badge">${treino.dayOfWeek} - ${treino.title}</div>
+              <p class="meta-info">Duração estimada: <strong>${treino.duration}</strong></p>
             </div>
           </div>
           
           ${tableHTML}
           
           <div class="footer">
-            Documento gerado com Inteligência via <strong>app.evotrainer.com</strong>
+            ${geradoPor} • <strong>app.evotrainer.com</strong>
           </div>
           
           <script>
-            // Dispara a janela de impressão do navegador assim que o conteúdo for carregado
-            window.onload = () => { 
-              setTimeout(() => {
-                window.print(); 
-              }, 500);
-            }
+            // Abre a janela de impressão automaticamente
+            window.onload = () => { setTimeout(() => { window.print(); }, 800); }
           </script>
         </body>
       </html>
-    `);
+    `;
+
+    const printWindow = window.open('', '_blank');
+    if(!printWindow) {
+        showToast("Permita pop-ups no seu navegador para gerar o PDF.");
+        return;
+    }
+    printWindow.document.write(htmlContent);
     printWindow.document.close();
   };
 
@@ -481,7 +462,7 @@ export default function App() {
     exportarTreinoPDF(treino, aluno);
 
     // Formata a mensagem com Markdown do WhatsApp
-    const mensagem = `Olá *${aluno.name.split(' ')[0]}*! 💪\n\nA sua nova ficha de treino *${treino.title}* já está configurada.\n\n⏱ *Duração:* ${treino.duration}\n📅 *Dia:* ${treino.dayOfWeek}\n\nAceda à sua App EvoTrainer para ver os vídeos de execução perfeitos, ou confira o PDF que vou enviar em anexo!\n\nBora esmagar! 🔥`;
+    const mensagem = `Olá *${aluno.name.split(' ')[0]}*! 💪\n\nA sua nova ficha de treino *${treino.title}* já está configurada.\n\n⏱ *Duração:* ${treino.duration}\n📅 *Dia:* ${treino.dayOfWeek}\n\nAcesse ao seu App EvoTrainer para ver os vídeos de execução perfeitos, ou confira o PDF que estou enviando em anexo!\n\nBora esmagar! 🔥`;
 
     const url = `https://wa.me/${telefone}?text=${encodeURIComponent(mensagem)}`;
     window.open(url, '_blank');
@@ -907,10 +888,10 @@ export default function App() {
                         </div>
 
                         <div className="grid grid-cols-4 gap-2 pt-2 border-t border-slate-800/50">
-                          <button onClick={() => { setAlunoSelecionado(aluno); setIsEditingTreino(false); setNovoTreino({ title: '', duration: '', dayOfWeek: 'Segunda', exercises: [{ name: '', sets: '', weight: '', youtubeId: '', isConjugado: false, conjugadoCom: '' }] }); setShowTreinoModal(true); }} className="flex-1 bg-cyan-600/10 text-cyan-400 p-3 rounded-xl flex justify-center active:scale-90 transition-all"><Plus size={18}/></button>
-                          <button onClick={() => { setAlunoSelecionado(aluno); const alunoAtualizado = alunos.find(a => a.id === aluno.id); if(alunoAtualizado) setAlunoSelecionado(alunoAtualizado); setShowGerenciarTreinosModal(true); }} className="flex-1 bg-slate-800 text-slate-400 p-3 rounded-xl flex justify-center active:scale-90 transition-all"><List size={18}/></button>
-                          <button onClick={() => toggleStatusAluno(aluno.id, aluno.status)} className="flex-1 bg-slate-800 text-slate-400 p-3 rounded-xl flex justify-center active:scale-90 transition-all">{aluno.status === 'Bloqueado' ? <Unlock size={18}/> : <Ban size={18}/>}</button>
-                          <button onClick={() => excluirAluno(aluno.id, aluno.name)} className="flex-1 bg-red-600/10 text-red-500 p-3 rounded-xl flex justify-center active:scale-90 transition-all"><Trash2 size={18}/></button>
+                          <button onClick={() => { setAlunoSelecionado(aluno); setIsEditingTreino(false); setNovoTreino({ title: '', duration: '', dayOfWeek: 'Segunda', exercises: [{ name: '', sets: '', weight: '', youtubeId: '', isConjugado: false, conjugadoCom: '' }] }); setShowTreinoModal(true); }} title="Novo Treino" className="flex-1 bg-cyan-600/10 text-cyan-400 p-3 rounded-xl flex justify-center active:scale-90 transition-all"><Plus size={18}/></button>
+                          <button onClick={() => { setAlunoSelecionado(aluno); const alunoAtualizado = alunos.find(a => a.id === aluno.id); if(alunoAtualizado) setAlunoSelecionado(alunoAtualizado); setShowGerenciarTreinosModal(true); }} title="Gerenciar Fichas (Ver PDF e WhatsApp)" className="flex-1 bg-slate-800 text-slate-400 p-3 rounded-xl flex justify-center active:scale-90 transition-all"><List size={18}/></button>
+                          <button onClick={() => toggleStatusAluno(aluno.id, aluno.status)} title={aluno.status === 'Bloqueado' ? "Desbloquear" : "Bloquear"} className="flex-1 bg-slate-800 text-slate-400 p-3 rounded-xl flex justify-center active:scale-90 transition-all">{aluno.status === 'Bloqueado' ? <Unlock size={18}/> : <Ban size={18}/>}</button>
+                          <button onClick={() => excluirAluno(aluno.id, aluno.name)} title="Excluir Aluno" className="flex-1 bg-red-600/10 text-red-500 p-3 rounded-xl flex justify-center active:scale-90 transition-all"><Trash2 size={18}/></button>
                         </div>
                       </div>
                     ))
@@ -1070,10 +1051,9 @@ export default function App() {
                     <div key={w.id} className="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex justify-between items-center group">
                       <div><p className="font-black text-cyan-400 uppercase tracking-tight">{w.title}</p><p className="text-[10px] text-slate-600 font-black mt-1 uppercase tracking-widest">{w.dayOfWeek} • {w.duration}</p></div>
                       <div className="flex gap-2">
-                        {/* Botões Novos: WhatsApp e PDF */}
+                        {/* Botões de WhatsApp e PDF */}
                         <button onClick={() => enviarTreinoWhatsApp(w, alunoSelecionado)} title="Enviar WhatsApp e PDF" className="p-2.5 bg-emerald-600/10 text-emerald-500 rounded-xl active:bg-emerald-600 active:text-white transition-all"><MessageCircle size={16} /></button>
-                        <button onClick={() => exportarTreinoPDF(w, alunoSelecionado)} title="Baixar PDF" className="p-2.5 bg-slate-800 text-slate-400 rounded-xl active:bg-slate-700 active:text-white transition-all"><Download size={16} /></button>
-                        {/* Botões Antigos */}
+                        <button onClick={() => exportarTreinoPDF(w, alunoSelecionado, false)} title="Baixar PDF" className="p-2.5 bg-slate-800 text-slate-400 rounded-xl active:bg-slate-700 active:text-white transition-all"><Download size={16} /></button>
                         <button onClick={() => { abrirModalEdicao(w); }} title="Editar" className="p-2.5 bg-blue-600/10 text-blue-400 rounded-xl active:bg-blue-600 active:text-white transition-all"><Pencil size={16} /></button>
                         <button onClick={() => { setTreinoParaExcluir({ id: w.id, title: w.title }); setShowDeleteModal(true); }} title="Excluir" className="p-2.5 bg-red-600/10 text-red-500 rounded-xl active:bg-red-600 active:text-white transition-all"><Trash2 size={16} /></button>
                       </div>
@@ -1264,9 +1244,14 @@ export default function App() {
                        <h3 className="text-xl font-black text-white mt-2 leading-tight">{t.title}</h3>
                        <p className="text-[10px] text-slate-500 font-black uppercase mt-1 tracking-widest">{t.duration} • {t.exercises?.length} exercícios</p>
                      </div>
-                     <button onClick={() => { setDiaAtivo(t.dayOfWeek); setAlunoTabAtiva('home'); }} className="w-14 h-14 bg-slate-900 border border-slate-800 rounded-2xl flex items-center justify-center text-blue-500 shadow-lg">
-                       <Play size={20} fill="currentColor"/>
-                     </button>
+                     <div className="flex gap-2">
+                       <button onClick={() => exportarTreinoPDF(t, currentUser, true)} className="w-14 h-14 bg-slate-900 border border-slate-800 rounded-2xl flex items-center justify-center text-slate-400 shadow-lg hover:text-white transition-colors">
+                         <Download size={20} />
+                       </button>
+                       <button onClick={() => { setDiaAtivo(t.dayOfWeek); setAlunoTabAtiva('home'); }} className="w-14 h-14 bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-lg active:scale-90 transition-transform">
+                         <Play size={20} fill="currentColor" className="ml-1"/>
+                       </button>
+                     </div>
                   </div>
                 ))
               }
