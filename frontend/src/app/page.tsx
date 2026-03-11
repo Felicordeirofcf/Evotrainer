@@ -5,7 +5,7 @@ import {
   Users, LogOut, CheckCircle2, Flame, Play, 
   Video, X, User as UserIcon, Plus, Activity, Dumbbell,
   Trash2, Ban, Unlock, Home, Calendar, List, AlertTriangle, Pencil, Link as LinkIcon, Lock, Camera, Save, Search,
-  Download, Sparkles, Youtube, Star, MessageSquare, FileText, ChevronRight, ChevronLeft, MessageCircle, Crown, Check, ShieldAlert
+  Download, Sparkles, Youtube, Star, MessageSquare, FileText, ChevronRight, ChevronLeft, MessageCircle, Crown, Check, ShieldAlert, Palette
 } from 'lucide-react';
 
 // ==========================================
@@ -44,23 +44,23 @@ const extractYouTubeId = (url: string) => {
 // ==========================================
 // 🧩 COMPONENTES GLOBAIS UI
 // ==========================================
-const InstallBanner = ({ showInstallBanner, setShowInstallBanner, handleInstallClick }: any) => {
+const InstallBanner = ({ showInstallBanner, setShowInstallBanner, handleInstallClick, brandColor }: any) => {
   if (!showInstallBanner) return null;
   return (
-    <div className="fixed bottom-24 left-4 right-4 z-[110] bg-blue-600 p-4 rounded-2xl shadow-2xl flex items-center justify-between border border-blue-400 animate-fade-in sm:max-w-sm sm:mx-auto">
+    <div className="fixed bottom-24 left-4 right-4 z-[110] p-4 rounded-2xl shadow-2xl flex items-center justify-between border animate-fade-in sm:max-w-sm sm:mx-auto" style={{ backgroundColor: brandColor || '#2563eb', borderColor: brandColor || '#3b82f6' }}>
       <div className="flex items-center gap-3">
         <div className="bg-white/20 p-2 rounded-xl text-white"><Download size={24} /></div>
-        <div><p className="text-white font-black text-sm">Instalar EvoTrainer</p><p className="text-blue-100 text-[10px]">Acesse rápido pela tela inicial!</p></div>
+        <div><p className="text-white font-black text-sm">Instalar App</p><p className="text-white/80 text-[10px]">Acesse rápido pela tela inicial!</p></div>
       </div>
       <div className="flex gap-2">
         <button onClick={() => setShowInstallBanner(false)} className="text-white/70 p-2"><X size={18}/></button>
-        <button onClick={handleInstallClick} className="bg-white text-blue-600 font-bold px-4 py-2 rounded-xl text-xs shadow-lg active:scale-95 transition-transform uppercase">Instalar</button>
+        <button onClick={handleInstallClick} className="bg-white font-bold px-4 py-2 rounded-xl text-xs shadow-lg active:scale-95 transition-transform uppercase" style={{ color: brandColor || '#2563eb' }}>Instalar</button>
       </div>
     </div>
   );
 };
 
-const YoutubeModal = ({ videoAtivo, setVideoAtivo }: any) => {
+const YoutubeModal = ({ videoAtivo, setVideoAtivo, brandColor }: any) => {
   if (!videoAtivo) return null;
   const iframeSrc = videoAtivo.startsWith('SEARCH:') 
     ? `https://www.youtube.com/embed?listType=search&list=${encodeURIComponent(videoAtivo.replace('SEARCH:', ''))}&autoplay=1`
@@ -74,7 +74,7 @@ const YoutubeModal = ({ videoAtivo, setVideoAtivo }: any) => {
           <button onClick={() => setVideoAtivo(null)} className="bg-slate-800 hover:bg-red-500 text-slate-400 hover:text-white p-2 rounded-xl transition-colors"><X size={20} /></button>
         </div>
         <div className="w-full aspect-video bg-black relative"><iframe className="w-full h-full absolute inset-0" src={iframeSrc} allowFullScreen></iframe></div>
-        <div className="p-4 bg-slate-950"><button onClick={() => setVideoAtivo(null)} className="w-full py-4 bg-slate-800 hover:bg-slate-700 text-white font-black rounded-2xl uppercase tracking-widest text-[10px] transition-colors">Fechar Vídeo</button></div>
+        <div className="p-4 bg-slate-950"><button onClick={() => setVideoAtivo(null)} className="w-full py-4 text-white font-black rounded-2xl uppercase tracking-widest text-[10px] transition-colors" style={{ backgroundColor: brandColor || '#1e293b' }}>Fechar Vídeo</button></div>
       </div>
     </div>
   );
@@ -187,9 +187,9 @@ export default function App() {
   // --- ESTADOS DE AUTENTICAÇÃO ---
   const [currentUser, setCurrentUser] = useState<any>(null); 
   const [token, setToken] = useState<string | null>(null);
+  const [currentBrand, setCurrentBrand] = useState<any>(null); // ESTADO DO WHITE LABEL
   
-  const [isLoginMode, setIsLoginMode] = useState(true);
-  const [isMasterMode, setIsMasterMode] = useState(false); // NOVO ESTADO: PORTA SECRETA MASTER
+  const [authMode, setAuthMode] = useState<'LOGIN'|'SIGNUP'|'MASTER'|'FORGOT'|'RESET'>('LOGIN');
 
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
@@ -199,8 +199,11 @@ export default function App() {
   const [signupEmail, setSignupEmail] = useState('');
   const [signupPassword, setSignupPassword] = useState('');
   const [signupConfirmPassword, setSignupConfirmPassword] = useState('');
-  const [masterSecret, setMasterSecret] = useState(''); // Estado para a chave mestra
+  const [masterSecret, setMasterSecret] = useState(''); 
   const [isSigningUp, setIsSigningUp] = useState(false);
+
+  const [resetTokenUrl, setResetTokenUrl] = useState('');
+  const [resetNewPassword, setResetNewPassword] = useState('');
 
   // --- ESTADOS GERAIS ---
   const [isLoading, setIsLoading] = useState(false);
@@ -255,7 +258,7 @@ export default function App() {
 
   // --- ESTADOS PERFIL ---
   const [isSavingProfile, setIsSavingProfile] = useState(false);
-  const [profileForm, setProfileForm] = useState({ name: '', email: '', phone: '', age: '', weight: '', height: '', goal: 'Hipertrofia', notes: '', avatar: '' });
+  const [profileForm, setProfileForm] = useState({ name: '', email: '', phone: '', age: '', weight: '', height: '', goal: 'Hipertrofia', notes: '', avatar: '', brandName: '', brandColor: '#2563eb', brandLogo: '' });
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm: '' });
 
@@ -275,6 +278,17 @@ export default function App() {
   };
 
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const tokenUrl = params.get('token');
+      if (tokenUrl) {
+        setResetTokenUrl(tokenUrl);
+        setAuthMode('RESET');
+      }
+    }
+  }, []);
+
+  useEffect(() => {
     const handleBeforeInstallPrompt = (e: any) => {
       e.preventDefault();
       setDeferredPrompt(e);
@@ -284,20 +298,16 @@ export default function App() {
     return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
   }, []);
 
-  const handleInstallClick = async () => {
-    if (!deferredPrompt) return;
-    deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    if (outcome === 'accepted') setShowInstallBanner(false);
-    setDeferredPrompt(null);
-  };
-
   useEffect(() => {
     const savedToken = localStorage.getItem('treino_ai_token');
     const savedUser = localStorage.getItem('treino_ai_user');
+    const savedBrand = localStorage.getItem('treino_ai_brand');
     if (savedToken && savedUser) {
       setToken(savedToken);
       try { setCurrentUser(JSON.parse(savedUser)); } catch (e) { setCurrentUser(null); }
+      if (savedBrand) {
+        try { setCurrentBrand(JSON.parse(savedBrand)); } catch (e) { setCurrentBrand(null); }
+      }
     }
   }, []);
 
@@ -306,7 +316,8 @@ export default function App() {
       setProfileForm({
         name: currentUser.name || '', email: currentUser.email || '', phone: currentUser.phone || '',
         age: currentUser.age || '', weight: currentUser.weight || '', height: currentUser.height || '',
-        goal: currentUser.goal || 'Hipertrofia', notes: currentUser.notes || '', avatar: currentUser.avatar || ''
+        goal: currentUser.goal || 'Hipertrofia', notes: currentUser.notes || '', avatar: currentUser.avatar || '',
+        brandName: currentUser.brandName || '', brandColor: currentUser.brandColor || '#2563eb', brandLogo: currentUser.brandLogo || ''
       });
       if (currentUser.role === 'ADMIN' && localStorage.getItem('evotrainer_tour_pending') === 'true') {
         setShowTour(true);
@@ -321,7 +332,6 @@ export default function App() {
     return headers;
   };
 
-  // --- HELPERS BUILDER ---
   const getGroupedExercises = (exercisesArray: any[]) => {
     const grouped: any[] = []; const skipIndices = new Set(); 
     exercisesArray.forEach((ex, idx) => {
@@ -336,7 +346,7 @@ export default function App() {
     return grouped;
   };
 
-  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>, isBrandLogo = false) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -345,27 +355,37 @@ export default function App() {
       return;
     }
 
-    showToast("A guardar foto...");
+    showToast("A guardar imagem...");
     const reader = new FileReader();
     reader.onloadend = async () => {
       const base64String = reader.result as string;
-      setCurrentUser({ ...currentUser, avatar: base64String });
-      setProfileForm({ ...profileForm, avatar: base64String });
+      
+      const payloadToUpdate = isBrandLogo ? { brandLogo: base64String } : { avatar: base64String };
+      const updatedProfileForm = { ...profileForm, ...payloadToUpdate };
+      setProfileForm(updatedProfileForm);
+      setCurrentUser({ ...currentUser, ...payloadToUpdate });
 
       try {
         const res = await fetch(`${API_URL}/alunos/${currentUser.id}/perfil`, {
           method: 'PUT',
           headers: getAuthHeaders(),
-          body: JSON.stringify({ ...profileForm, avatar: base64String })
+          body: JSON.stringify(updatedProfileForm)
         });
         if (res.ok) {
           const updatedUser = await res.json();
           setCurrentUser(updatedUser);
           localStorage.setItem('treino_ai_user', JSON.stringify(updatedUser));
-          showToast("Foto de perfil atualizada com sucesso!");
+          
+          if(isBrandLogo && currentUser.plano === 'ELITE') {
+            const newBrand = { name: updatedUser.brandName, color: updatedUser.brandColor, logo: updatedUser.brandLogo };
+            setCurrentBrand(newBrand);
+            localStorage.setItem('treino_ai_brand', JSON.stringify(newBrand));
+          }
+          
+          showToast("Imagem atualizada com sucesso!");
         }
       } catch (error) {
-        showToast("Erro ao guardar a foto no servidor.");
+        showToast("Erro ao guardar a imagem no servidor.");
       }
     };
     reader.readAsDataURL(file);
@@ -387,6 +407,10 @@ export default function App() {
         <tbody>
     `;
 
+    // APLICANDO A COR DO WHITE LABEL NO PDF (Se existir)
+    const pdfBrandColor = currentBrand?.color || '#2563eb';
+    const pdfBrandName = currentBrand?.name || 'EVOTRAINER';
+
     agrupados.forEach((group: any, index: number) => {
        const bgColor = index % 2 === 0 ? '#f9fafb' : '#ffffff';
        const videoUrl = group.main.youtubeId ? `https://youtu.be/${group.main.youtubeId}` : `https://www.youtube.com/results?search_query=${encodeURIComponent('como fazer ' + group.main.name + ' musculação execução')}`;
@@ -396,7 +420,7 @@ export default function App() {
 
        tableHTML += `
           <tr style="background-color: ${bgColor};">
-            <td style="text-align: center; font-weight: 800; color: #2563eb;">${index + 1}</td>
+            <td style="text-align: center; font-weight: 800; color: ${pdfBrandColor};">${index + 1}</td>
             <td style="font-weight: 700; color: #1e293b;">${group.main.name}</td>
             <td style="text-align: center;"><span class="set-badge">${group.main.sets}</span></td>
             <td style="text-align: center; color: #64748b;">${group.main.weight || '-'}</td>
@@ -412,7 +436,7 @@ export default function App() {
 
          tableHTML += `
             <tr style="background-color: ${bgColor};" class="conjugado-row">
-              <td style="text-align: center; color: #06b6d4; font-weight: 800; font-size: 16px;">↳</td>
+              <td style="text-align: center; color: #94a3b8; font-weight: 800; font-size: 16px;">↳</td>
               <td style="padding-left: 20px; color: #475569;">${p.name}</td>
               <td style="text-align: center;"><span class="set-badge">${p.sets}</span></td>
               <td style="text-align: center; color: #64748b;">${p.weight || '-'}</td>
@@ -423,7 +447,11 @@ export default function App() {
     });
 
     tableHTML += `</tbody></table>`;
-    const geradoPor = isStudent ? 'Gerado via EvoTrainer App' : `Personal: ${currentUser?.name || 'Treinador'}`;
+
+    const geradoPor = isStudent ? `Gerado via ${pdfBrandName} App` : `Personal: ${currentUser?.name || 'Treinador'}`;
+    const logoHtml = currentBrand?.logo 
+       ? `<img src="${currentBrand.logo}" style="max-height: 50px; max-width: 150px; object-fit: contain;" alt="${pdfBrandName}"/>`
+       : `<h1 class="logo" style="color: ${pdfBrandColor};">${pdfBrandName}</h1>`;
 
     const htmlContent = `
       <!DOCTYPE html>
@@ -435,19 +463,18 @@ export default function App() {
             @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
             body { font-family: 'Inter', sans-serif; padding: 40px; color: #0f172a; max-width: 800px; margin: 0 auto; background: #fff;}
             .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #e2e8f0; padding-bottom: 24px; margin-bottom: 32px; }
-            .logo { font-size: 28px; font-weight: 900; letter-spacing: -1px; margin: 0 0 16px 0; color: #0f172a;}
-            .logo span { color: #2563eb; }
+            .logo { font-size: 28px; font-weight: 900; letter-spacing: -1px; margin: 0 0 16px 0; }
             .student-title { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: #64748b; margin: 0 0 4px 0; }
             .student-name { font-size: 24px; font-weight: 800; margin: 0; color: #0f172a;}
             .meta-box { text-align: right; }
-            .badge { display: inline-block; background: #2563eb; color: #fff; padding: 8px 16px; border-radius: 8px; font-weight: 700; font-size: 14px; margin-bottom: 8px; }
+            .badge { display: inline-block; background: ${pdfBrandColor}; color: #fff; padding: 8px 16px; border-radius: 8px; font-weight: 700; font-size: 14px; margin-bottom: 8px; }
             .meta-info { color: #64748b; font-size: 14px; margin: 0; }
             table { width: 100%; border-collapse: collapse; }
             th { background: #f8fafc; color: #475569; font-weight: 600; text-transform: uppercase; font-size: 11px; padding: 16px 12px; border-bottom: 2px solid #e2e8f0; }
             td { padding: 16px 12px; border-bottom: 1px solid #e2e8f0; font-size: 14px; }
             .set-badge { background: #f1f5f9; border: 1px solid #e2e8f0; padding: 4px 8px; border-radius: 6px; font-weight: 600; font-size: 12px; color: #334155; }
             .footer { margin-top: 60px; text-align: center; font-size: 12px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 24px; }
-            .print-alert { background: #eff6ff; border-left: 4px solid #2563eb; color: #1e3a8a; padding: 16px; border-radius: 0 8px 8px 0; margin-bottom: 30px; font-weight: 600; font-size: 14px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);}
+            .print-alert { background: #eff6ff; border-left: 4px solid ${pdfBrandColor}; color: #1e3a8a; padding: 16px; border-radius: 0 8px 8px 0; margin-bottom: 30px; font-weight: 600; font-size: 14px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);}
             @media print {
               .print-alert { display: none; }
               body { -webkit-print-color-adjust: exact; print-color-adjust: exact; padding: 0; }
@@ -462,7 +489,7 @@ export default function App() {
           </div>
           <div class="header">
             <div>
-              <h1 class="logo">EVO<span>TRAINER</span></h1>
+              ${logoHtml}
               <p class="student-title">Ficha de Treino de</p>
               <h2 class="student-name">${aluno.name}</h2>
             </div>
@@ -475,7 +502,7 @@ export default function App() {
           ${tableHTML}
           
           <div class="footer">
-            ${geradoPor} • <strong>app.evotrainer.com</strong>
+            ${geradoPor}
           </div>
           
           <script>
@@ -502,7 +529,8 @@ export default function App() {
       telefone = '55' + telefone;
     }
 
-    const mensagem = `Olá *${aluno.name.split(' ')[0]}*! 💪\n\nA sua nova ficha de treino *${treino.title}* já está configurada.\n\n⏱ *Duração:* ${treino.duration}\n📅 *Dia:* ${treino.dayOfWeek}\n\nAcesse ao seu App EvoTrainer para ver os vídeos de execução perfeitos!\n\nBora esmagar! 🔥`;
+    const brandNameMsg = currentBrand?.name || 'EvoTrainer';
+    const mensagem = `Olá *${aluno.name.split(' ')[0]}*! 💪\n\nA sua nova ficha de treino *${treino.title}* já está configurada.\n\n⏱ *Duração:* ${treino.duration}\n📅 *Dia:* ${treino.dayOfWeek}\n\nAcesse ao seu App ${brandNameMsg} para ver os vídeos de execução perfeitos!\n\nBora esmagar! 🔥`;
 
     const url = telefone && telefone.length >= 12 
       ? `https://wa.me/${telefone}?text=${encodeURIComponent(mensagem)}`
@@ -529,6 +557,15 @@ export default function App() {
         setCurrentUser(data.user);
         localStorage.setItem('treino_ai_token', data.token);
         localStorage.setItem('treino_ai_user', JSON.stringify(data.user));
+        
+        if (data.brand) {
+          setCurrentBrand(data.brand);
+          localStorage.setItem('treino_ai_brand', JSON.stringify(data.brand));
+        } else {
+          setCurrentBrand(null);
+          localStorage.removeItem('treino_ai_brand');
+        }
+
         setLoginPassword('');
         showToast("Bem-vindo de volta!");
       } else {
@@ -541,7 +578,6 @@ export default function App() {
     }
   };
 
-  // CRIAR CONTA NORMAL (OU SUPERADMIN)
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!signupName || !signupEmail || !signupPassword) return showToast("Preencha todos os campos.");
@@ -549,8 +585,7 @@ export default function App() {
     
     setIsSigningUp(true);
 
-    // LÓGICA MESTRA
-    if (isMasterMode) {
+    if (authMode === 'MASTER') {
       if (masterSecret !== "evotrainer2026") {
         showToast("Chave mestra inválida!");
         setIsSigningUp(false);
@@ -562,41 +597,29 @@ export default function App() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
-            name: signupName, 
-            email: signupEmail, 
-            password: signupPassword,
-            secret_key: masterSecret
+            name: signupName, email: signupEmail, password: signupPassword, secret_key: masterSecret
           })
         });
         const data = await res.json();
         
         if (res.ok) {
           showToast("A conta Master foi criada! Faça login agora.");
-          setIsMasterMode(false);
-          setIsLoginMode(true);
+          setAuthMode('LOGIN');
           setSignupName(''); setSignupEmail(''); setSignupPassword(''); setSignupConfirmPassword('');
         } else {
           showToast(data.error || "Erro ao criar conta.");
         }
-      } catch (error) {
-        showToast(`Erro ao ligar com o servidor.`);
-      } finally {
-        setIsSigningUp(false);
-      }
+      } catch (error) { showToast(`Erro ao ligar com o servidor.`); } 
+      finally { setIsSigningUp(false); }
       return;
     }
 
-    // REGISTO NORMAL DE PERSONAL
     try {
       const res = await fetch(`${API_URL}/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          name: signupName, 
-          email: signupEmail, 
-          password: signupPassword,
-          role: 'ADMIN',
-          plano: 'GRATIS'
+          name: signupName, email: signupEmail, password: signupPassword, role: 'ADMIN', plano: 'GRATIS'
         })
       });
       const data = await res.json();
@@ -610,19 +633,48 @@ export default function App() {
         
         setSignupName(''); setSignupEmail(''); setSignupPassword(''); setSignupConfirmPassword('');
         showToast("Bem-vindo ao EvoTrainer!");
-      } else {
-        showToast(data.error || "Erro ao criar conta.");
+      } else { showToast(data.error || "Erro ao criar conta."); }
+    } catch (error) { showToast(`Erro ao ligar com o servidor.`); } 
+    finally { setIsSigningUp(false); }
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!loginEmail) return showToast("Digite o seu e-mail.");
+    setIsLoggingIn(true);
+    try {
+      const res = await fetch(`${API_URL}/forgot-password`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: loginEmail })
+      });
+      const data = await res.json();
+      showToast(data.message || data.error);
+      if(res.ok) setAuthMode('LOGIN');
+    } catch (error) { showToast("Erro de ligação."); }
+    finally { setIsLoggingIn(false); }
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resetNewPassword) return showToast("Digite a nova palavra-passe.");
+    setIsLoggingIn(true);
+    try {
+      const res = await fetch(`${API_URL}/reset-password`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: resetTokenUrl, newPassword: resetNewPassword })
+      });
+      const data = await res.json();
+      showToast(data.message || data.error);
+      if(res.ok) {
+        setAuthMode('LOGIN');
+        if(typeof window !== 'undefined') window.history.replaceState(null, '', window.location.pathname);
       }
-    } catch (error) {
-      showToast(`Erro ao ligar com o servidor.`);
-    } finally {
-      setIsSigningUp(false);
-    }
+    } catch (error) { showToast("Erro de ligação."); }
+    finally { setIsLoggingIn(false); }
   };
 
   const handleLogout = () => {
     setCurrentUser(null);
     setToken(null);
+    setCurrentBrand(null);
     localStorage.clear();
     setTreinoIniciado(false);
   };
@@ -784,6 +836,13 @@ export default function App() {
       const res = await fetch(`${API_URL}/alunos/${currentUser.id}/perfil`, { method: 'PUT', headers: getAuthHeaders(), body: JSON.stringify(profileForm) });
       if (res.ok) {
         const up = await res.json(); setCurrentUser(up); localStorage.setItem('treino_ai_user', JSON.stringify(up)); showToast("Perfil salvo!");
+        
+        // Atualiza a marca localmente se o Personal mudar as cores
+        if(currentUser.role === 'ADMIN' && currentUser.plano === 'ELITE') {
+           const newBrand = { name: profileForm.brandName, color: profileForm.brandColor, logo: profileForm.brandLogo };
+           setCurrentBrand(newBrand);
+           localStorage.setItem('treino_ai_brand', JSON.stringify(newBrand));
+        }
       }
     } catch (e) {} finally { setIsSavingProfile(false); }
   };
@@ -816,6 +875,23 @@ export default function App() {
   const toggleConjugado = (i: number) => { const n = [...novoTreino.exercises]; n[i].isConjugado = !n[i].isConjugado; if(!n[i].isConjugado) n[i].conjugadoCom = ''; setNovoTreino({ ...novoTreino, exercises: n }); };
   const toggleDone = (id: number) => { if (exerciciosFeitos.includes(id)) setExerciciosFeitos(exerciciosFeitos.filter(i => i !== id)); else setExerciciosFeitos([...exerciciosFeitos, id]); };
 
+
+  // ==========================================
+  // ESTILOS DINÂMICOS (WHITE LABEL)
+  // ==========================================
+  const primaryColor = currentBrand?.color || '#2563eb'; // blue-600 padrão
+  const brandName = currentBrand?.name || 'EVOTRAINER';
+  
+  // Função auxiliar para injetar a cor principal em elementos dinâmicos
+  const getBrandStyle = (type: 'bg' | 'text' | 'border') => {
+    if(!currentBrand?.color) return {};
+    if(type === 'bg') return { backgroundColor: currentBrand.color };
+    if(type === 'text') return { color: currentBrand.color };
+    if(type === 'border') return { borderColor: currentBrand.color };
+    return {};
+  }
+
+
   // ==================== RENDERIZAÇÃO DE AUTENTICAÇÃO ====================
   if (!currentUser) {
     return (
@@ -823,8 +899,9 @@ export default function App() {
         <div className="absolute top-20 right-[-10%] w-[300px] h-[300px] bg-blue-600/10 blur-[100px] rounded-full pointer-events-none"></div>
         <div className="absolute bottom-0 left-[-10%] w-[300px] h-[300px] bg-indigo-600/10 blur-[100px] rounded-full pointer-events-none"></div>
         
-        {/* BOTÃO SECRETO PARA O MESTRE */}
-        <button onClick={() => { setIsLoginMode(false); setIsMasterMode(true); }} className="absolute top-4 right-4 text-slate-800 hover:text-slate-600 transition-colors">
+        {toastMsg && <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[300] bg-blue-600 text-white font-bold px-4 py-2 rounded-full shadow-lg text-sm whitespace-nowrap animate-fade-in">{toastMsg}</div>}
+
+        <button onClick={() => setAuthMode('MASTER')} className="absolute top-4 right-4 text-slate-800 hover:text-slate-600 transition-colors">
            <ShieldAlert size={20} />
         </button>
 
@@ -833,11 +910,17 @@ export default function App() {
             <Dumbbell size={32} className="text-white" />
           </div>
           <h1 className="text-2xl font-black mb-1 tracking-tighter">EVO<span className="text-blue-500">TRAINER</span></h1>
+          
           <p className="text-slate-400 text-xs mb-8 font-medium">
-            {isMasterMode ? 'Abertura de Conta Mestre' : (isLoginMode ? 'Acesso ao Sistema' : 'Crie sua conta de Personal')}
+            {authMode === 'MASTER' && 'Abertura de Conta Mestre'}
+            {authMode === 'LOGIN' && 'Acesso ao Sistema'}
+            {authMode === 'SIGNUP' && 'Crie sua conta de Personal'}
+            {authMode === 'FORGOT' && 'Recuperação de Palavra-Passe'}
+            {authMode === 'RESET' && 'Criar Nova Palavra-Passe'}
           </p>
 
-          {isLoginMode ? (
+          {/* FORMULÁRIO DE LOGIN */}
+          {authMode === 'LOGIN' && (
             <form onSubmit={handleLogin} className="space-y-4">
               <div className="relative">
                 <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 w-5 h-5" />
@@ -847,11 +930,17 @@ export default function App() {
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 w-5 h-5" />
                 <input type="password" required placeholder="Sua Senha" value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-4 pl-12 pr-4 text-white focus:outline-none focus:border-blue-500 transition-colors" />
               </div>
+              <div className="text-right">
+                <button type="button" onClick={() => setAuthMode('FORGOT')} className="text-[10px] text-slate-500 hover:text-blue-400 font-bold uppercase tracking-widest">Esqueci a Senha</button>
+              </div>
               <button type="submit" disabled={isLoggingIn} className="w-full mt-4 bg-blue-600 hover:bg-blue-500 text-white font-black text-sm py-5 rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-blue-600/30 active:scale-95 transition-all tracking-widest uppercase">
                 {isLoggingIn ? <Activity className="animate-spin" /> : 'ENTRAR NA CONTA'}
               </button>
             </form>
-          ) : (
+          )}
+
+          {/* FORMULÁRIO DE REGISTO */}
+          {authMode === 'SIGNUP' && (
             <form onSubmit={handleSignup} className="space-y-3">
               <div className="relative">
                 <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 w-5 h-5" />
@@ -869,24 +958,76 @@ export default function App() {
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 w-5 h-5" />
                 <input type="password" required placeholder="Confirme a Senha" value={signupConfirmPassword} onChange={(e) => setSignupConfirmPassword(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 pl-12 text-white focus:outline-none focus:border-blue-500 transition-colors" />
               </div>
-              
-              {isMasterMode && (
-                 <div className="relative pt-2">
-                   <Lock className="absolute left-4 top-1/2 -translate-y-0 text-red-500 w-5 h-5" />
-                   <input type="password" required placeholder="Chave Secreta Master" value={masterSecret} onChange={(e) => setMasterSecret(e.target.value)} className="w-full bg-red-950/20 border border-red-800/50 rounded-2xl p-4 pl-12 text-red-400 focus:outline-none focus:border-red-500 transition-colors font-bold" />
-                 </div>
-              )}
-
-              <button type="submit" disabled={isSigningUp} className={`w-full mt-2 text-white font-black text-lg py-4 rounded-xl flex items-center justify-center gap-2 transition-transform active:scale-95 disabled:opacity-50 ${isMasterMode ? 'bg-red-600 hover:bg-red-500 shadow-[0_0_20px_rgba(220,38,38,0.4)]' : 'bg-indigo-600 hover:bg-indigo-500 shadow-[0_0_20px_rgba(79,70,229,0.4)]'}`}>
-                {isSigningUp ? <Activity className="animate-spin" /> : (isMasterMode ? 'CRIAR CONTA MESTRE' : 'CRIAR CONTA')}
+              <button type="submit" disabled={isSigningUp} className="w-full mt-2 bg-indigo-600 hover:bg-indigo-500 text-white font-black text-lg py-4 rounded-xl flex items-center justify-center gap-2 transition-transform active:scale-95 disabled:opacity-50 shadow-[0_0_20px_rgba(79,70,229,0.4)]">
+                {isSigningUp ? <Activity className="animate-spin" /> : 'CRIAR CONTA'}
               </button>
             </form>
           )}
 
-          <div className="mt-4 flex flex-col gap-2 text-center w-full">
-            <button onClick={() => { setIsLoginMode(!isLoginMode); setIsMasterMode(false); }} className="text-sm font-bold text-slate-400 hover:text-white transition-colors w-full p-2">
-              {isLoginMode ? "Novo por aqui? Crie sua conta." : "Já tem conta? Faça Login."}
-            </button>
+          {/* FORMULÁRIO DO MESTRE */}
+          {authMode === 'MASTER' && (
+             <form onSubmit={handleSignup} className="space-y-3">
+              <div className="relative">
+                <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 w-5 h-5" />
+                <input type="text" required placeholder="Nome do Mestre" value={signupName} onChange={(e) => setSignupName(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 pl-12 text-white focus:outline-none focus:border-red-500 transition-colors" />
+              </div>
+              <div className="relative">
+                <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 w-5 h-5" />
+                <input type="email" required placeholder="E-mail Administrativo" value={signupEmail} onChange={(e) => setSignupEmail(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 pl-12 text-white focus:outline-none focus:border-red-500 transition-colors" />
+              </div>
+              <div className="relative">
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 w-5 h-5" />
+                <input type="password" required placeholder="Crie uma Senha Forte" value={signupPassword} onChange={(e) => setSignupPassword(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 pl-12 text-white focus:outline-none focus:border-red-500 transition-colors" />
+              </div>
+              <div className="relative pt-2">
+                 <Lock className="absolute left-4 top-1/2 -translate-y-0 text-red-500 w-5 h-5" />
+                 <input type="password" required placeholder="Chave Secreta" value={masterSecret} onChange={(e) => setMasterSecret(e.target.value)} className="w-full bg-red-950/20 border border-red-800/50 rounded-2xl p-4 pl-12 text-red-400 focus:outline-none focus:border-red-500 transition-colors font-bold" />
+              </div>
+              <button type="submit" disabled={isSigningUp} className="w-full mt-2 bg-red-600 hover:bg-red-500 text-white font-black text-lg py-4 rounded-xl flex items-center justify-center gap-2 transition-transform active:scale-95 disabled:opacity-50 shadow-[0_0_20px_rgba(220,38,38,0.4)]">
+                {isSigningUp ? <Activity className="animate-spin" /> : 'CRIAR MASTER'}
+              </button>
+             </form>
+          )}
+
+          {/* FORMULÁRIO ESQUECI A SENHA */}
+          {authMode === 'FORGOT' && (
+             <form onSubmit={handleForgotPassword} className="space-y-4">
+              <p className="text-sm text-slate-400 mb-4">Insira o seu e-mail para receber um link de recuperação mágico.</p>
+              <div className="relative">
+                <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 w-5 h-5" />
+                <input type="email" required placeholder="O seu E-mail" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-4 pl-12 pr-4 text-white focus:outline-none focus:border-blue-500 transition-colors" />
+              </div>
+              <button type="submit" disabled={isLoggingIn} className="w-full mt-2 bg-slate-800 hover:bg-slate-700 text-white font-black text-sm py-4 rounded-xl flex items-center justify-center gap-2 transition-transform active:scale-95 disabled:opacity-50">
+                {isLoggingIn ? <Activity className="animate-spin" /> : 'ENVIAR LINK'}
+              </button>
+             </form>
+          )}
+
+          {/* FORMULÁRIO REDEFINIR SENHA */}
+          {authMode === 'RESET' && (
+             <form onSubmit={handleResetPassword} className="space-y-4">
+              <div className="relative">
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-500 w-5 h-5" />
+                <input type="password" required placeholder="Nova Palavra-Passe" value={resetNewPassword} onChange={(e) => setResetNewPassword(e.target.value)} className="w-full bg-slate-950 border border-emerald-500/50 rounded-2xl py-4 pl-12 pr-4 text-white focus:outline-none focus:border-emerald-500 transition-colors" />
+              </div>
+              <button type="submit" disabled={isLoggingIn} className="w-full mt-2 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-sm py-4 rounded-xl flex items-center justify-center gap-2 transition-transform active:scale-95 disabled:opacity-50 shadow-[0_0_20px_rgba(16,185,129,0.4)]">
+                {isLoggingIn ? <Activity className="animate-spin" /> : 'SALVAR E ENTRAR'}
+              </button>
+             </form>
+          )}
+
+          {/* RODAPÉ DO MÓDULO DE LOGIN */}
+          <div className="mt-6 flex flex-col gap-2 text-center w-full">
+            {(authMode === 'LOGIN' || authMode === 'SIGNUP' || authMode === 'MASTER') && (
+              <button onClick={() => setAuthMode(authMode === 'LOGIN' ? 'SIGNUP' : 'LOGIN')} className="text-sm font-bold text-slate-400 hover:text-white transition-colors w-full p-2">
+                {authMode === 'LOGIN' ? "Novo por aqui? Crie sua conta." : "Já tem conta? Faça Login."}
+              </button>
+            )}
+            {(authMode === 'FORGOT' || authMode === 'RESET') && (
+              <button onClick={() => setAuthMode('LOGIN')} className="text-sm font-bold text-slate-400 hover:text-white transition-colors w-full p-2">
+                Lembrou-se? Voltar ao Login.
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -1018,7 +1159,6 @@ export default function App() {
             {/* ADMIN TAB: ALUNOS & DASHBOARD */}
             {adminTabAtiva === 'alunos' && (
               <div className="animate-fade-in flex flex-col gap-6">
-                {/* Dashboard Simples */}
                 <div className="grid grid-cols-3 gap-3">
                   <div className="bg-blue-600/10 border border-blue-500/20 p-4 rounded-2xl flex flex-col items-center justify-center text-center shadow-lg">
                     <p className="text-[9px] text-blue-400 font-black uppercase tracking-widest mb-1">Total</p>
@@ -1150,7 +1290,7 @@ export default function App() {
               </div>
             )}
 
-            {/* ADMIN TAB: PERFIL DO PERSONAL (COM OPÇÕES DE UPGRADE) */}
+            {/* ADMIN TAB: PERFIL DO PERSONAL (COM WHITE LABEL) */}
             {adminTabAtiva === 'perfil' && (
               <div className="flex flex-col gap-6 animate-fade-in pb-8">
                  
@@ -1169,6 +1309,48 @@ export default function App() {
                    </div>
                  </div>
 
+                 {/* WHITE LABEL - APENAS ELITE */}
+                 {currentUser.plano === 'ELITE' && (
+                   <div className="bg-slate-900 border border-yellow-500/30 p-6 rounded-[2rem] shadow-lg relative overflow-hidden">
+                     <div className="absolute -right-4 -top-4 text-yellow-500/10"><Crown size={100}/></div>
+                     <h3 className="text-[10px] font-black text-yellow-500 uppercase tracking-[0.2em] mb-4 flex items-center gap-2 relative z-10"><Palette size={14}/> A Sua Marca (White Label)</h3>
+                     
+                     <div className="flex flex-col gap-4 relative z-10">
+                       <div className="flex items-center gap-4">
+                          <div className="w-16 h-16 bg-slate-950 border border-slate-800 rounded-xl flex items-center justify-center overflow-hidden">
+                            {profileForm.brandLogo ? (
+                               <img src={profileForm.brandLogo} alt="Logo da Marca" className="w-full h-full object-cover" />
+                            ) : (
+                               <p className="text-[8px] text-slate-500 uppercase font-black text-center px-1">Sem Logo</p>
+                            )}
+                          </div>
+                          <div className="flex-1">
+                            <input type="file" id="brandLogoUpload" accept="image/*" className="hidden" onChange={(e) => handleAvatarUpload(e, true)} />
+                            <button onClick={() => document.getElementById('brandLogoUpload')?.click()} className="text-[10px] font-black bg-slate-800 text-white px-4 py-2 rounded-lg hover:bg-slate-700 transition-colors uppercase">Alterar Logo</button>
+                            <p className="text-[8px] text-slate-500 mt-1">Aparecerá no App do Aluno e PDFs.</p>
+                          </div>
+                       </div>
+
+                       <div className="flex flex-col gap-1.5 mt-2">
+                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nome do App</label>
+                         <input type="text" value={profileForm.brandName} onChange={e => setProfileForm({...profileForm, brandName: e.target.value})} placeholder="Ex: FelipeFit App" className="bg-slate-950 border border-slate-800 rounded-xl p-4 text-white text-sm outline-none focus:border-yellow-500 transition-colors" />
+                       </div>
+
+                       <div className="flex flex-col gap-1.5 mt-1">
+                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Cor Principal (HEX)</label>
+                         <div className="flex items-center gap-3">
+                           <input type="color" value={profileForm.brandColor || '#2563eb'} onChange={e => setProfileForm({...profileForm, brandColor: e.target.value})} className="w-12 h-12 rounded-lg cursor-pointer bg-slate-950 border border-slate-800" />
+                           <input type="text" value={profileForm.brandColor} onChange={e => setProfileForm({...profileForm, brandColor: e.target.value})} placeholder="#2563eb" className="flex-1 bg-slate-950 border border-slate-800 rounded-xl p-4 text-white text-sm outline-none focus:border-yellow-500 transition-colors font-mono" />
+                         </div>
+                       </div>
+                       
+                       <button onClick={salvarPerfil} disabled={isSavingProfile} className="w-full mt-2 bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-black py-3 rounded-xl text-[10px] uppercase tracking-widest transition-colors shadow-[0_0_15px_rgba(234,179,8,0.2)]">
+                         {isSavingProfile ? <Activity className="animate-spin mx-auto"/> : 'Salvar Minha Marca'}
+                       </button>
+                     </div>
+                   </div>
+                 )}
+
                  <h2 className="text-2xl font-black flex items-center gap-2 px-1"><UserIcon className="text-blue-500"/> Conta do Personal</h2>
 
                  <div className="flex flex-col items-center justify-center bg-slate-900 border border-slate-800 p-8 rounded-[2.5rem] shadow-lg relative overflow-hidden">
@@ -1180,7 +1362,7 @@ export default function App() {
                             currentUser.name.charAt(0).toUpperCase()
                           )}
                        </div>
-                       <input type="file" id="adminAvatarUpload" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
+                       <input type="file" id="adminAvatarUpload" accept="image/*" className="hidden" onChange={(e) => handleAvatarUpload(e, false)} />
                        <button onClick={() => document.getElementById('adminAvatarUpload')?.click()} className="absolute bottom-0 right-0 bg-blue-600 text-white p-2.5 rounded-full shadow-lg active:scale-90 transition-transform">
                          <Camera size={16} />
                        </button>
@@ -1259,7 +1441,6 @@ export default function App() {
                 </div>
                 
                 <div className="flex flex-col gap-4">
-                  {/* START BRONZE */}
                   <div className="bg-slate-950 border border-amber-700/30 p-5 rounded-3xl flex flex-col gap-4 relative overflow-hidden">
                     <div className="absolute top-0 right-0 bg-amber-700/20 text-amber-500 text-[8px] font-black px-3 py-1 rounded-bl-xl uppercase tracking-widest">R$ 30/mês</div>
                     <div>
@@ -1275,7 +1456,6 @@ export default function App() {
                     </button>
                   </div>
 
-                  {/* PRO SILVER */}
                   <div className="bg-slate-950 border border-blue-500 p-5 rounded-3xl flex flex-col gap-4 relative overflow-hidden shadow-[0_0_15px_rgba(59,130,246,0.15)]">
                     <div className="absolute top-0 right-0 bg-blue-600 text-white text-[8px] font-black px-3 py-1 rounded-bl-xl uppercase tracking-widest">R$ 60/mês</div>
                     <div>
@@ -1292,7 +1472,6 @@ export default function App() {
                     </button>
                   </div>
 
-                  {/* ELITE OURO */}
                   <div className="bg-slate-950 border border-yellow-500 p-5 rounded-3xl flex flex-col gap-4 relative overflow-hidden shadow-[0_0_15px_rgba(234,179,8,0.15)]">
                     <div className="absolute top-0 right-0 bg-yellow-500 text-slate-900 text-[8px] font-black px-3 py-1 rounded-bl-xl uppercase tracking-widest">R$ 100/mês</div>
                     <div>
@@ -1302,7 +1481,7 @@ export default function App() {
                     <ul className="text-[10px] text-slate-300 space-y-2 mb-2">
                       <li className="flex gap-2 items-center"><Check size={12} className="text-emerald-500"/> Alunos Ilimitados</li>
                       <li className="flex gap-2 items-center"><Check size={12} className="text-emerald-500"/> Treinos IA Ilimitados</li>
-                      <li className="flex gap-2 items-center"><Check size={12} className="text-emerald-500"/> Consultoria de Escala</li>
+                      <li className="flex gap-2 items-center"><Check size={12} className="text-emerald-500"/> App Com Suas Cores (White Label)</li>
                     </ul>
                     <button onClick={() => window.open(`https://www.asaas.com/c/sql5glydf5g3gvxs?externalReference=${currentUser.id}`, '_blank')} className="w-full bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-black py-3 rounded-xl text-xs uppercase tracking-widest transition-colors">
                       Assinar Elite
@@ -1327,7 +1506,6 @@ export default function App() {
                     <div key={w.id} className="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex justify-between items-center group">
                       <div><p className="font-black text-cyan-400 uppercase tracking-tight">{w.title}</p><p className="text-[10px] text-slate-600 font-black mt-1 uppercase tracking-widest">{w.dayOfWeek} • {w.duration}</p></div>
                       <div className="flex gap-2">
-                        {/* Botões de WhatsApp e PDF */}
                         <button onClick={() => enviarTreinoWhatsApp(w, alunoSelecionado)} title="Enviar WhatsApp e PDF" className="p-2.5 bg-emerald-600/10 text-emerald-500 rounded-xl active:bg-emerald-600 active:text-white transition-all"><MessageCircle size={16} /></button>
                         <button onClick={() => exportarTreinoPDF(w, alunoSelecionado, false)} title="Baixar PDF" className="p-2.5 bg-slate-800 text-slate-400 rounded-xl active:bg-slate-700 active:text-white transition-all"><Download size={16} /></button>
                         <button onClick={() => { abrirModalEdicao(w); }} title="Editar" className="p-2.5 bg-blue-600/10 text-blue-400 rounded-xl active:bg-blue-600 active:text-white transition-all"><Pencil size={16} /></button>
@@ -1433,23 +1611,23 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col text-slate-50 md:items-center md:justify-center">
       <div className="w-full h-screen md:h-[850px] md:max-w-md bg-slate-900 md:rounded-[40px] md:border-[8px] border-slate-800 flex flex-col relative overflow-hidden shadow-2xl">
-        {toastMsg && <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[130] bg-blue-600 text-white font-bold px-4 py-2 rounded-full shadow-lg text-sm whitespace-nowrap animate-fade-in">{toastMsg}</div>}
+        {toastMsg && <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[130] bg-blue-600 text-white font-bold px-4 py-2 rounded-full shadow-lg text-sm whitespace-nowrap animate-fade-in" style={getBrandStyle('bg')}>{toastMsg}</div>}
         
-        <InstallBanner showInstallBanner={showInstallBanner} setShowInstallBanner={setShowInstallBanner} handleInstallClick={handleInstallClick} />
-        <YoutubeModal videoAtivo={videoAtivo} setVideoAtivo={setVideoAtivo} />
+        <InstallBanner showInstallBanner={showInstallBanner} setShowInstallBanner={setShowInstallBanner} handleInstallClick={handleInstallClick} brandColor={primaryColor} />
+        <YoutubeModal videoAtivo={videoAtivo} setVideoAtivo={setVideoAtivo} brandColor={primaryColor} />
 
         <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-900 z-10 shadow-md">
            <div className="flex items-center gap-3">
-             <div className="w-12 h-12 bg-blue-600/20 rounded-full flex items-center justify-center text-cyan-400 font-black text-xl border border-blue-500/30 shadow-[0_0_10px_rgba(59,130,246,0.2)] overflow-hidden">
-                {aluno.avatar ? (
-                  <img src={aluno.avatar} alt="Avatar" className="w-full h-full object-cover" />
+             <div className="w-12 h-12 rounded-full flex items-center justify-center font-black text-xl border shadow-lg overflow-hidden" style={{ backgroundColor: `${primaryColor}20`, borderColor: `${primaryColor}50`, color: primaryColor }}>
+                {currentBrand?.logo ? (
+                  <img src={currentBrand.logo} alt="Brand Logo" className="w-full h-full object-cover" />
                 ) : (
-                  aluno.name.charAt(0).toUpperCase()
+                  brandName.charAt(0).toUpperCase()
                 )}
              </div>
              <div>
-               <h2 className="text-lg font-bold leading-tight">Olá, {aluno.name.split(' ')[0]}</h2>
-               <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest mt-0.5">Bora esmagar? 💪</p>
+               <h2 className="text-lg font-bold leading-tight truncate max-w-[150px]">{brandName}</h2>
+               <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest mt-0.5">Olá, {aluno.name.split(' ')[0]} 💪</p>
              </div>
            </div>
            <button onClick={handleLogout} className="text-slate-400 hover:text-white bg-slate-800 p-2.5 rounded-xl transition-colors"><LogOut size={18}/></button>
@@ -1460,9 +1638,13 @@ export default function App() {
           {/* TAB: INÍCIO */}
           {alunoTabAtiva === 'home' && !treinoIniciado && (
             <div className="flex flex-col gap-6 animate-fade-in">
-              <div className="bg-gradient-to-r from-orange-500/20 to-red-500/10 p-6 rounded-[2rem] border border-orange-500/20 flex items-center justify-between shadow-lg">
-                <div><p className="text-[10px] text-orange-500 font-black uppercase tracking-widest mb-1">Sequência</p><p className="text-4xl font-black mt-1 text-white">{aluno.streak} <span className="text-lg font-medium text-slate-300">dias</span></p></div>
-                <div className="w-14 h-14 bg-gradient-to-br from-orange-400 to-red-500 rounded-full flex items-center justify-center shadow-[0_0_20px_rgba(249,115,22,0.4)] animate-pulse"><Flame className="text-white w-7 h-7" /></div>
+              <div className="p-6 rounded-[2rem] border flex items-center justify-between shadow-lg relative overflow-hidden" style={{ backgroundColor: `${primaryColor}15`, borderColor: `${primaryColor}30` }}>
+                <div className="relative z-10">
+                  <p className="text-[10px] font-black uppercase tracking-widest mb-1" style={getBrandStyle('text')}>Sequência</p>
+                  <p className="text-4xl font-black mt-1 text-white">{aluno.streak} <span className="text-lg font-medium text-slate-300">dias</span></p>
+                </div>
+                <div className="w-14 h-14 rounded-full flex items-center justify-center relative z-10 shadow-lg animate-pulse" style={getBrandStyle('bg')}><Flame className="text-white w-7 h-7" /></div>
+                <Flame size={120} className="absolute -right-4 -bottom-4 opacity-5" style={getBrandStyle('text')}/>
               </div>
 
               <div>
@@ -1476,8 +1658,10 @@ export default function App() {
                     return (
                       <div key={i} onClick={() => setDiaAtivo(nomeCompleto)} className="flex flex-col items-center gap-1 cursor-pointer">
                         <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-all duration-300
-                          ${isAtivo ? 'bg-blue-600 text-white scale-110 shadow-lg shadow-blue-500/40' : 
-                            temTreino ? 'bg-slate-800 border border-blue-500/50 text-cyan-400' : 'bg-slate-800/50 text-slate-500'}`}>
+                          ${isAtivo ? 'text-white scale-110 shadow-lg' : 
+                            temTreino ? 'bg-slate-800 border' : 'bg-slate-800/50 text-slate-500'}`}
+                          style={isAtivo ? getBrandStyle('bg') : (temTreino ? { borderColor: `${primaryColor}50`, color: primaryColor } : {})}
+                        >
                           {diaLetra}
                         </div>
                       </div>
@@ -1493,14 +1677,14 @@ export default function App() {
                     <p className="text-slate-500 font-bold text-sm">Sem treino programado. <br/> Aproveita o descanso! 🧘</p>
                   </div>
                 ) : (
-                  <div className="bg-gradient-to-br from-blue-600 to-blue-800 p-1 rounded-[2.5rem] shadow-2xl animate-fade-in transform active:scale-[0.98] transition-transform">
+                  <div className="p-1 rounded-[2.5rem] shadow-2xl animate-fade-in transform active:scale-[0.98] transition-transform" style={getBrandStyle('bg')}>
                     <div className="bg-slate-900 p-8 rounded-[2.2rem] flex flex-col items-center text-center relative overflow-hidden">
                       <div className="absolute -right-6 -top-6 text-slate-800/40 transform rotate-12"><Dumbbell size={120} /></div>
-                      <span className="bg-blue-500/20 text-cyan-400 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest relative z-10 border border-blue-500/20">Ficha de {treinoSelecionado.dayOfWeek}</span>
+                      <span className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest relative z-10 border" style={{ backgroundColor: `${primaryColor}20`, borderColor: `${primaryColor}30`, color: primaryColor }}>Ficha de {treinoSelecionado.dayOfWeek}</span>
                       <h3 className="text-3xl font-black text-white leading-tight mt-6 relative z-10">{treinoSelecionado.title}</h3>
                       <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest relative z-10 mt-2 mb-8">{treinoSelecionado.duration} • {treinoSelecionado.exercises?.length || 0} exercícios</p>
                       
-                      <button onClick={() => { setExerciciosFeitos([]); setTreinoIniciado(true); }} className="w-full bg-blue-600 text-white font-black text-lg py-5 rounded-[1.5rem] flex items-center justify-center gap-2 relative z-10 shadow-[0_10px_30px_rgba(37,99,235,0.4)] uppercase tracking-widest"><Play fill="currentColor" /> INICIAR TREINO</button>
+                      <button onClick={() => { setExerciciosFeitos([]); setTreinoIniciado(true); }} className="w-full text-white font-black text-lg py-5 rounded-[1.5rem] flex items-center justify-center gap-2 relative z-10 shadow-lg uppercase tracking-widest" style={getBrandStyle('bg')}><Play fill="currentColor" /> INICIAR TREINO</button>
                     </div>
                   </div>
                 )}
@@ -1511,7 +1695,7 @@ export default function App() {
           {/* TAB: FICHAS */}
           {alunoTabAtiva === 'treinos' && !treinoIniciado && (
             <div className="animate-fade-in flex flex-col gap-6">
-              <h2 className="text-2xl font-black flex items-center gap-2 px-1"><List className="text-cyan-500"/> Suas Fichas</h2>
+              <h2 className="text-2xl font-black flex items-center gap-2 px-1" style={getBrandStyle('text')}><List /> Suas Fichas</h2>
               {treinosAluno.length === 0 ? (
                 <div className="bg-slate-800/30 p-12 rounded-[2.5rem] text-center border border-dashed border-slate-700">
                   <p className="text-slate-500 font-bold uppercase text-[10px] tracking-widest">Nenhuma ficha disponível.</p>
@@ -1520,7 +1704,7 @@ export default function App() {
                 treinosAluno.map((t: any) => (
                   <div key={t.id} className="bg-slate-800/50 border border-slate-700 p-5 rounded-[2rem] flex justify-between items-center active:scale-[0.98] transition-all shadow-lg">
                      <div className="flex-1">
-                       <span className="text-cyan-400 text-[9px] font-black uppercase tracking-[0.2em] bg-blue-500/10 px-2 py-1 rounded-lg">{t.dayOfWeek}</span>
+                       <span className="text-[9px] font-black uppercase tracking-[0.2em] px-2 py-1 rounded-lg" style={{ backgroundColor: `${primaryColor}15`, color: primaryColor }}>{t.dayOfWeek}</span>
                        <h3 className="text-xl font-black text-white mt-2 leading-tight">{t.title}</h3>
                        <p className="text-[10px] text-slate-500 font-black uppercase mt-1 tracking-widest">{t.duration} • {t.exercises?.length} exercícios</p>
                      </div>
@@ -1528,7 +1712,7 @@ export default function App() {
                        <button onClick={() => exportarTreinoPDF(t, currentUser, true)} className="w-14 h-14 bg-slate-900 border border-slate-800 rounded-2xl flex items-center justify-center text-slate-400 shadow-lg hover:text-white transition-colors">
                          <Download size={20} />
                        </button>
-                       <button onClick={() => { setDiaAtivo(t.dayOfWeek); setAlunoTabAtiva('home'); }} className="w-14 h-14 bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-lg active:scale-90 transition-transform">
+                       <button onClick={() => { setDiaAtivo(t.dayOfWeek); setAlunoTabAtiva('home'); }} className="w-14 h-14 rounded-2xl flex items-center justify-center text-white shadow-lg active:scale-90 transition-transform" style={getBrandStyle('bg')}>
                          <Play size={20} fill="currentColor" className="ml-1"/>
                        </button>
                      </div>
@@ -1541,19 +1725,19 @@ export default function App() {
           {/* TAB: PERFIL DO ALUNO */}
           {alunoTabAtiva === 'perfil' && !treinoIniciado && (
             <div className="flex flex-col gap-6 animate-fade-in pb-8">
-               <h2 className="text-2xl font-black flex items-center gap-2 px-1"><UserIcon className="text-cyan-500"/> O seu Perfil</h2>
+               <h2 className="text-2xl font-black flex items-center gap-2 px-1" style={getBrandStyle('text')}><UserIcon /> O seu Perfil</h2>
 
                <div className="flex flex-col items-center justify-center bg-slate-900 border border-slate-800 p-8 rounded-[2.5rem] shadow-lg relative overflow-hidden">
                   <div className="relative z-10">
-                     <div className="w-24 h-24 bg-blue-600/20 text-cyan-400 rounded-full flex items-center justify-center text-4xl font-black border-2 border-blue-500/50 shadow-[0_0_15px_rgba(59,130,246,0.2)] overflow-hidden">
+                     <div className="w-24 h-24 rounded-full flex items-center justify-center text-4xl font-black border-2 shadow-lg overflow-hidden" style={{ backgroundColor: `${primaryColor}20`, borderColor: `${primaryColor}50`, color: primaryColor }}>
                         {profileForm.avatar ? (
                           <img src={profileForm.avatar} alt="Avatar" className="w-full h-full object-cover" />
                         ) : (
                           profileForm.name ? profileForm.name.charAt(0).toUpperCase() : 'U'
                         )}
                      </div>
-                     <input type="file" id="alunoAvatarUpload" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
-                     <button onClick={() => document.getElementById('alunoAvatarUpload')?.click()} className="absolute bottom-0 right-0 bg-blue-600 text-white p-2.5 rounded-full shadow-lg active:scale-90 transition-transform">
+                     <input type="file" id="alunoAvatarUpload" accept="image/*" className="hidden" onChange={(e) => handleAvatarUpload(e, false)} />
+                     <button onClick={() => document.getElementById('alunoAvatarUpload')?.click()} className="absolute bottom-0 right-0 text-white p-2.5 rounded-full shadow-lg active:scale-90 transition-transform" style={getBrandStyle('bg')}>
                        <Camera size={16} />
                      </button>
                   </div>
@@ -1566,20 +1750,20 @@ export default function App() {
                   <div className="bg-slate-900 p-5 rounded-[2rem] border border-slate-800 flex flex-col gap-4 shadow-lg">
                      <div className="flex flex-col gap-1.5">
                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">WhatsApp</label>
-                       <input type="tel" value={profileForm.phone} onChange={e => setProfileForm({...profileForm, phone: e.target.value})} placeholder="(11) 99999-9999" className="bg-slate-950 border border-slate-700 rounded-xl p-4 text-white outline-none focus:border-blue-500 transition-colors font-bold text-sm" />
+                       <input type="tel" value={profileForm.phone} onChange={e => setProfileForm({...profileForm, phone: e.target.value})} placeholder="(11) 99999-9999" className="bg-slate-950 border border-slate-700 rounded-xl p-4 text-white outline-none transition-colors font-bold text-sm focus:border-white" />
                      </div>
                      <div className="grid grid-cols-2 gap-3">
                         <div className="flex flex-col gap-1.5">
                           <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Peso (kg)</label>
-                          <input type="number" value={profileForm.weight} onChange={e => setProfileForm({...profileForm, weight: e.target.value})} placeholder="Ex: 75" className="bg-slate-950 border border-slate-700 rounded-xl p-4 text-white outline-none focus:border-blue-500 text-center font-bold" />
+                          <input type="number" value={profileForm.weight} onChange={e => setProfileForm({...profileForm, weight: e.target.value})} placeholder="Ex: 75" className="bg-slate-950 border border-slate-700 rounded-xl p-4 text-white outline-none text-center font-bold focus:border-white" />
                         </div>
                         <div className="flex flex-col gap-1.5">
                           <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Altura (cm)</label>
-                          <input type="number" value={profileForm.height} onChange={e => setProfileForm({...profileForm, height: e.target.value})} placeholder="Ex: 175" className="bg-slate-950 border border-slate-700 rounded-xl p-4 text-white outline-none focus:border-blue-500 text-center font-bold" />
+                          <input type="number" value={profileForm.height} onChange={e => setProfileForm({...profileForm, height: e.target.value})} placeholder="Ex: 175" className="bg-slate-950 border border-slate-700 rounded-xl p-4 text-white outline-none text-center font-bold focus:border-white" />
                         </div>
                      </div>
                   </div>
-                  <button type="submit" disabled={isSavingProfile} className="w-full bg-blue-600 text-white font-black py-5 rounded-[1.8rem] shadow-[0_10px_30px_rgba(37,99,235,0.4)] active:scale-95 transition-all disabled:opacity-50 uppercase tracking-widest text-xs flex items-center justify-center gap-2">
+                  <button type="submit" disabled={isSavingProfile} className="w-full text-white font-black py-5 rounded-[1.8rem] shadow-lg active:scale-95 transition-all disabled:opacity-50 uppercase tracking-widest text-xs flex items-center justify-center gap-2" style={getBrandStyle('bg')}>
                     {isSavingProfile ? <Activity className="animate-spin"/> : <Save size={18} />} SALVAR PERFIL
                   </button>
                </form>
@@ -1587,9 +1771,9 @@ export default function App() {
                <div className="bg-slate-900 p-6 rounded-[2rem] border border-slate-800">
                   <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-4 flex items-center gap-2"><Lock size={14}/> Segurança</h3>
                   <form onSubmit={mudarSenha} className="flex flex-col gap-3">
-                    <input type="password" required value={passwordForm.current} onChange={e => setPasswordForm({...passwordForm, current: e.target.value})} placeholder="Senha Atual" className="bg-slate-950 border border-slate-700 rounded-xl p-4 text-white outline-none focus:border-blue-500 text-sm" />
-                    <input type="password" required value={passwordForm.new} onChange={e => setPasswordForm({...passwordForm, new: e.target.value})} placeholder="Nova Senha" className="bg-slate-950 border border-slate-700 rounded-xl p-4 text-white outline-none focus:border-blue-500 text-sm" />
-                    <input type="password" required value={passwordForm.confirm} onChange={e => setPasswordForm({...passwordForm, confirm: e.target.value})} placeholder="Confirmar Nova" className="bg-slate-950 border border-slate-700 rounded-xl p-4 text-white outline-none focus:border-blue-500 text-sm" />
+                    <input type="password" required value={passwordForm.current} onChange={e => setPasswordForm({...passwordForm, current: e.target.value})} placeholder="Senha Atual" className="bg-slate-950 border border-slate-700 rounded-xl p-4 text-white outline-none focus:border-white text-sm" />
+                    <input type="password" required value={passwordForm.new} onChange={e => setPasswordForm({...passwordForm, new: e.target.value})} placeholder="Nova Senha" className="bg-slate-950 border border-slate-700 rounded-xl p-4 text-white outline-none focus:border-white text-sm" />
+                    <input type="password" required value={passwordForm.confirm} onChange={e => setPasswordForm({...passwordForm, confirm: e.target.value})} placeholder="Confirmar Nova" className="bg-slate-950 border border-slate-700 rounded-xl p-4 text-white outline-none focus:border-white text-sm" />
                     <button type="submit" disabled={isChangingPassword} className="w-full bg-slate-800 text-white font-black py-4 rounded-xl mt-2 text-[10px] uppercase tracking-widest active:bg-slate-700 transition-colors">
                       {isChangingPassword ? <Activity className="animate-spin mx-auto"/> : 'ALTERAR SENHA'}
                     </button>
@@ -1602,7 +1786,7 @@ export default function App() {
           {treinoIniciado && treinoSelecionado && (
             <div className="flex flex-col gap-4 animate-fade-in">
               <div className="mb-4 flex justify-between items-center bg-slate-950/80 backdrop-blur-md sticky top-0 py-4 z-20 rounded-b-[2rem] border-b border-slate-800 -mt-6 px-2">
-                <div><span className="text-cyan-400 text-[9px] font-black uppercase tracking-widest block mb-0.5">Modo Foco</span><h2 className="text-lg font-black text-white leading-tight">{treinoSelecionado.title}</h2></div>
+                <div><span className="text-[9px] font-black uppercase tracking-widest block mb-0.5" style={getBrandStyle('text')}>Modo Foco</span><h2 className="text-lg font-black text-white leading-tight">{treinoSelecionado.title}</h2></div>
                 <button onClick={() => { if(window.confirm("Sair do treino atual?")) setTreinoIniciado(false); }} className="text-[10px] text-red-500 font-black bg-red-500/10 px-4 py-2 rounded-xl uppercase tracking-widest border border-red-500/10">Sair</button>
               </div>
 
@@ -1610,17 +1794,16 @@ export default function App() {
                 {groupedTreinoSelecionado.map((group, idx) => {
                   const isMainDone = exerciciosFeitos.includes(group.main.id);
                   return (
-                    <div key={group.main.id} className={`p-5 rounded-[2.5rem] border flex flex-col gap-4 transition-all duration-500 shadow-xl ${isMainDone ? 'bg-blue-600/10 border-blue-500/20' : 'bg-slate-800 border-slate-700'}`}>
+                    <div key={group.main.id} className={`p-5 rounded-[2.5rem] border flex flex-col gap-4 transition-all duration-500 shadow-xl ${isMainDone ? 'bg-slate-900 border-slate-700' : 'bg-slate-800 border-slate-700'}`} style={isMainDone ? { backgroundColor: `${primaryColor}10`, borderColor: `${primaryColor}30` } : {}}>
                       <div className="flex items-center gap-4">
-                        <button onClick={() => toggleDone(group.main.id)} className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 border-2 transition-all duration-300 ${isMainDone ? 'bg-blue-600 border-blue-400 text-white shadow-[0_0_20px_rgba(37,99,235,0.4)]' : 'border-slate-600 text-slate-500 bg-slate-900'}`}>
+                        <button onClick={() => toggleDone(group.main.id)} className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 border-2 transition-all duration-300 ${isMainDone ? 'text-white shadow-lg' : 'border-slate-600 text-slate-500 bg-slate-900'}`} style={isMainDone ? { backgroundColor: primaryColor, borderColor: primaryColor } : {}}>
                           {isMainDone ? <CheckCircle2 size={30} /> : <span className="font-black text-2xl">{idx + 1}</span>}
                         </button>
                         <div className="flex-1">
-                          <h4 className={`font-black text-lg leading-tight ${isMainDone ? 'text-blue-500/50 line-through' : 'text-white'}`}>{group.main.name}</h4>
+                          <h4 className={`font-black text-lg leading-tight ${isMainDone ? 'opacity-50 line-through text-white' : 'text-white'}`}>{group.main.name}</h4>
                           <div className="flex gap-2 text-[10px] mt-1 text-slate-500 font-black uppercase tracking-widest"><span>{group.main.sets}</span>{group.main.weight && <span>• {group.main.weight}</span>}</div>
                         </div>
                         
-                        {/* BOTÃO YOUTUBE À PROVA DE FALHAS (EMBUTIDO) */}
                         <button 
                           onClick={async () => {
                             if (group.main.youtubeId) {
@@ -1628,12 +1811,8 @@ export default function App() {
                             } else {
                               showToast("A procurar vídeo...");
                               const id = await buscarVideoNoYouTube(group.main.name);
-                              if (id) {
-                                setVideoAtivo(id);
-                              } else {
-                                // PLANO B SUPREMO: Pesquisa embutida dentro do Modal!
-                                setVideoAtivo(`SEARCH:como fazer ${group.main.name} musculação execução`);
-                              }
+                              if (id) setVideoAtivo(id);
+                              else setVideoAtivo(`SEARCH:como fazer ${group.main.name} musculação execução`);
                             }
                           }} 
                           className={`p-3.5 rounded-2xl active:scale-90 transition-all ${group.main.youtubeId ? 'bg-red-600/10 text-red-500 border border-red-500/10' : 'bg-slate-800 text-slate-400 border border-slate-700 hover:text-red-400'}`}
@@ -1645,14 +1824,13 @@ export default function App() {
                       {group.partners.map((p: any) => {
                          const isPartnerDone = exerciciosFeitos.includes(p.id);
                          return (
-                            <div key={p.id} className={`ml-4 pl-6 border-l-2 flex items-center gap-4 transition-all duration-300 ${isPartnerDone ? 'border-cyan-500/20' : 'border-cyan-500/50'}`}>
-                                <button onClick={() => toggleDone(p.id)} className={`w-2 h-2 rounded-full ${isPartnerDone ? 'bg-cyan-500/30' : 'bg-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.5)]'}`}></button>
+                            <div key={p.id} className={`ml-4 pl-6 border-l-2 flex items-center gap-4 transition-all duration-300`} style={{ borderColor: isPartnerDone ? `${primaryColor}30` : `${primaryColor}80` }}>
+                                <button onClick={() => toggleDone(p.id)} className={`w-2 h-2 rounded-full shadow-lg`} style={{ backgroundColor: primaryColor, opacity: isPartnerDone ? 0.3 : 1 }}></button>
                                 <div className="flex-1">
-                                    <h4 className={`font-black text-sm leading-tight ${isPartnerDone ? 'text-cyan-400/40 line-through' : 'text-cyan-400'}`}>{p.name}</h4>
+                                    <h4 className={`font-black text-sm leading-tight ${isPartnerDone ? 'opacity-40 line-through text-white' : 'text-white'}`}>{p.name}</h4>
                                     <p className="text-[9px] text-slate-500 uppercase font-black tracking-widest mt-0.5">{p.sets}</p>
                                 </div>
                                 
-                                {/* BOTÃO YOUTUBE À PROVA DE FALHAS (BI-SET EMBUTIDO) */}
                                 <button 
                                   onClick={async () => {
                                     if (p.youtubeId) {
@@ -1660,11 +1838,8 @@ export default function App() {
                                     } else {
                                       showToast("A procurar vídeo...");
                                       const id = await buscarVideoNoYouTube(p.name);
-                                      if (id) {
-                                        setVideoAtivo(id);
-                                      } else {
-                                        setVideoAtivo(`SEARCH:como fazer ${p.name} musculação execução`);
-                                      }
+                                      if (id) setVideoAtivo(id);
+                                      else setVideoAtivo(`SEARCH:como fazer ${p.name} musculação execução`);
                                     }
                                   }} 
                                   className={`p-2 rounded-xl active:scale-90 transition-all ${p.youtubeId ? 'text-red-500/80 bg-red-500/10' : 'text-slate-500 bg-slate-800/50 hover:text-red-400'}`}
@@ -1680,7 +1855,7 @@ export default function App() {
               </div>
 
               <div className="mt-8 pb-10">
-                <button onClick={() => finalizarTreino(treinoSelecionado.title)} disabled={exerciciosFeitos.length < (treinoSelecionado.exercises?.length || 0)} className={`w-full py-6 rounded-[2rem] font-black text-xl transition-all shadow-2xl flex items-center justify-center gap-3 ${exerciciosFeitos.length >= (treinoSelecionado.exercises?.length || 0) ? 'bg-blue-600 text-white active:scale-95' : 'bg-slate-800 text-slate-600'}`}>
+                <button onClick={() => finalizarTreino(treinoSelecionado.title)} disabled={exerciciosFeitos.length < (treinoSelecionado.exercises?.length || 0)} className={`w-full py-6 rounded-[2rem] font-black text-xl transition-all shadow-2xl flex items-center justify-center gap-3 ${exerciciosFeitos.length >= (treinoSelecionado.exercises?.length || 0) ? 'text-white active:scale-95' : 'bg-slate-800 text-slate-600'}`} style={exerciciosFeitos.length >= (treinoSelecionado.exercises?.length || 0) ? getBrandStyle('bg') : {}}>
                    {exerciciosFeitos.length >= (treinoSelecionado.exercises?.length || 0) ? <><Flame fill="currentColor"/> CONCLUIR 🔥</> : `Faltam ${(treinoSelecionado.exercises?.length || 0) - exerciciosFeitos.length} Blocos`}
                 </button>
               </div>
@@ -1696,7 +1871,7 @@ export default function App() {
               { id: 'treinos', icon: Dumbbell, label: 'Fichas' },
               { id: 'perfil', icon: UserIcon, label: 'Perfil' }
             ].map(tab => (
-              <button key={tab.id} onClick={() => setAlunoTabAtiva(tab.id)} className={`flex flex-col items-center gap-1.5 transition-all duration-300 ${alunoTabAtiva === tab.id ? 'text-blue-500 scale-110' : 'text-slate-600 hover:text-slate-400'}`}>
+              <button key={tab.id} onClick={() => setAlunoTabAtiva(tab.id)} className={`flex flex-col items-center gap-1.5 transition-all duration-300 ${alunoTabAtiva === tab.id ? 'scale-110' : 'text-slate-600 hover:text-slate-400'}`} style={alunoTabAtiva === tab.id ? getBrandStyle('text') : {}}>
                 <tab.icon size={tab.id === 'treinos' ? 26 : 24} strokeWidth={alunoTabAtiva === tab.id ? 2.5 : 2} />
                 <span className="text-[9px] font-black uppercase tracking-[0.1em]">{tab.label}</span>
               </button>

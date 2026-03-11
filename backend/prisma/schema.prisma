@@ -19,21 +19,29 @@ model User {
   streak    Int      @default(0)         
   status    String   @default("Ativo")   
   
-  // --- CAMPOS DO PERFIL DO ALUNO ---
+  // --- CAMPOS DO PERFIL DO ALUNO / PERSONAL ---
   phone     String?
   age       String?
   weight    String?
   height    String?
   goal      String?  @default("Hipertrofia")
   notes     String?
-  avatar    String?  @db.Text // Permite imagens muito compridas em Base64
+  avatar    String?  @db.Text
 
-  // --- CAMPOS DO SAAS (Para Personal Trainers) ---
-  plano     String   @default("GRATIS") // Limites serão baseados nisto
-  iaUsadaMes Int     @default(0)        // Contador de IA mensal
+  // --- RECUPERAÇÃO DE PALAVRA-PASSE ---
+  resetToken   String?
+  resetExpires DateTime?
+
+  // --- CAMPOS DO SAAS ---
+  plano      String   @default("GRATIS")
+  iaUsadaMes Int      @default(0)
+
+  // --- WHITE LABEL (Apenas para Plano Elite) ---
+  brandName  String?
+  brandColor String?
+  brandLogo  String?  @db.Text
 
   // --- RELACIONAMENTOS SAAS ---
-  // Vincula um aluno (STUDENT) ao seu Personal Trainer (ADMIN)
   trainerId Int?
   trainer   User?    @relation("TrainerToStudent", fields: [trainerId], references: [id])
   alunos    User[]   @relation("TrainerToStudent")
@@ -64,7 +72,6 @@ model Exercise {
   weight      String   
   youtubeId   String?  
   
-  // --- CAMPOS PARA CONJUGADO ---
   isConjugado  Boolean  @default(false)
   conjugadoCom String? 
   
