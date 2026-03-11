@@ -5,9 +5,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql" // Alterado de sqlite para postgresql
-  url      = env("DATABASE_URL") // Agora lê o link do Neon do seu ficheiro .env
-  directUrl = env("DIRECT_URL") // Faltava esta linha!
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
@@ -26,6 +26,15 @@ model User {
   height    String?
   goal      String?  @default("Hipertrofia")
   notes     String?
+
+  // --- CAMPOS DO SAAS (Para Personal Trainers) ---
+  plano     String   @default("GRATIS") // Limites serão baseados nisto
+
+  // --- RELACIONAMENTOS SAAS ---
+  // Vincula um aluno (STUDENT) ao seu Personal Trainer (ADMIN)
+  trainerId Int?
+  trainer   User?    @relation("TrainerToStudent", fields: [trainerId], references: [id])
+  alunos    User[]   @relation("TrainerToStudent")
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

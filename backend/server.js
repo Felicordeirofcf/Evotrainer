@@ -13,7 +13,6 @@ app.use(express.json());
 const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;
 const JWT_SECRET = process.env.JWT_SECRET || "fallback-secreto-apenas-para-desenvolvimento";
 
-
 // ==========================================
 // MIDDLEWARES DE SEGURANÇA 
 // ==========================================
@@ -54,6 +53,25 @@ app.post('/api/login', async (req, res) => {
   } catch (error) { res.status(500).json({ error: "Erro ao fazer login." }); }
 });
 
+// NOVA ROTA: CADASTRO DO PERSONAL TRAINER (SaaS)
+app.post('/api/register', async (req, res) => {
+  const { name, email, password, role, plano } = req.body;
+  try {
+    const userExists = await prisma.user.findUnique({ where: { email } });
+    if (userExists) return res.status(400).json({ error: "Este e-mail já está registado." });
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const user = await prisma.user.create({
+      data: { name, email, password: hashedPassword, role, plano, status: 'Ativo' }
+    });
+
+    const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '30d' });
+    const { password: _, ...userWithoutPassword } = user;
+    
+    res.status(201).json({ message: "Conta criada com sucesso!", token, user: userWithoutPassword });
+  } catch (error) { res.status(500).json({ error: "Erro ao criar conta." }); }
+});
+
 app.post('/api/setup-admin', async (req, res) => {
   const { name, email, password } = req.body;
   try {
@@ -66,12 +84,13 @@ app.post('/api/setup-admin', async (req, res) => {
 });
 
 // ==========================================
-// ROTAS DE ALUNOS 
+// ROTAS DE ALUNOS (ISOLAMENTO SAAS APLICADO)
 // ==========================================
 app.get('/api/alunos', authenticateToken, isAdmin, async (req, res) => {
   try {
+    // ATUALIZADO: O Personal só vê os alunos vinculados a ele (trainerId)
     const alunos = await prisma.user.findMany({ 
-      where: { role: 'STUDENT' }, 
+      where: { role: 'STUDENT', trainerId: req.user.id }, 
       orderBy: { createdAt: 'desc' },
       include: { workouts: { orderBy: { id: 'asc' } }, _count: { select: { workouts: true } } }
     });
@@ -82,11 +101,25 @@ app.get('/api/alunos', authenticateToken, isAdmin, async (req, res) => {
 app.post('/api/alunos', authenticateToken, isAdmin, async (req, res) => {
   const { name, email, password } = req.body;
   try {
+    // LÓGICA DO SAAS: Verifica limites do plano
+    const trainerInfo = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      include: { _count: { select: { alunos: true } } }
+    });
+
+    const limits = { 'GRATIS': 5, 'START': 20, 'PRO': 9999, 'ELITE': 9999 };
+    const planoAtual = trainerInfo.plano || 'GRATIS';
+    
+    if (trainerInfo._count.alunos >= limits[planoAtual]) {
+      return res.status(403).json({ error: `Limite atingido! O plano ${planoAtual} permite até ${limits[planoAtual]} alunos.` });
+    }
+
     const passToHash = password || "123456";
     const hashedPassword = await bcrypt.hash(passToHash, 10);
 
+    // Cria aluno vinculado ao Trainer que fez a requisição
     const novo = await prisma.user.create({ 
-        data: { name, email, password: hashedPassword, role: 'STUDENT', status: 'Novo', streak: 0 } 
+        data: { name, email, password: hashedPassword, role: 'STUDENT', status: 'Novo', streak: 0, trainerId: req.user.id } 
     });
     res.status(201).json(novo);
   } catch (error) { res.status(400).json({ error: "Erro ao criar aluno" }); }
@@ -100,23 +133,15 @@ app.put('/api/alunos/:id/status', authenticateToken, isAdmin, async (req, res) =
   } catch (error) { res.status(500).json({ error: "Erro" }); }
 });
 
-// NOVO: ROTA PARA EXCLUIR O ALUNO COMPLETAMENTE
 app.delete('/api/alunos/:id', authenticateToken, isAdmin, async (req, res) => {
   const alunoId = parseInt(req.params.id);
   try {
-    // 1. Apagar histórico de treinos do aluno
     await prisma.workoutHistory.deleteMany({ where: { userId: alunoId } });
-    
-    // 2. Apagar exercícios dos treinos do aluno
     const treinos = await prisma.workoutTemplate.findMany({ where: { userId: alunoId } });
     for (const treino of treinos) {
       await prisma.exercise.deleteMany({ where: { workoutId: treino.id } });
     }
-
-    // 3. Apagar os treinos base do aluno
     await prisma.workoutTemplate.deleteMany({ where: { userId: alunoId } });
-
-    // 4. Finalmente, apagar o próprio aluno
     await prisma.user.delete({ where: { id: alunoId } });
 
     res.json({ message: "Aluno excluído com sucesso!" });
