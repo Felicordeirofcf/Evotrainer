@@ -298,6 +298,14 @@ export default function App() {
     return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
   }, []);
 
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') setShowInstallBanner(false);
+    setDeferredPrompt(null);
+  };
+
   useEffect(() => {
     const savedToken = localStorage.getItem('treino_ai_token');
     const savedUser = localStorage.getItem('treino_ai_user');
@@ -837,7 +845,6 @@ export default function App() {
       if (res.ok) {
         const up = await res.json(); setCurrentUser(up); localStorage.setItem('treino_ai_user', JSON.stringify(up)); showToast("Perfil salvo!");
         
-        // Atualiza a marca localmente se o Personal mudar as cores
         if(currentUser.role === 'ADMIN' && currentUser.plano === 'ELITE') {
            const newBrand = { name: profileForm.brandName, color: profileForm.brandColor, logo: profileForm.brandLogo };
            setCurrentBrand(newBrand);
@@ -882,7 +889,6 @@ export default function App() {
   const primaryColor = currentBrand?.color || '#2563eb'; // blue-600 padrão
   const brandName = currentBrand?.name || 'EVOTRAINER';
   
-  // Função auxiliar para injetar a cor principal em elementos dinâmicos
   const getBrandStyle = (type: 'bg' | 'text' | 'border') => {
     if(!currentBrand?.color) return {};
     if(type === 'bg') return { backgroundColor: currentBrand.color };
@@ -1159,6 +1165,7 @@ export default function App() {
             {/* ADMIN TAB: ALUNOS & DASHBOARD */}
             {adminTabAtiva === 'alunos' && (
               <div className="animate-fade-in flex flex-col gap-6">
+                {/* Dashboard Simples */}
                 <div className="grid grid-cols-3 gap-3">
                   <div className="bg-blue-600/10 border border-blue-500/20 p-4 rounded-2xl flex flex-col items-center justify-center text-center shadow-lg">
                     <p className="text-[9px] text-blue-400 font-black uppercase tracking-widest mb-1">Total</p>
@@ -1290,7 +1297,7 @@ export default function App() {
               </div>
             )}
 
-            {/* ADMIN TAB: PERFIL DO PERSONAL (COM WHITE LABEL) */}
+            {/* ADMIN TAB: PERFIL DO PERSONAL (COM OPÇÕES DE UPGRADE) */}
             {adminTabAtiva === 'perfil' && (
               <div className="flex flex-col gap-6 animate-fade-in pb-8">
                  
@@ -1441,6 +1448,7 @@ export default function App() {
                 </div>
                 
                 <div className="flex flex-col gap-4">
+                  {/* START BRONZE */}
                   <div className="bg-slate-950 border border-amber-700/30 p-5 rounded-3xl flex flex-col gap-4 relative overflow-hidden">
                     <div className="absolute top-0 right-0 bg-amber-700/20 text-amber-500 text-[8px] font-black px-3 py-1 rounded-bl-xl uppercase tracking-widest">R$ 30/mês</div>
                     <div>
@@ -1456,6 +1464,7 @@ export default function App() {
                     </button>
                   </div>
 
+                  {/* PRO SILVER */}
                   <div className="bg-slate-950 border border-blue-500 p-5 rounded-3xl flex flex-col gap-4 relative overflow-hidden shadow-[0_0_15px_rgba(59,130,246,0.15)]">
                     <div className="absolute top-0 right-0 bg-blue-600 text-white text-[8px] font-black px-3 py-1 rounded-bl-xl uppercase tracking-widest">R$ 60/mês</div>
                     <div>
@@ -1472,6 +1481,7 @@ export default function App() {
                     </button>
                   </div>
 
+                  {/* ELITE OURO */}
                   <div className="bg-slate-950 border border-yellow-500 p-5 rounded-3xl flex flex-col gap-4 relative overflow-hidden shadow-[0_0_15px_rgba(234,179,8,0.15)]">
                     <div className="absolute top-0 right-0 bg-yellow-500 text-slate-900 text-[8px] font-black px-3 py-1 rounded-bl-xl uppercase tracking-widest">R$ 100/mês</div>
                     <div>
@@ -1881,4 +1891,20 @@ export default function App() {
       </div>
     </div>
   );
+}
+
+// Helper: Group conjugate exercises
+function getGroupedExercises(exercisesArray: any[]) {
+  const grouped: any[] = [];
+  const skipIndices = new Set(); 
+  exercisesArray.forEach((ex, idx) => {
+    if (skipIndices.has(idx)) return; 
+    const group = { main: { ...ex, originalIndex: idx }, partners: [] as any[] };
+    if (ex.isConjugado && ex.conjugadoCom) {
+      const pIdx = exercisesArray.findIndex((e, i) => i !== idx && !skipIndices.has(i) && e.name === ex.conjugadoCom);
+      if (pIdx !== -1) { group.partners.push({ ...exercisesArray[pIdx], originalIndex: pIdx }); skipIndices.add(pIdx); }
+    }
+    grouped.push(group);
+  });
+  return grouped;
 }
