@@ -7,12 +7,13 @@ const jwt = require('jsonwebtoken');
 const prisma = new PrismaClient();
 const app = express();
 
+// AUMENTAR O LIMITE DO JSON PARA SUPORTAR AS IMAGENS BASE64
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' })); 
 
 // AS SUAS CHAVES DE API AGORA FICAM SEGURAS AQUI NO BACKEND
 const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY; // <-- ADICIONE ISSO NO SEU .ENV DO BACKEND
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY; 
 const JWT_SECRET = process.env.JWT_SECRET || "fallback-secreto-apenas-para-desenvolvimento";
 
 // ==========================================
@@ -53,8 +54,8 @@ app.post('/api/login', async (req, res) => {
     
     res.json({ token, user: userWithoutPassword });
   } catch (error) { 
-    console.error("ERRO NO LOGIN:", error); // Log detalhado no terminal
-    res.status(500).json({ error: "Erro ao fazer login. Verifique o terminal do servidor." }); 
+    console.error("ERRO NO LOGIN:", error); 
+    res.status(500).json({ error: "Erro ao fazer login." }); 
   }
 });
 
@@ -97,7 +98,6 @@ app.post('/api/ai/gerar-treino', authenticateToken, isAdmin, async (req, res) =>
   const { alunoId, split, frequencia, prompt } = req.body;
 
   try {
-    // 1. CHECAR LIMITES DO PLANO DO PERSONAL
     const trainer = await prisma.user.findUnique({ where: { id: req.user.id } });
     const planoAtual = trainer.plano || 'GRATIS';
     
@@ -117,7 +117,6 @@ app.post('/api/ai/gerar-treino', authenticateToken, isAdmin, async (req, res) =>
       return res.status(500).json({ error: "A chave da OpenAI não está configurada no servidor." });
     }
 
-    // 2. CHAMAR O CHATGPT
     const systemPrompt = `Você é um Personal Trainer Master, especialista em biomecânica, periodização de treinos e reabilitação.
     Sua missão é criar fichas de treino altamente profissionais e seguras baseadas no perfil do aluno.
     DEVE RETORNAR OBRIGATORIAMENTE UM OBJETO JSON COM A ESTRUTURA:
@@ -156,7 +155,6 @@ app.post('/api/ai/gerar-treino', authenticateToken, isAdmin, async (req, res) =>
     const diasDaSemanaBase = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
     const freq = parseInt(frequencia);
 
-    // 3. SALVAR TREINOS NO BANCO E BUSCAR YOUTUBE AUTOMATICAMENTE
     for (let i = 0; i < freq; i++) {
       const indexDivisao = i % bibliotecasDeTreino.length;
       const treinoData = bibliotecasDeTreino[indexDivisao];
@@ -181,7 +179,6 @@ app.post('/api/ai/gerar-treino', authenticateToken, isAdmin, async (req, res) =>
       });
     }
 
-    // 4. ATUALIZAR CONTADOR DE USO DO PERSONAL
     await prisma.user.update({
       where: { id: req.user.id },
       data: { iaUsadaMes: trainer.iaUsadaMes + 1 }
@@ -258,15 +255,16 @@ app.delete('/api/alunos/:id', authenticateToken, isAdmin, async (req, res) => {
   } catch (error) { res.status(500).json({ error: "Erro ao excluir aluno." }); }
 });
 
+// AQUI ESTÁ A ATUALIZAÇÃO PARA GUARDAR O AVATAR!
 app.put('/api/alunos/:id/perfil', authenticateToken, async (req, res) => {
   const targetUserId = parseInt(req.params.id);
   if (req.user.role !== 'ADMIN' && req.user.id !== targetUserId) return res.status(403).json({ error: "Acesso negado." });
 
-  const { name, email, phone, age, weight, height, goal, notes } = req.body;
+  const { name, email, phone, age, weight, height, goal, notes, avatar } = req.body;
   try {
     const updatedUser = await prisma.user.update({
       where: { id: targetUserId },
-      data: { name, email, phone, age, weight, height, goal, notes }
+      data: { name, email, phone, age, weight, height, goal, notes, avatar }
     });
     const { password, ...userWithoutPassword } = updatedUser;
     res.json(userWithoutPassword);

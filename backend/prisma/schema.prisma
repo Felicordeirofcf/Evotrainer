@@ -26,6 +26,7 @@ model User {
   height    String?
   goal      String?  @default("Hipertrofia")
   notes     String?
+  avatar    String?  @db.Text // Permite imagens muito compridas em Base64
 
   // --- CAMPOS DO SAAS (Para Personal Trainers) ---
   plano     String   @default("GRATIS") // Limites serão baseados nisto

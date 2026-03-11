@@ -15,7 +15,6 @@ const getBaseUrl = () => {
   if (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_API_URL) {
     return process.env.NEXT_PUBLIC_API_URL;
   }
-  // Deteção inteligente: se estiver a rodar localmente, usa o backend local automaticamente
   if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
     return 'http://localhost:3001';
   }
@@ -192,12 +191,10 @@ export default function App() {
   
   const [isLoginMode, setIsLoginMode] = useState(true);
 
-  // Estados de Login
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
-  // Estados de Cadastro (Personal)
   const [signupName, setSignupName] = useState('');
   const [signupEmail, setSignupEmail] = useState('');
   const [signupPassword, setSignupPassword] = useState('');
@@ -210,7 +207,6 @@ export default function App() {
   const [showInstallBanner, setShowInstallBanner] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
 
-  // --- TOUR GUIADO (ONBOARDING) ---
   const [showTour, setShowTour] = useState(false);
   const [tourStep, setTourStep] = useState(0);
 
@@ -219,7 +215,6 @@ export default function App() {
   const [buscaAluno, setBuscaAluno] = useState(''); 
   const [showAddModal, setShowAddModal] = useState(false);
   
-  // ADICIONADO: Campo phone no formulário de Novo Aluno
   const [novoAluno, setNovoAluno] = useState({ name: '', email: '', password: '', phone: '' });
   const [adminTabAtiva, setAdminTabAtiva] = useState('alunos'); 
   
@@ -253,7 +248,7 @@ export default function App() {
 
   // --- ESTADOS PERFIL ---
   const [isSavingProfile, setIsSavingProfile] = useState(false);
-  const [profileForm, setProfileForm] = useState({ name: '', email: '', phone: '', age: '', weight: '', height: '', goal: 'Hipertrofia', notes: '' });
+  const [profileForm, setProfileForm] = useState({ name: '', email: '', phone: '', age: '', weight: '', height: '', goal: 'Hipertrofia', notes: '', avatar: '' });
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm: '' });
 
@@ -271,8 +266,6 @@ export default function App() {
     setToastMsg(textMessage);
     setTimeout(() => setToastMsg(''), 3500);
   };
-
-  const simularUploadFoto = () => showToast("Funcionalidade de foto em breve!");
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: any) => {
@@ -306,9 +299,8 @@ export default function App() {
       setProfileForm({
         name: currentUser.name || '', email: currentUser.email || '', phone: currentUser.phone || '',
         age: currentUser.age || '', weight: currentUser.weight || '', height: currentUser.height || '',
-        goal: currentUser.goal || 'Hipertrofia', notes: currentUser.notes || ''
+        goal: currentUser.goal || 'Hipertrofia', notes: currentUser.notes || '', avatar: currentUser.avatar || ''
       });
-      // Verifica se o usuário é ADMIN e tem um tour pendente
       if (currentUser.role === 'ADMIN' && localStorage.getItem('evotrainer_tour_pending') === 'true') {
         setShowTour(true);
         localStorage.removeItem('evotrainer_tour_pending');
@@ -337,7 +329,45 @@ export default function App() {
     return grouped;
   };
 
-  // --- EXPORTAÇÃO E WHATSAPP (PDF PREMIUM OTIMIZADO) ---
+  // --- UPLOAD DE AVATAR ---
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 3 * 1024 * 1024) { // Máximo 3MB
+      showToast("A imagem é muito grande. Escolha uma até 3MB.");
+      return;
+    }
+
+    showToast("A guardar foto...");
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      const base64String = reader.result as string;
+      
+      // Atualiza visualmente logo
+      setCurrentUser({ ...currentUser, avatar: base64String });
+      setProfileForm({ ...profileForm, avatar: base64String });
+
+      try {
+        const res = await fetch(`${API_URL}/alunos/${currentUser.id}/perfil`, {
+          method: 'PUT',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ ...profileForm, avatar: base64String })
+        });
+        if (res.ok) {
+          const updatedUser = await res.json();
+          setCurrentUser(updatedUser);
+          localStorage.setItem('treino_ai_user', JSON.stringify(updatedUser));
+          showToast("Foto de perfil atualizada com sucesso!");
+        }
+      } catch (error) {
+        showToast("Erro ao guardar a foto no servidor.");
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // --- EXPORTAÇÃO E WHATSAPP (PDF PREMIUM SEGURO COM VÍDEO) ---
   const exportarTreinoPDF = (treino: any, aluno: any, isStudent = false) => {
     const agrupados = getGroupedExercises(treino.exercises);
     let tableHTML = `
@@ -345,8 +375,8 @@ export default function App() {
         <thead>
           <tr>
             <th style="width: 5%; text-align: center;">#</th>
-            <th style="width: 35%; text-align: left;">Exercício</th>
-            <th style="width: 20%; text-align: center;">Séries</th>
+            <th style="width: 40%; text-align: left;">Exercício</th>
+            <th style="width: 15%; text-align: center;">Séries</th>
             <th style="width: 20%; text-align: center;">Carga/RPE</th>
             <th style="width: 20%; text-align: center;">Vídeo</th>
           </tr>
@@ -357,10 +387,14 @@ export default function App() {
     agrupados.forEach((group: any, index: number) => {
        const bgColor = index % 2 === 0 ? '#f9fafb' : '#ffffff';
        
-       // Criação do link do YouTube para o Exercício Principal
+       // PLANO B ATIVADO: Se não houver youtubeId, gera um link de pesquisa no YouTube!
+       const videoUrl = group.main.youtubeId 
+          ? `https://youtu.be/${group.main.youtubeId}`
+          : `https://www.youtube.com/results?search_query=${encodeURIComponent('como fazer ' + group.main.name + ' musculação execução')}`;
+       
        const videoLink = group.main.youtubeId 
-          ? `<a href="https://youtu.be/${group.main.youtubeId}" target="_blank" style="display: inline-block; background-color: #fee2e2; color: #dc2626; padding: 6px 12px; border-radius: 6px; text-decoration: none; font-size: 11px; font-weight: bold; border: 1px solid #fca5a5;">▶ Assistir</a>` 
-          : '<span style="color:#94a3b8;">-</span>';
+          ? `<a href="${videoUrl}" target="_blank" style="display: inline-block; background-color: #fee2e2; color: #dc2626; padding: 6px 12px; border-radius: 6px; text-decoration: none; font-size: 11px; font-weight: bold; border: 1px solid #fca5a5;">▶ Assistir</a>` 
+          : `<a href="${videoUrl}" target="_blank" style="display: inline-block; background-color: #f1f5f9; color: #475569; padding: 6px 12px; border-radius: 6px; text-decoration: none; font-size: 11px; font-weight: bold; border: 1px solid #cbd5e1;">🔍 Buscar</a>`;
 
        tableHTML += `
           <tr style="background-color: ${bgColor};">
@@ -372,11 +406,14 @@ export default function App() {
           </tr>
        `;
 
-       // Exercícios Conjugados (Bi-sets)
        group.partners.forEach((p: any) => {
+         const pVideoUrl = p.youtubeId 
+            ? `https://youtu.be/${p.youtubeId}`
+            : `https://www.youtube.com/results?search_query=${encodeURIComponent('como fazer ' + p.name + ' musculação execução')}`;
+         
          const pVideoLink = p.youtubeId 
-            ? `<a href="https://youtu.be/${p.youtubeId}" target="_blank" style="display: inline-block; background-color: #fee2e2; color: #dc2626; padding: 6px 12px; border-radius: 6px; text-decoration: none; font-size: 11px; font-weight: bold; border: 1px solid #fca5a5;">▶ Assistir</a>` 
-            : '<span style="color:#94a3b8;">-</span>';
+            ? `<a href="${pVideoUrl}" target="_blank" style="display: inline-block; background-color: #fee2e2; color: #dc2626; padding: 6px 12px; border-radius: 6px; text-decoration: none; font-size: 11px; font-weight: bold; border: 1px solid #fca5a5;">▶ Assistir</a>` 
+            : `<a href="${pVideoUrl}" target="_blank" style="display: inline-block; background-color: #f1f5f9; color: #475569; padding: 6px 12px; border-radius: 6px; text-decoration: none; font-size: 11px; font-weight: bold; border: 1px solid #cbd5e1;">🔍 Buscar</a>`;
 
          tableHTML += `
             <tr style="background-color: ${bgColor};" class="conjugado-row">
@@ -394,7 +431,6 @@ export default function App() {
 
     const geradoPor = isStudent ? 'Gerado via EvoTrainer App' : `Personal: ${currentUser?.name || 'Treinador'}`;
 
-    // Layout Moderno para o PDF Nativo
     const htmlContent = `
       <!DOCTYPE html>
       <html lang="pt">
@@ -421,7 +457,6 @@ export default function App() {
             @media print {
               .print-alert { display: none; }
               body { -webkit-print-color-adjust: exact; print-color-adjust: exact; padding: 0; }
-              /* Forçar cores de fundo na impressão */
               * { -webkit-print-color-adjust: exact !important; color-adjust: exact !important; }
               a { text-decoration: none !important; }
             }
@@ -468,31 +503,19 @@ export default function App() {
 
   const enviarTreinoWhatsApp = (treino: any, aluno: any) => {
     let telefone = aluno.phone || '';
-    telefone = telefone.replace(/\D/g, ''); // Limpa tudo que não for número
+    telefone = telefone.replace(/\D/g, ''); 
 
-    // Verifica e formata o telefone para o padrão do Brasil (55)
-    if (telefone.startsWith('0')) telefone = telefone.substring(1);
-    if (telefone.length === 10 || telefone.length === 11) {
+    if (telefone && !telefone.startsWith('55')) {
       telefone = '55' + telefone;
     }
 
-    if (!telefone || telefone.length < 12) {
-      const inputPhone = prompt("O aluno não tem um WhatsApp válido registado. Digite o número com DDD (ex: 11999999999):");
-      if (!inputPhone) return;
-      telefone = inputPhone.replace(/\D/g, '');
-      if (telefone.startsWith('0')) telefone = telefone.substring(1);
-      if (telefone.length === 10 || telefone.length === 11) {
-        telefone = '55' + telefone;
-      }
-    }
+    const mensagem = `Olá *${aluno.name.split(' ')[0]}*! 💪\n\nA sua nova ficha de treino *${treino.title}* já está configurada.\n\n⏱ *Duração:* ${treino.duration}\n📅 *Dia:* ${treino.dayOfWeek}\n\nAcesse ao seu App EvoTrainer para ver os vídeos de execução perfeitos!\n\nBora esmagar! 🔥`;
 
-    // Aciona a geração da página de PDF para o Personal ter o arquivo pronto
-    exportarTreinoPDF(treino, aluno);
+    // Apenas abre o WhatsApp. Retirámos a chamada simultânea do PDF para evitar bloqueios de pop-up.
+    const url = telefone && telefone.length >= 12 
+      ? `https://wa.me/${telefone}?text=${encodeURIComponent(mensagem)}`
+      : `https://wa.me/?text=${encodeURIComponent(mensagem)}`;
 
-    // Formata a mensagem com Markdown do WhatsApp
-    const mensagem = `Olá *${aluno.name.split(' ')[0]}*! 💪\n\nA sua nova ficha de treino *${treino.title}* já está configurada.\n\n⏱ *Duração:* ${treino.duration}\n📅 *Dia:* ${treino.dayOfWeek}\n\nAcesse ao seu App EvoTrainer para ver os vídeos de execução perfeitos, ou confira o PDF que estou enviando em anexo!\n\nBora esmagar! 🔥`;
-
-    const url = `https://wa.me/${telefone}?text=${encodeURIComponent(mensagem)}`;
     window.open(url, '_blank');
   };
 
@@ -552,7 +575,6 @@ export default function App() {
         setCurrentUser(data.user);
         localStorage.setItem('treino_ai_token', data.token);
         localStorage.setItem('treino_ai_user', JSON.stringify(data.user));
-        
         localStorage.setItem('evotrainer_tour_pending', 'true');
         
         setSignupName(''); setSignupEmail(''); setSignupPassword(''); setSignupConfirmPassword('');
@@ -893,7 +915,11 @@ export default function App() {
                       <div key={aluno.id} className={`bg-slate-950 p-5 rounded-[1.8rem] border border-slate-800 shadow-lg flex flex-col gap-4 transition-opacity ${aluno.status === 'Bloqueado' ? 'opacity-50' : ''}`}>
                         <div className="flex justify-between items-start">
                           <div className="flex items-center gap-3">
-                            <div className="w-11 h-11 bg-slate-900 border border-slate-700 text-blue-500 font-black rounded-xl flex items-center justify-center shadow-inner">{aluno.name.charAt(0)}</div>
+                            {aluno.avatar ? (
+                              <img src={aluno.avatar} alt="Avatar" className="w-11 h-11 rounded-xl object-cover shadow-inner" />
+                            ) : (
+                              <div className="w-11 h-11 bg-slate-900 border border-slate-700 text-blue-500 font-black rounded-xl flex items-center justify-center shadow-inner">{aluno.name.charAt(0).toUpperCase()}</div>
+                            )}
                             <div>
                               <p className="font-black text-white text-lg leading-tight">{aluno.name}</p>
                               <p className="text-[10px] text-slate-400 mt-0.5">{aluno.email}</p>
@@ -993,10 +1019,15 @@ export default function App() {
 
                  <div className="flex flex-col items-center justify-center bg-slate-900 border border-slate-800 p-8 rounded-[2.5rem] shadow-lg relative overflow-hidden">
                     <div className="relative z-10">
-                       <div className="w-24 h-24 bg-blue-600/20 text-blue-500 rounded-full flex items-center justify-center text-4xl font-black border-2 border-blue-500/50 shadow-[0_0_20px_rgba(59,130,246,0.2)]">
-                          {currentUser.name.charAt(0).toUpperCase()}
+                       <div className="w-24 h-24 bg-blue-600/20 text-blue-500 rounded-full flex items-center justify-center text-4xl font-black border-2 border-blue-500/50 shadow-[0_0_20px_rgba(59,130,246,0.2)] overflow-hidden">
+                          {currentUser?.avatar ? (
+                            <img src={currentUser.avatar} alt="Avatar" className="w-full h-full object-cover" />
+                          ) : (
+                            currentUser.name.charAt(0).toUpperCase()
+                          )}
                        </div>
-                       <button onClick={simularUploadFoto} className="absolute bottom-0 right-0 bg-blue-600 text-white p-2.5 rounded-full shadow-lg active:scale-90 transition-transform">
+                       <input type="file" id="adminAvatarUpload" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
+                       <button onClick={() => document.getElementById('adminAvatarUpload')?.click()} className="absolute bottom-0 right-0 bg-blue-600 text-white p-2.5 rounded-full shadow-lg active:scale-90 transition-transform">
                          <Camera size={16} />
                        </button>
                     </div>
@@ -1191,8 +1222,12 @@ export default function App() {
 
         <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-900 z-10 shadow-md">
            <div className="flex items-center gap-3">
-             <div className="w-12 h-12 bg-blue-600/20 rounded-full flex items-center justify-center text-cyan-400 font-black text-xl border border-blue-500/30 shadow-[0_0_10px_rgba(59,130,246,0.2)]">
-               {aluno.name.charAt(0).toUpperCase()}
+             <div className="w-12 h-12 bg-blue-600/20 rounded-full flex items-center justify-center text-cyan-400 font-black text-xl border border-blue-500/30 shadow-[0_0_10px_rgba(59,130,246,0.2)] overflow-hidden">
+                {aluno.avatar ? (
+                  <img src={aluno.avatar} alt="Avatar" className="w-full h-full object-cover" />
+                ) : (
+                  aluno.name.charAt(0).toUpperCase()
+                )}
              </div>
              <div>
                <h2 className="text-lg font-bold leading-tight">Olá, {aluno.name.split(' ')[0]}</h2>
@@ -1292,10 +1327,15 @@ export default function App() {
 
                <div className="flex flex-col items-center justify-center bg-slate-900 border border-slate-800 p-8 rounded-[2.5rem] shadow-lg relative overflow-hidden">
                   <div className="relative z-10">
-                     <div className="w-24 h-24 bg-blue-600/20 text-cyan-400 rounded-full flex items-center justify-center text-4xl font-black border-2 border-blue-500/50 shadow-[0_0_15px_rgba(59,130,246,0.2)]">
-                        {profileForm.name ? profileForm.name.charAt(0).toUpperCase() : 'U'}
+                     <div className="w-24 h-24 bg-blue-600/20 text-cyan-400 rounded-full flex items-center justify-center text-4xl font-black border-2 border-blue-500/50 shadow-[0_0_15px_rgba(59,130,246,0.2)] overflow-hidden">
+                        {profileForm.avatar ? (
+                          <img src={profileForm.avatar} alt="Avatar" className="w-full h-full object-cover" />
+                        ) : (
+                          profileForm.name ? profileForm.name.charAt(0).toUpperCase() : 'U'
+                        )}
                      </div>
-                     <button onClick={simularUploadFoto} className="absolute bottom-0 right-0 bg-blue-600 text-white p-2.5 rounded-full shadow-lg active:scale-90 transition-transform">
+                     <input type="file" id="alunoAvatarUpload" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
+                     <button onClick={() => document.getElementById('alunoAvatarUpload')?.click()} className="absolute bottom-0 right-0 bg-blue-600 text-white p-2.5 rounded-full shadow-lg active:scale-90 transition-transform">
                        <Camera size={16} />
                      </button>
                   </div>
