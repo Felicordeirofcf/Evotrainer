@@ -29,6 +29,7 @@ model User {
 
   // --- CAMPOS DO SAAS (Para Personal Trainers) ---
   plano     String   @default("GRATIS") // Limites serão baseados nisto
+  iaUsadaMes Int     @default(0)        // Contador de IA mensal
 
   // --- RELACIONAMENTOS SAAS ---
   // Vincula um aluno (STUDENT) ao seu Personal Trainer (ADMIN)

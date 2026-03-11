@@ -20,7 +20,6 @@ const getBaseUrl = () => {
 
 const API_URL = getBaseUrl().endsWith('/') ? `${getBaseUrl()}api` : `${getBaseUrl()}/api`;
 
-// Busca de Vídeo Camuflada
 const buscarVideoNoYouTube = async (nomeExercicio: string) => {
   try {
     const query = `como fazer ${nomeExercicio} execução correta musculação`;
@@ -477,57 +476,49 @@ export default function App() {
     } catch (e) {} finally { setIsDeleting(false); }
   };
 
-  // --- TREINO INTELIGENTE (IA) ---
+  // --- TREINO INTELIGENTE (IA NO BACKEND MANTENDO SEGURANÇA) ---
   const gerarTreinoInteligente = async () => {
     setIsGeneratingIA(true);
-    const aluno = alunos.find(a => a.id === Number(iaAlunoId));
-    const openAiApiKey = typeof process !== 'undefined' ? process.env?.NEXT_PUBLIC_OPENAI_API_KEY : '';
 
-    if (!openAiApiKey || !aluno) {
-      showToast("Configuração pendente ou aluno não selecionado.");
-      setIsGeneratingIA(false); return;
+    if (!iaAlunoId) {
+      showToast("Selecione um aluno primeiro.");
+      setIsGeneratingIA(false); 
+      return;
     }
 
     try {
-      showToast("A IA está a criar a estrutura...");
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      showToast("A IA está a analisar o perfil. Isso pode demorar até 15 segundos...");
+
+      const response = await fetch(`${API_URL}/ai/gerar-treino`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${openAiApiKey}` },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
-          model: 'gpt-4o-mini', 
-          messages: [
-            { role: 'system', content: 'Você é um Personal Trainer Master. Devolva um JSON com { "fichas": [...] } contendo treinos detalhados, biomecanicamente corretos e periodizados.' },
-            { role: 'user', content: `Cria um plano de treino divisão ${iaSplit} para o aluno ${aluno.name}. Restrições e Foco: ${iaPrompt}. Retorna apenas o JSON estruturado conforme solicitado.` }
-          ],
-          response_format: { type: "json_object" }
+          alunoId: iaAlunoId,
+          split: iaSplit,
+          frequencia: iaFrequencia,
+          prompt: iaPrompt
         })
       });
 
       const data = await response.json();
-      if (data.error) throw new Error(data.error.message || "Erro na OpenAI");
-      
-      const fichas = JSON.parse(data.choices[0].message.content).fichas;
-      const diasDaSemanaBase = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
-      const freq = parseInt(iaFrequencia);
 
-      showToast("Fichas criadas! Pesquisando vídeos de execução no YouTube...");
-
-      for (let i = 0; i < freq; i++) {
-        const f = fichas[i % fichas.length];
-        const exercisesVideos = [];
-        for (const ex of f.exercises) {
-          const vid = await buscarVideoNoYouTube(ex.name);
-          exercisesVideos.push({ ...ex, youtubeId: vid });
-        }
-        await fetch(`${API_URL}/treinos`, {
-          method: 'POST',
-          headers: getAuthHeaders(),
-          body: JSON.stringify({ userId: aluno.id, title: f.title, duration: f.duration, dayOfWeek: diasDaSemanaBase[i], exercises: exercisesVideos })
-        });
+      if (!response.ok) {
+        throw new Error(data.error || "Falha ao gerar treino com IA.");
       }
-      showToast("Treino Inteligente distribuído com sucesso!");
-      setIaPrompt(''); fetchAlunos(); setAdminTabAtiva('alunos');
-    } catch (e:any) { showToast(`Falha na IA: ${e.message || "Erro desconhecido"}`); } finally { setIsGeneratingIA(false); }
+
+      showToast(data.message);
+      setIaPrompt('');
+      setIaSplit('ABC');
+      setIaFrequencia('5'); 
+      await fetchAlunos(); 
+      setAdminTabAtiva('alunos');
+
+    } catch (err: any) {
+      console.error(err);
+      showToast(`Aviso: ${err.message}`);
+    } finally {
+      setIsGeneratingIA(false);
+    }
   };
 
   // --- ALUNO API ---
@@ -609,6 +600,7 @@ export default function App() {
   const toggleConjugado = (i: number) => { const n = [...novoTreino.exercises]; n[i].isConjugado = !n[i].isConjugado; if(!n[i].isConjugado) n[i].conjugadoCom = ''; setNovoTreino({ ...novoTreino, exercises: n }); };
   const toggleDone = (id: number) => { if (exerciciosFeitos.includes(id)) setExerciciosFeitos(exerciciosFeitos.filter(i => i !== id)); else setExerciciosFeitos([...exerciciosFeitos, id]); };
 
+
   // ==================== RENDERIZAÇÃO DE AUTENTICAÇÃO ====================
   if (!currentUser) {
     return (
@@ -667,6 +659,7 @@ export default function App() {
             </button>
           </div>
         </div>
+        {toastMsg && <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[300] bg-blue-600 text-white font-bold px-4 py-2 rounded-full shadow-lg text-sm whitespace-nowrap animate-fade-in">{toastMsg}</div>}
       </div>
     );
   }
@@ -822,9 +815,9 @@ export default function App() {
                     ></textarea>
                   </div>
 
-                  <button onClick={gerarTreinoIA} disabled={isGeneratingIA || !iaAlunoId || !iaPrompt} className="w-full mt-2 bg-indigo-600 hover:bg-indigo-500 text-white font-black text-sm py-5 rounded-[1.5rem] flex items-center justify-center gap-2 shadow-[0_10px_30px_rgba(79,70,229,0.4)] active:scale-95 transition-all disabled:opacity-50 uppercase tracking-widest">
+                  <button onClick={gerarTreinoInteligente} disabled={isGeneratingIA || !iaAlunoId || !iaPrompt} className="w-full mt-2 bg-indigo-600 hover:bg-indigo-500 text-white font-black text-sm py-5 rounded-[1.5rem] flex items-center justify-center gap-2 shadow-[0_10px_30px_rgba(79,70,229,0.4)] active:scale-95 transition-all disabled:opacity-50 uppercase tracking-widest">
                     {isGeneratingIA ? <Activity className="animate-spin" /> : <Sparkles size={20} />} 
-                    {isGeneratingIA ? 'A Criar Magia...' : 'Gerar Treino Inteligente'}
+                    {isGeneratingIA ? 'Criando Estrutura...' : 'Gerar Treino Inteligente'}
                   </button>
                 </div>
               </div>
@@ -931,7 +924,7 @@ export default function App() {
             </div>
           )}
 
-          {/* MODAL CRIAR/EDITAR TREINO (ADMIN - COM YOUTUBE E AUTO-BUSCA) */}
+          {/* MODAL CRIAR/EDITAR TREINO (ADMIN) */}
           {showTreinoModal && (
             <div className="fixed inset-0 bg-black/95 z-[250] p-4 flex flex-col justify-start overflow-y-auto pt-10 pb-10">
               <div className="bg-slate-900 border border-slate-800 p-6 rounded-[2.5rem] w-full max-w-xl mx-auto shadow-2xl animate-fade-in">

@@ -10,7 +10,9 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// AS SUAS CHAVES DE API AGORA FICAM SEGURAS AQUI NO BACKEND
 const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY; // <-- ADICIONE ISSO NO SEU .ENV DO BACKEND
 const JWT_SECRET = process.env.JWT_SECRET || "fallback-secreto-apenas-para-desenvolvimento";
 
 // ==========================================
@@ -53,7 +55,6 @@ app.post('/api/login', async (req, res) => {
   } catch (error) { res.status(500).json({ error: "Erro ao fazer login." }); }
 });
 
-// NOVA ROTA: CADASTRO DO PERSONAL TRAINER (SaaS)
 app.post('/api/register', async (req, res) => {
   const { name, email, password, role, plano } = req.body;
   try {
@@ -84,11 +85,114 @@ app.post('/api/setup-admin', async (req, res) => {
 });
 
 // ==========================================
-// ROTAS DE ALUNOS (ISOLAMENTO SAAS APLICADO)
+// TREINO INTELIGENTE (LIMITES DE SAAS E OPENAI)
+// ==========================================
+app.post('/api/ai/gerar-treino', authenticateToken, isAdmin, async (req, res) => {
+  const { alunoId, split, frequencia, prompt } = req.body;
+
+  try {
+    // 1. CHECAR LIMITES DO PLANO DO PERSONAL
+    const trainer = await prisma.user.findUnique({ where: { id: req.user.id } });
+    const planoAtual = trainer.plano || 'GRATIS';
+    
+    const IA_LIMITS = { 'GRATIS': 0, 'START': 10, 'PRO': 40, 'ELITE': 9999 };
+    const limitePermitido = IA_LIMITS[planoAtual];
+
+    if (trainer.iaUsadaMes >= limitePermitido) {
+      return res.status(403).json({ 
+        error: `Você atingiu o limite de ${limitePermitido} treinos com IA. Faça upgrade do seu plano para liberar mais!` 
+      });
+    }
+
+    const aluno = await prisma.user.findUnique({ where: { id: parseInt(alunoId) } });
+    if (!aluno || aluno.trainerId !== req.user.id) return res.status(404).json({ error: "Aluno não encontrado." });
+
+    if (!OPENAI_API_KEY) {
+      return res.status(500).json({ error: "A chave da OpenAI não está configurada no servidor." });
+    }
+
+    // 2. CHAMAR O CHATGPT
+    const systemPrompt = `Você é um Personal Trainer Master, especialista em biomecânica, periodização de treinos e reabilitação.
+    Sua missão é criar fichas de treino altamente profissionais e seguras baseadas no perfil do aluno.
+    DEVE RETORNAR OBRIGATORIAMENTE UM OBJETO JSON COM A ESTRUTURA:
+    {
+      "fichas": [
+        {
+          "title": "Treino A - [Foco]",
+          "duration": "[Ex: 50 min]",
+          "exercises": [ { "name": "...", "sets": "...", "weight": "...", "isConjugado": false, "conjugadoCom": "" } ]
+        }
+      ]
+    }
+    REGRAS CRÍTICAS:
+    1. Crie exatamente a quantidade de fichas para a divisão pedida (ex: se pedir ABC, crie 3 fichas no array).
+    2. Substitua exercícios de alto impacto caso o perfil do aluno cite restrições médicas.
+    3. Retorne APENAS o JSON.`;
+
+    const userPrompt = `Crie um plano para o aluno ${aluno.name}. Divisão pedida: ${split}. Perfil e Restrições: ${prompt}`;
+
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${OPENAI_API_KEY}` },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini', 
+        messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }],
+        response_format: { type: "json_object" }, temperature: 0.7
+      })
+    });
+
+    const data = await response.json();
+    if (data.error) throw new Error(data.error.message);
+
+    const conteudoIA = JSON.parse(data.choices[0].message.content);
+    const bibliotecasDeTreino = conteudoIA.fichas;
+
+    const diasDaSemanaBase = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
+    const freq = parseInt(frequencia);
+
+    // 3. SALVAR TREINOS NO BANCO E BUSCAR YOUTUBE AUTOMATICAMENTE
+    for (let i = 0; i < freq; i++) {
+      const indexDivisao = i % bibliotecasDeTreino.length;
+      const treinoData = bibliotecasDeTreino[indexDivisao];
+      
+      const exercisesWithVideo = await Promise.all(treinoData.exercises.map(async (ex) => {
+        let youtubeId = null;
+        try {
+          const termoBusca = encodeURIComponent(`${ex.name} exercicio musculacao execucao`);
+          const ytResponse = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&q=${termoBusca}&maxResults=1&type=video&videoEmbeddable=true&key=${YOUTUBE_API_KEY}`);
+          const ytData = await ytResponse.json();
+          if (ytData.items && ytData.items.length > 0) youtubeId = ytData.items[0].id.videoId;
+        } catch (err) {}
+
+        return { 
+          name: ex.name, sets: ex.sets, weight: ex.weight || "", youtubeId, 
+          isConjugado: ex.isConjugado || false, conjugadoCom: ex.conjugadoCom || null 
+        };
+      }));
+
+      await prisma.workoutTemplate.create({
+        data: { title: treinoData.title, duration: treinoData.duration, userId: aluno.id, dayOfWeek: diasDaSemanaBase[i], exercises: { create: exercisesWithVideo } }
+      });
+    }
+
+    // 4. ATUALIZAR CONTADOR DE USO DO PERSONAL
+    await prisma.user.update({
+      where: { id: req.user.id },
+      data: { iaUsadaMes: trainer.iaUsadaMes + 1 }
+    });
+
+    res.json({ message: "Plano de Treino Inteligente gerado e salvo com sucesso!" });
+  } catch (error) {
+    console.error("Erro na rota de IA:", error);
+    res.status(500).json({ error: error.message || "Falha ao gerar treino com IA." });
+  }
+});
+
+// ==========================================
+// ROTAS DE ALUNOS E TREINOS 
 // ==========================================
 app.get('/api/alunos', authenticateToken, isAdmin, async (req, res) => {
   try {
-    // ATUALIZADO: O Personal só vê os alunos vinculados a ele (trainerId)
     const alunos = await prisma.user.findMany({ 
       where: { role: 'STUDENT', trainerId: req.user.id }, 
       orderBy: { createdAt: 'desc' },
@@ -101,7 +205,6 @@ app.get('/api/alunos', authenticateToken, isAdmin, async (req, res) => {
 app.post('/api/alunos', authenticateToken, isAdmin, async (req, res) => {
   const { name, email, password } = req.body;
   try {
-    // LÓGICA DO SAAS: Verifica limites do plano
     const trainerInfo = await prisma.user.findUnique({
       where: { id: req.user.id },
       include: { _count: { select: { alunos: true } } }
@@ -117,7 +220,6 @@ app.post('/api/alunos', authenticateToken, isAdmin, async (req, res) => {
     const passToHash = password || "123456";
     const hashedPassword = await bcrypt.hash(passToHash, 10);
 
-    // Cria aluno vinculado ao Trainer que fez a requisição
     const novo = await prisma.user.create({ 
         data: { name, email, password: hashedPassword, role: 'STUDENT', status: 'Novo', streak: 0, trainerId: req.user.id } 
     });
@@ -143,16 +245,10 @@ app.delete('/api/alunos/:id', authenticateToken, isAdmin, async (req, res) => {
     }
     await prisma.workoutTemplate.deleteMany({ where: { userId: alunoId } });
     await prisma.user.delete({ where: { id: alunoId } });
-
     res.json({ message: "Aluno excluído com sucesso!" });
-  } catch (error) {
-    res.status(500).json({ error: "Erro ao excluir aluno." });
-  }
+  } catch (error) { res.status(500).json({ error: "Erro ao excluir aluno." }); }
 });
 
-// ==========================================
-// PERFIL DO ALUNO
-// ==========================================
 app.put('/api/alunos/:id/perfil', authenticateToken, async (req, res) => {
   const targetUserId = parseInt(req.params.id);
   if (req.user.role !== 'ADMIN' && req.user.id !== targetUserId) return res.status(403).json({ error: "Acesso negado." });
@@ -184,9 +280,6 @@ app.put('/api/alunos/:id/senha', authenticateToken, async (req, res) => {
   } catch (error) { res.status(500).json({ error: "Erro." }); }
 });
 
-// ==========================================
-// ROTAS DE TREINOS 
-// ==========================================
 app.post('/api/treinos', authenticateToken, isAdmin, async (req, res) => {
   const { title, duration, exercises, userId, dayOfWeek } = req.body; 
   try {
