@@ -20,7 +20,7 @@ const getBaseUrl = () => {
 
 const API_URL = getBaseUrl().endsWith('/') ? `${getBaseUrl()}api` : `${getBaseUrl()}/api`;
 
-// Busca de Vídeo Camuflada (Chama a API interna)
+// Busca de Vídeo Camuflada
 const buscarVideoNoYouTube = async (nomeExercicio: string) => {
   try {
     const query = `como fazer ${nomeExercicio} execução correta musculação`;
@@ -31,7 +31,6 @@ const buscarVideoNoYouTube = async (nomeExercicio: string) => {
   } catch (error) { return ''; }
 };
 
-// Função auxiliar para links diretos
 const extractYouTubeId = (url: string) => {
   if (!url) return '';
   if (url.length === 11 && !url.includes('http')) return url;
@@ -40,6 +39,148 @@ const extractYouTubeId = (url: string) => {
   return (match && match[2].length === 11) ? match[2] : url;
 };
 
+// ==========================================
+// 🧩 COMPONENTES GLOBAIS UI
+// ==========================================
+const InstallBanner = ({ showInstallBanner, setShowInstallBanner, handleInstallClick }: any) => {
+  if (!showInstallBanner) return null;
+  return (
+    <div className="fixed bottom-24 left-4 right-4 z-[110] bg-blue-600 p-4 rounded-2xl shadow-2xl flex items-center justify-between border border-blue-400 animate-fade-in sm:max-w-sm sm:mx-auto">
+      <div className="flex items-center gap-3">
+        <div className="bg-white/20 p-2 rounded-xl text-white"><Download size={24} /></div>
+        <div><p className="text-white font-black text-sm">Instalar EvoTrainer</p><p className="text-blue-100 text-[10px]">Acesse rápido pela tela inicial!</p></div>
+      </div>
+      <div className="flex gap-2">
+        <button onClick={() => setShowInstallBanner(false)} className="text-white/70 p-2"><X size={18}/></button>
+        <button onClick={handleInstallClick} className="bg-white text-blue-600 font-bold px-4 py-2 rounded-xl text-xs shadow-lg active:scale-95 transition-transform uppercase">Instalar</button>
+      </div>
+    </div>
+  );
+};
+
+const YoutubeModal = ({ videoAtivo, setVideoAtivo }: any) => {
+  if (!videoAtivo) return null;
+  const iframeSrc = videoAtivo.startsWith('SEARCH:') 
+    ? `https://www.youtube.com/embed?listType=search&list=${encodeURIComponent(videoAtivo.replace('SEARCH:', ''))}&autoplay=1`
+    : `https://www.youtube.com/embed/${videoAtivo}?autoplay=1&rel=0`;
+
+  return (
+    <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-[400] flex items-center justify-center p-4 animate-fade-in">
+      <div className="bg-slate-900 border border-slate-800 rounded-[2.5rem] w-full max-w-lg overflow-hidden shadow-2xl flex flex-col relative">
+        <div className="p-5 flex justify-between items-center border-b border-slate-800 bg-slate-950">
+          <h3 className="text-white font-black text-xs uppercase tracking-[0.2em] flex items-center gap-2"><Youtube size={18} className="text-red-500"/> Execução Correta</h3>
+          <button onClick={() => setVideoAtivo(null)} className="bg-slate-800 hover:bg-red-500 text-slate-400 hover:text-white p-2 rounded-xl transition-colors"><X size={20} /></button>
+        </div>
+        <div className="w-full aspect-video bg-black relative"><iframe className="w-full h-full absolute inset-0" src={iframeSrc} allowFullScreen></iframe></div>
+        <div className="p-4 bg-slate-950"><button onClick={() => setVideoAtivo(null)} className="w-full py-4 bg-slate-800 hover:bg-slate-700 text-white font-black rounded-2xl uppercase tracking-widest text-[10px] transition-colors">Fechar Vídeo</button></div>
+      </div>
+    </div>
+  );
+};
+
+const TourModal = ({ showTour, setShowTour, tourStep, setTourStep }: any) => {
+  if (!showTour) return null;
+
+  const tourSteps = [
+    { 
+      title: "Bem-vindo ao EvoTrainer! 🚀", 
+      text: "Vamos fazer um tour rápido para você entender como nossa plataforma vai escalar a sua consultoria e economizar horas de trabalho.", 
+      icon: <Sparkles size={60} className="text-blue-500 mx-auto" /> 
+    },
+    { 
+      title: "1. Gestão de Alunos 👥", 
+      text: "Na aba 'Alunos' você cadastra seus clientes. Cada aluno que você adicionar ganhará acesso a um App Exclusivo para visualizar os treinos.", 
+      icon: <Users size={60} className="text-emerald-500 mx-auto" /> 
+    },
+    { 
+      title: "2. Treino Inteligente 🧠", 
+      text: "Vá na aba 'Inteligência' e deixe a nossa IA gerar as fichas para você. Ela entende de periodização, biomecânica e patologias.", 
+      icon: <Activity size={60} className="text-indigo-500 mx-auto" /> 
+    },
+    { 
+      title: "3. Vídeos Automáticos 📺", 
+      text: "Adeus planilhas manuais! Para cada exercício gerado, nós buscamos e anexamos o vídeo correto de execução diretamente do YouTube.", 
+      icon: <Youtube size={60} className="text-red-500 mx-auto" /> 
+    },
+    { 
+      title: "4. A Visão do seu Aluno 📱", 
+      text: "O seu aluno entra no aplicativo, clica no 'Modo Foco' e consegue marcar os exercícios que já fez. Eles também ganham 'foguinhos' de ofensiva a cada treino para gamificar a rotina!", 
+      icon: (
+        <div className="w-32 h-56 bg-slate-950 border-[6px] border-slate-800 rounded-[2rem] mx-auto overflow-hidden relative shadow-lg">
+          <div className="absolute top-0 w-full h-4 bg-slate-800 rounded-b-xl flex justify-center"><div className="w-8 h-1 bg-slate-950 rounded-full mt-1"></div></div>
+          <div className="mt-8 px-3 space-y-2">
+            <div className="h-4 bg-blue-600/30 rounded w-1/2 mb-4"></div>
+            <div className="h-10 bg-slate-900 rounded-xl border border-slate-800 flex items-center px-2 gap-2">
+               <div className="w-4 h-4 bg-blue-600 rounded-full"></div><div className="h-2 bg-slate-700 rounded w-1/2"></div>
+            </div>
+            <div className="h-10 bg-slate-900 rounded-xl border border-slate-800 flex items-center px-2 gap-2">
+               <div className="w-4 h-4 bg-slate-700 rounded-full"></div><div className="h-2 bg-slate-700 rounded w-1/2"></div>
+            </div>
+            <div className="h-10 bg-blue-600 rounded-xl mt-6"></div>
+          </div>
+        </div>
+      )
+    },
+    { 
+      title: "Tudo Pronto! 🎉", 
+      text: "O sistema agora é seu. Comece adicionando o seu primeiro aluno ou testando a Inteligência Artificial.", 
+      icon: <CheckCircle2 size={60} className="text-blue-500 mx-auto" /> 
+    }
+  ];
+
+  const current = tourSteps[tourStep];
+
+  return (
+    <div className="fixed inset-0 bg-black/95 backdrop-blur-md z-[500] flex items-center justify-center p-6 animate-fade-in">
+      <div className="bg-slate-900 border border-slate-800 rounded-[3rem] w-full max-w-sm text-center p-8 shadow-2xl relative overflow-hidden">
+        <div className="absolute -top-10 -right-10 opacity-5">
+          <Sparkles size={200} />
+        </div>
+        
+        <div className="relative z-10">
+          <div className="mb-6 h-24 flex items-center justify-center">
+            {current.icon}
+          </div>
+          <h3 className="text-xl font-black text-white mb-4 leading-tight">{current.title}</h3>
+          <p className="text-slate-400 text-sm font-medium leading-relaxed min-h-[5rem]">
+            {current.text}
+          </p>
+          
+          <div className="flex justify-center gap-2 mt-8 mb-6">
+            {tourSteps.map((_, i) => (
+              <div key={i} className={`h-2 rounded-full transition-all ${i === tourStep ? 'w-8 bg-blue-600' : 'w-2 bg-slate-800'}`}></div>
+            ))}
+          </div>
+
+          <div className="flex gap-3">
+            {tourStep > 0 && (
+              <button onClick={() => setTourStep((prev: number) => prev - 1)} className="p-4 bg-slate-800 text-white rounded-2xl active:scale-95 transition-all">
+                <ChevronLeft size={20}/>
+              </button>
+            )}
+            {tourStep < tourSteps.length - 1 ? (
+              <button onClick={() => setTourStep((prev: number) => prev + 1)} className="flex-1 bg-blue-600 text-white font-black py-4 rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-blue-600/30 active:scale-95 transition-all uppercase tracking-widest text-xs">
+                Próximo <ChevronRight size={18}/>
+              </button>
+            ) : (
+              <button onClick={() => setShowTour(false)} className="flex-1 bg-emerald-600 text-white font-black py-4 rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/30 active:scale-95 transition-all uppercase tracking-widest text-xs">
+                VAMOS LÁ! <Flame size={18}/>
+              </button>
+            )}
+          </div>
+          
+          <button onClick={() => setShowTour(false)} className="mt-6 text-[10px] text-slate-500 font-bold uppercase tracking-widest hover:text-slate-300">
+            Pular Tour
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ==========================================
+// 🚀 APLICAÇÃO PRINCIPAL
+// ==========================================
 export default function App() {
   // --- ESTADOS DE AUTENTICAÇÃO ---
   const [currentUser, setCurrentUser] = useState<any>(null); 
@@ -226,15 +367,17 @@ export default function App() {
       const data = await res.json();
       
       if (res.ok) {
-        showToast("Conta criada! Fazendo login automaticamente...");
-        // Define a flag para exibir o tour guiado no primeiro login
+        // Salva login direto
+        setToken(data.token);
+        setCurrentUser(data.user);
+        localStorage.setItem('treino_ai_token', data.token);
+        localStorage.setItem('treino_ai_user', JSON.stringify(data.user));
+        
+        // Define a flag para exibir o tour guiado
         localStorage.setItem('evotrainer_tour_pending', 'true');
         
-        // Auto-login
-        setLoginEmail(signupEmail);
-        setLoginPassword(signupPassword);
-        setIsLoginMode(true); 
         setSignupName(''); setSignupEmail(''); setSignupPassword(''); setSignupConfirmPassword('');
+        showToast("Bem-vindo ao EvoTrainer!");
       } else {
         showToast(data.error || "Erro ao criar conta.");
       }
@@ -403,7 +546,6 @@ export default function App() {
         const result = await res.json();
         setCurrentUser({ ...currentUser, streak: result.novaOfensiva });
         localStorage.setItem('treino_ai_user', JSON.stringify({ ...currentUser, streak: result.novaOfensiva }));
-        // Abre o modal de feedback
         setShowFeedbackModal(true);
       }
     } catch (e) { showToast("Erro ao guardar o treino."); }
@@ -466,127 +608,6 @@ export default function App() {
   const removerExercicio = (i: number) => { const n = [...novoTreino.exercises]; const r = n[i].name; n.splice(i, 1); n.forEach(ex => { if (ex.conjugadoCom === r) { ex.isConjugado = false; ex.conjugadoCom = ''; } }); setNovoTreino({...novoTreino, exercises: n}); };
   const toggleConjugado = (i: number) => { const n = [...novoTreino.exercises]; n[i].isConjugado = !n[i].isConjugado; if(!n[i].isConjugado) n[i].conjugadoCom = ''; setNovoTreino({ ...novoTreino, exercises: n }); };
   const toggleDone = (id: number) => { if (exerciciosFeitos.includes(id)) setExerciciosFeitos(exerciciosFeitos.filter(i => i !== id)); else setExerciciosFeitos([...exerciciosFeitos, id]); };
-
-  // ==================== COMPONENTES UI ====================
-  const YoutubeModal = () => {
-    if (!videoAtivo) return null;
-    const iframeSrc = videoAtivo.startsWith('SEARCH:') 
-      ? `https://www.youtube.com/embed?listType=search&list=${encodeURIComponent(videoAtivo.replace('SEARCH:', ''))}&autoplay=1`
-      : `https://www.youtube.com/embed/${videoAtivo}?autoplay=1&rel=0`;
-
-    return (
-      <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-[400] flex items-center justify-center p-4 animate-fade-in">
-        <div className="bg-slate-900 border border-slate-800 rounded-[2.5rem] w-full max-w-lg overflow-hidden shadow-2xl flex flex-col relative">
-          <div className="p-5 flex justify-between items-center border-b border-slate-800 bg-slate-950">
-            <h3 className="text-white font-black text-xs uppercase tracking-[0.2em] flex items-center gap-2"><Youtube size={18} className="text-red-500"/> Execução Correta</h3>
-            <button onClick={() => setVideoAtivo(null)} className="bg-slate-800 hover:bg-red-500 text-slate-400 hover:text-white p-2 rounded-xl transition-colors"><X size={20} /></button>
-          </div>
-          <div className="w-full aspect-video bg-black relative"><iframe className="w-full h-full absolute inset-0" src={iframeSrc} allowFullScreen></iframe></div>
-          <div className="p-4 bg-slate-950"><button onClick={() => setVideoAtivo(null)} className="w-full py-4 bg-slate-800 hover:bg-slate-700 text-white font-black rounded-2xl uppercase tracking-widest text-[10px] transition-colors">Fechar Vídeo</button></div>
-        </div>
-      </div>
-    );
-  };
-
-  const TourModal = () => {
-    if (!showTour) return null;
-
-    const tourSteps = [
-      { 
-        title: "Bem-vindo ao EvoTrainer! 🚀", 
-        text: "Vamos fazer um tour rápido para você entender como nossa plataforma vai escalar a sua consultoria e economizar horas de trabalho.", 
-        icon: <Sparkles size={60} className="text-blue-500 mx-auto" /> 
-      },
-      { 
-        title: "1. Gestão de Alunos 👥", 
-        text: "Na aba 'Alunos' você cadastra seus clientes. Cada aluno que você adicionar ganhará acesso a um App Exclusivo para visualizar os treinos.", 
-        icon: <Users size={60} className="text-emerald-500 mx-auto" /> 
-      },
-      { 
-        title: "2. Treino Inteligente 🧠", 
-        text: "Vá na aba 'Inteligência' e deixe a nossa IA gerar as fichas para você. Ela entende de periodização, biomecânica e patologias.", 
-        icon: <Activity size={60} className="text-indigo-500 mx-auto" /> 
-      },
-      { 
-        title: "3. Vídeos Automáticos 📺", 
-        text: "Adeus planilhas manuais! Para cada exercício gerado, nós buscamos e anexamos o vídeo correto de execução diretamente do YouTube.", 
-        icon: <Youtube size={60} className="text-red-500 mx-auto" /> 
-      },
-      { 
-        title: "4. A Visão do seu Aluno 📱", 
-        text: "O seu aluno entra no aplicativo, clica no 'Modo Foco' e consegue marcar os exercícios que já fez. Eles também ganham 'foguinhos' de ofensiva a cada treino para gamificar a rotina!", 
-        icon: (
-          <div className="w-32 h-56 bg-slate-950 border-[6px] border-slate-800 rounded-[2rem] mx-auto overflow-hidden relative shadow-lg">
-            <div className="absolute top-0 w-full h-4 bg-slate-800 rounded-b-xl flex justify-center"><div className="w-8 h-1 bg-slate-950 rounded-full mt-1"></div></div>
-            <div className="mt-8 px-3 space-y-2">
-              <div className="h-4 bg-blue-600/30 rounded w-1/2 mb-4"></div>
-              <div className="h-10 bg-slate-900 rounded-xl border border-slate-800 flex items-center px-2 gap-2">
-                 <div className="w-4 h-4 bg-blue-600 rounded-full"></div><div className="h-2 bg-slate-700 rounded w-1/2"></div>
-              </div>
-              <div className="h-10 bg-slate-900 rounded-xl border border-slate-800 flex items-center px-2 gap-2">
-                 <div className="w-4 h-4 bg-slate-700 rounded-full"></div><div className="h-2 bg-slate-700 rounded w-1/2"></div>
-              </div>
-              <div className="h-10 bg-blue-600 rounded-xl mt-6"></div>
-            </div>
-          </div>
-        )
-      },
-      { 
-        title: "Tudo Pronto! 🎉", 
-        text: "O sistema agora é seu. Comece adicionando o seu primeiro aluno ou testando a Inteligência Artificial.", 
-        icon: <CheckCircle2 size={60} className="text-blue-500 mx-auto" /> 
-      }
-    ];
-
-    const current = tourSteps[tourStep];
-
-    return (
-      <div className="fixed inset-0 bg-black/95 backdrop-blur-md z-[500] flex items-center justify-center p-6 animate-fade-in">
-        <div className="bg-slate-900 border border-slate-800 rounded-[3rem] w-full max-w-sm text-center p-8 shadow-2xl relative overflow-hidden">
-          <div className="absolute -top-10 -right-10 opacity-5">
-            <Sparkles size={200} />
-          </div>
-          
-          <div className="relative z-10">
-            <div className="mb-6 h-24 flex items-center justify-center">
-              {current.icon}
-            </div>
-            <h3 className="text-xl font-black text-white mb-4 leading-tight">{current.title}</h3>
-            <p className="text-slate-400 text-sm font-medium leading-relaxed min-h-[5rem]">
-              {current.text}
-            </p>
-            
-            <div className="flex justify-center gap-2 mt-8 mb-6">
-              {tourSteps.map((_, i) => (
-                <div key={i} className={`h-2 rounded-full transition-all ${i === tourStep ? 'w-8 bg-blue-600' : 'w-2 bg-slate-800'}`}></div>
-              ))}
-            </div>
-
-            <div className="flex gap-3">
-              {tourStep > 0 && (
-                <button onClick={() => setTourStep(prev => prev - 1)} className="p-4 bg-slate-800 text-white rounded-2xl active:scale-95 transition-all">
-                  <ChevronLeft size={20}/>
-                </button>
-              )}
-              {tourStep < tourSteps.length - 1 ? (
-                <button onClick={() => setTourStep(prev => prev + 1)} className="flex-1 bg-blue-600 text-white font-black py-4 rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-blue-600/30 active:scale-95 transition-all uppercase tracking-widest text-xs">
-                  Próximo <ChevronRight size={18}/>
-                </button>
-              ) : (
-                <button onClick={() => setShowTour(false)} className="flex-1 bg-emerald-600 text-white font-black py-4 rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/30 active:scale-95 transition-all uppercase tracking-widest text-xs">
-                  VAMOS LÁ! <Flame size={18}/>
-                </button>
-              )}
-            </div>
-            
-            <button onClick={() => setShowTour(false)} className="mt-6 text-[10px] text-slate-500 font-bold uppercase tracking-widest hover:text-slate-300">
-              Pular Tour
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  };
 
   // ==================== RENDERIZAÇÃO DE AUTENTICAÇÃO ====================
   if (!currentUser) {
@@ -660,8 +681,10 @@ export default function App() {
       <div className="min-h-screen bg-slate-950 flex flex-col text-slate-50 md:items-center md:justify-center relative">
         <div className="w-full h-screen md:h-[850px] md:max-w-md bg-slate-900 md:rounded-[40px] md:border-[8px] border-slate-800 flex flex-col relative overflow-hidden shadow-2xl">
           {toastMsg && <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[300] bg-blue-600 text-white font-bold px-4 py-2 rounded-full shadow-lg text-sm whitespace-nowrap animate-fade-in">{toastMsg}</div>}
-          <InstallBanner />
-          <TourModal />
+          
+          <InstallBanner showInstallBanner={showInstallBanner} setShowInstallBanner={setShowInstallBanner} handleInstallClick={handleInstallClick} />
+          <TourModal showTour={showTour} setShowTour={setShowTour} tourStep={tourStep} setTourStep={setTourStep} />
+          <YoutubeModal videoAtivo={videoAtivo} setVideoAtivo={setVideoAtivo} />
 
           <header className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-900 z-10 shadow-sm shrink-0">
             <div className="flex items-center gap-3">
@@ -801,7 +824,7 @@ export default function App() {
 
                   <button onClick={gerarTreinoIA} disabled={isGeneratingIA || !iaAlunoId || !iaPrompt} className="w-full mt-2 bg-indigo-600 hover:bg-indigo-500 text-white font-black text-sm py-5 rounded-[1.5rem] flex items-center justify-center gap-2 shadow-[0_10px_30px_rgba(79,70,229,0.4)] active:scale-95 transition-all disabled:opacity-50 uppercase tracking-widest">
                     {isGeneratingIA ? <Activity className="animate-spin" /> : <Sparkles size={20} />} 
-                    {isGeneratingIA ? 'A Criar Magia...' : 'Gerar e Aplicar Treinos'}
+                    {isGeneratingIA ? 'A Criar Magia...' : 'Gerar Treino Inteligente'}
                   </button>
                 </div>
               </div>
@@ -1003,8 +1026,8 @@ export default function App() {
       <div className="w-full h-screen md:h-[850px] md:max-w-md bg-slate-900 md:rounded-[40px] md:border-[8px] border-slate-800 flex flex-col relative overflow-hidden shadow-2xl">
         {toastMsg && <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[130] bg-blue-600 text-white font-bold px-4 py-2 rounded-full shadow-lg text-sm whitespace-nowrap animate-fade-in">{toastMsg}</div>}
         
-        <InstallBanner />
-        <YoutubeModal />
+        <InstallBanner showInstallBanner={showInstallBanner} setShowInstallBanner={setShowInstallBanner} handleInstallClick={handleInstallClick} />
+        <YoutubeModal videoAtivo={videoAtivo} setVideoAtivo={setVideoAtivo} />
 
         <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-900 z-10 shadow-md">
            <div className="flex items-center gap-3">
@@ -1234,8 +1257,8 @@ export default function App() {
               </div>
 
               <div className="mt-8 pb-10">
-                <button onClick={() => finalizarTreino(treinoSelecionado.title)} disabled={exerciciosFeitos.length < treinoSelecionado.exercises?.length} className={`w-full py-6 rounded-[2rem] font-black text-xl transition-all shadow-2xl flex items-center justify-center gap-3 ${exerciciosFeitos.length >= treinoSelecionado.exercises?.length ? 'bg-blue-600 text-white active:scale-95' : 'bg-slate-800 text-slate-600'}`}>
-                   {exerciciosFeitos.length >= treinoSelecionado.exercises?.length ? <><Flame fill="currentColor"/> CONCLUIR 🔥</> : `Faltam ${treinoSelecionado.exercises?.length - exerciciosFeitos.length} Blocos`}
+                <button onClick={() => finalizarTreino(treinoSelecionado.title)} disabled={exerciciosFeitos.length < (treinoSelecionado.exercises?.length || 0)} className={`w-full py-6 rounded-[2rem] font-black text-xl transition-all shadow-2xl flex items-center justify-center gap-3 ${exerciciosFeitos.length >= (treinoSelecionado.exercises?.length || 0) ? 'bg-blue-600 text-white active:scale-95' : 'bg-slate-800 text-slate-600'}`}>
+                   {exerciciosFeitos.length >= (treinoSelecionado.exercises?.length || 0) ? <><Flame fill="currentColor"/> CONCLUIR 🔥</> : `Faltam ${(treinoSelecionado.exercises?.length || 0) - exerciciosFeitos.length} Blocos`}
                 </button>
               </div>
             </div>
