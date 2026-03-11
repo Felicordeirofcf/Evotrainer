@@ -5,7 +5,7 @@ import {
   Users, LogOut, CheckCircle2, Flame, Play, 
   Video, X, User as UserIcon, Plus, Activity, Dumbbell,
   Trash2, Ban, Unlock, Home, Calendar, List, AlertTriangle, Pencil, Link as LinkIcon, Lock, Camera, Save, Search,
-  Download, Sparkles, Youtube, Star, MessageSquare, FileText, ChevronRight, ChevronLeft
+  Download, Sparkles, Youtube, Star, MessageSquare, FileText, ChevronRight, ChevronLeft, MessageCircle
 } from 'lucide-react';
 
 // ==========================================
@@ -20,6 +20,7 @@ const getBaseUrl = () => {
 
 const API_URL = getBaseUrl().endsWith('/') ? `${getBaseUrl()}api` : `${getBaseUrl()}/api`;
 
+// Busca de Vídeo Camuflada
 const buscarVideoNoYouTube = async (nomeExercicio: string) => {
   try {
     const query = `como fazer ${nomeExercicio} execução correta musculação`;
@@ -314,6 +315,178 @@ export default function App() {
     return headers;
   };
 
+  // --- HELPERS BUILDER ---
+  const getGroupedExercises = (exercisesArray: any[]) => {
+    const grouped: any[] = []; const skipIndices = new Set(); 
+    exercisesArray.forEach((ex, idx) => {
+      if (skipIndices.has(idx)) return; 
+      const group = { main: { ...ex, originalIndex: idx }, partners: [] as any[] };
+      if (ex.isConjugado && ex.conjugadoCom) {
+        const pIdx = exercisesArray.findIndex((e, i) => i !== idx && !skipIndices.has(i) && e.name === ex.conjugadoCom);
+        if (pIdx !== -1) { group.partners.push({ ...exercisesArray[pIdx], originalIndex: pIdx }); skipIndices.add(pIdx); }
+      }
+      grouped.push(group);
+    });
+    return grouped;
+  };
+
+  // --- EXPORTAÇÃO E WHATSAPP ---
+  const exportarTreinoPDF = (treino: any, aluno: any) => {
+    const agrupados = getGroupedExercises(treino.exercises);
+    let tableHTML = `
+      <table style="width: 100%; border-collapse: collapse; margin-top: 20px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;">
+        <thead>
+          <tr style="background-color: #2563eb; color: white;">
+            <th style="padding: 12px; border: 1px solid #e5e7eb; text-align: center; width: 10%;">#</th>
+            <th style="padding: 12px; border: 1px solid #e5e7eb; text-align: left; width: 50%;">Exercício</th>
+            <th style="padding: 12px; border: 1px solid #e5e7eb; text-align: center; width: 20%;">Séries</th>
+            <th style="padding: 12px; border: 1px solid #e5e7eb; text-align: center; width: 20%;">Carga/RPE</th>
+          </tr>
+        </thead>
+        <tbody>
+    `;
+
+    agrupados.forEach((group: any, index: number) => {
+       const bgColor = index % 2 === 0 ? '#f9fafb' : '#ffffff';
+       // Exercício Principal
+       tableHTML += `
+          <tr style="background-color: ${bgColor};">
+            <td style="padding: 12px; border: 1px solid #e5e7eb; text-align: center; font-weight: bold; color: #1f2937;">${index + 1}</td>
+            <td style="padding: 12px; border: 1px solid #e5e7eb; font-weight: bold; color: #1f2937;">${group.main.name}</td>
+            <td style="padding: 12px; border: 1px solid #e5e7eb; text-align: center; color: #4b5563;">${group.main.sets}</td>
+            <td style="padding: 12px; border: 1px solid #e5e7eb; text-align: center; color: #4b5563;">${group.main.weight || '-'}</td>
+          </tr>
+       `;
+
+       // Exercícios Conjugados (Bi-sets)
+       group.partners.forEach((p: any) => {
+         tableHTML += `
+            <tr style="background-color: ${bgColor};">
+              <td style="padding: 12px; border: 1px solid #e5e7eb; text-align: center; color: #9ca3af; font-size: 18px;">↳</td>
+              <td style="padding: 12px; border: 1px solid #e5e7eb; color: #4b5563; padding-left: 24px;">${p.name}</td>
+              <td style="padding: 12px; border: 1px solid #e5e7eb; text-align: center; color: #4b5563;">${p.sets}</td>
+              <td style="padding: 12px; border: 1px solid #e5e7eb; text-align: center; color: #4b5563;">${p.weight || '-'}</td>
+            </tr>
+         `;
+       });
+    });
+
+    tableHTML += `</tbody></table>`;
+
+    // Abrir janela de impressão que servirá como gerador nativo de PDF do browser
+    const printWindow = window.open('', '_blank');
+    if(!printWindow) {
+        showToast("Por favor, permita pop-ups no seu navegador para gerar o PDF.");
+        return;
+    }
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html lang="pt">
+        <head>
+          <meta charset="UTF-8">
+          <title>Treino_${aluno.name.split(' ')[0]}_${treino.title}</title>
+          <style>
+            body { 
+              font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; 
+              padding: 40px; 
+              color: #333; 
+              margin: 0 auto;
+              max-width: 900px;
+            }
+            .header { 
+              display: flex; 
+              justify-content: space-between; 
+              align-items: flex-end; 
+              border-bottom: 3px solid #2563eb; 
+              padding-bottom: 20px; 
+              margin-bottom: 30px; 
+            }
+            .brand { 
+              color: #2563eb; 
+              font-size: 32px; 
+              font-weight: 900; 
+              letter-spacing: -1px; 
+              margin: 0; 
+            }
+            .brand span { color: #1e40af; }
+            .info-group { margin-top: 15px; }
+            .info-group p { margin: 6px 0; font-size: 15px; color: #374151; }
+            .info-group strong { color: #111827; }
+            .footer { 
+              margin-top: 50px; 
+              text-align: center; 
+              font-size: 12px; 
+              color: #9ca3af; 
+              border-top: 1px solid #e5e7eb;
+              padding-top: 20px;
+            }
+            @media print {
+              @page { margin: 1.5cm; }
+              body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+              .no-print { display: none; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="no-print" style="background-color: #fef3c7; color: #92400e; padding: 12px; border-radius: 8px; margin-bottom: 20px; text-align: center; font-weight: bold;">
+            Para guardar, escolha a opção "Guardar como PDF" no destino da impressão.
+          </div>
+          <div class="header">
+            <div>
+              <h1 class="brand">EVO<span>TRAINER</span></h1>
+              <div class="info-group">
+                <p><strong>Aluno:</strong> ${aluno.name}</p>
+                <p><strong>Ficha:</strong> ${treino.title} (${treino.dayOfWeek})</p>
+                <p><strong>Duração Estimada:</strong> ${treino.duration}</p>
+              </div>
+            </div>
+            <div style="text-align: right;">
+              <p style="font-size: 12px; color: #6b7280; margin: 0; text-transform: uppercase; letter-spacing: 1px;">Gerado por</p>
+              <p style="font-size: 18px; font-weight: bold; margin: 4px 0 0 0; color: #111827;">${currentUser?.name || 'Personal Trainer'}</p>
+            </div>
+          </div>
+          
+          ${tableHTML}
+          
+          <div class="footer">
+            Documento gerado com Inteligência via <strong>app.evotrainer.com</strong>
+          </div>
+          
+          <script>
+            // Dispara a janela de impressão do navegador assim que o conteúdo for carregado
+            window.onload = () => { 
+              setTimeout(() => {
+                window.print(); 
+              }, 500);
+            }
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
+  const enviarTreinoWhatsApp = (treino: any, aluno: any) => {
+    let telefone = aluno.phone || '';
+    telefone = telefone.replace(/\D/g, ''); // Limpa tudo que não for número
+
+    if (!telefone) {
+      const inputPhone = prompt("O aluno não tem telefone registado no perfil. Digite o número (ex: 5511999999999):");
+      if (!inputPhone) return;
+      telefone = inputPhone.replace(/\D/g, '');
+    }
+
+    // Aciona a geração da página de PDF para o Personal ter o arquivo pronto
+    exportarTreinoPDF(treino, aluno);
+
+    // Formata a mensagem com Markdown do WhatsApp
+    const mensagem = `Olá *${aluno.name.split(' ')[0]}*! 💪\n\nA sua nova ficha de treino *${treino.title}* já está configurada.\n\n⏱ *Duração:* ${treino.duration}\n📅 *Dia:* ${treino.dayOfWeek}\n\nAceda à sua App EvoTrainer para ver os vídeos de execução perfeitos, ou confira o PDF que vou enviar em anexo!\n\nBora esmagar! 🔥`;
+
+    const url = `https://wa.me/${telefone}?text=${encodeURIComponent(mensagem)}`;
+    window.open(url, '_blank');
+  };
+
   // --- LOGIN E CADASTRO ---
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -476,7 +649,7 @@ export default function App() {
     } catch (e) {} finally { setIsDeleting(false); }
   };
 
-  // --- TREINO INTELIGENTE (IA NO BACKEND MANTENDO SEGURANÇA) ---
+  // --- TREINO INTELIGENTE (IA) ---
   const gerarTreinoInteligente = async () => {
     setIsGeneratingIA(true);
 
@@ -580,26 +753,10 @@ export default function App() {
 
   const alunosFiltrados = alunos.filter(a => a.name.toLowerCase().includes(buscaAluno.toLowerCase()) || a.email.toLowerCase().includes(buscaAluno.toLowerCase()));
 
-  // --- HELPERS BUILDER ---
-  const getGroupedExercises = (exercisesArray: any[]) => {
-    const grouped: any[] = []; const skipIndices = new Set(); 
-    exercisesArray.forEach((ex, idx) => {
-      if (skipIndices.has(idx)) return; 
-      const group = { main: { ...ex, originalIndex: idx }, partners: [] as any[] };
-      if (ex.isConjugado && ex.conjugadoCom) {
-        const pIdx = exercisesArray.findIndex((e, i) => i !== idx && !skipIndices.has(i) && e.name === ex.conjugadoCom);
-        if (pIdx !== -1) { group.partners.push({ ...exercisesArray[pIdx], originalIndex: pIdx }); skipIndices.add(pIdx); }
-      }
-      grouped.push(group);
-    });
-    return grouped;
-  };
-
   const updateExercise = (i: number, f: string, v: any) => { const n = [...novoTreino.exercises]; n[i] = { ...n[i], [f]: v }; setNovoTreino({...novoTreino, exercises: n}); };
   const removerExercicio = (i: number) => { const n = [...novoTreino.exercises]; const r = n[i].name; n.splice(i, 1); n.forEach(ex => { if (ex.conjugadoCom === r) { ex.isConjugado = false; ex.conjugadoCom = ''; } }); setNovoTreino({...novoTreino, exercises: n}); };
   const toggleConjugado = (i: number) => { const n = [...novoTreino.exercises]; n[i].isConjugado = !n[i].isConjugado; if(!n[i].isConjugado) n[i].conjugadoCom = ''; setNovoTreino({ ...novoTreino, exercises: n }); };
   const toggleDone = (id: number) => { if (exerciciosFeitos.includes(id)) setExerciciosFeitos(exerciciosFeitos.filter(i => i !== id)); else setExerciciosFeitos([...exerciciosFeitos, id]); };
-
 
   // ==================== RENDERIZAÇÃO DE AUTENTICAÇÃO ====================
   if (!currentUser) {
@@ -659,7 +816,6 @@ export default function App() {
             </button>
           </div>
         </div>
-        {toastMsg && <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[300] bg-blue-600 text-white font-bold px-4 py-2 rounded-full shadow-lg text-sm whitespace-nowrap animate-fade-in">{toastMsg}</div>}
       </div>
     );
   }
@@ -900,7 +1056,7 @@ export default function App() {
             </div>
           )}
 
-          {/* MODAL GERENCIAR TREINOS (ADMIN) */}
+          {/* MODAL GERENCIAR TREINOS COM WHATSAPP E PDF (ADMIN) */}
           {showGerenciarTreinosModal && alunoSelecionado && (
             <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-[200] backdrop-blur-md">
               <div className="bg-slate-900 border border-slate-800 p-6 rounded-[2.5rem] w-full max-w-md max-h-[80vh] flex flex-col shadow-2xl animate-fade-in">
@@ -914,8 +1070,12 @@ export default function App() {
                     <div key={w.id} className="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex justify-between items-center group">
                       <div><p className="font-black text-cyan-400 uppercase tracking-tight">{w.title}</p><p className="text-[10px] text-slate-600 font-black mt-1 uppercase tracking-widest">{w.dayOfWeek} • {w.duration}</p></div>
                       <div className="flex gap-2">
-                        <button onClick={() => { abrirModalEdicao(w); }} className="p-2.5 bg-blue-600/10 text-blue-400 rounded-xl active:bg-blue-600 active:text-white transition-all"><Pencil size={16} /></button>
-                        <button onClick={() => { setTreinoParaExcluir({ id: w.id, title: w.title }); setShowDeleteModal(true); }} className="p-2.5 bg-red-600/10 text-red-500 rounded-xl active:bg-red-600 active:text-white transition-all"><Trash2 size={16} /></button>
+                        {/* Botões Novos: WhatsApp e PDF */}
+                        <button onClick={() => enviarTreinoWhatsApp(w, alunoSelecionado)} title="Enviar WhatsApp e PDF" className="p-2.5 bg-emerald-600/10 text-emerald-500 rounded-xl active:bg-emerald-600 active:text-white transition-all"><MessageCircle size={16} /></button>
+                        <button onClick={() => exportarTreinoPDF(w, alunoSelecionado)} title="Baixar PDF" className="p-2.5 bg-slate-800 text-slate-400 rounded-xl active:bg-slate-700 active:text-white transition-all"><Download size={16} /></button>
+                        {/* Botões Antigos */}
+                        <button onClick={() => { abrirModalEdicao(w); }} title="Editar" className="p-2.5 bg-blue-600/10 text-blue-400 rounded-xl active:bg-blue-600 active:text-white transition-all"><Pencil size={16} /></button>
+                        <button onClick={() => { setTreinoParaExcluir({ id: w.id, title: w.title }); setShowDeleteModal(true); }} title="Excluir" className="p-2.5 bg-red-600/10 text-red-500 rounded-xl active:bg-red-600 active:text-white transition-all"><Trash2 size={16} /></button>
                       </div>
                     </div>
                   ))}
@@ -924,7 +1084,7 @@ export default function App() {
             </div>
           )}
 
-          {/* MODAL CRIAR/EDITAR TREINO (ADMIN) */}
+          {/* MODAL CRIAR/EDITAR TREINO (ADMIN - COM YOUTUBE E AUTO-BUSCA) */}
           {showTreinoModal && (
             <div className="fixed inset-0 bg-black/95 z-[250] p-4 flex flex-col justify-start overflow-y-auto pt-10 pb-10">
               <div className="bg-slate-900 border border-slate-800 p-6 rounded-[2.5rem] w-full max-w-xl mx-auto shadow-2xl animate-fade-in">
