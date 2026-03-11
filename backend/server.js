@@ -9,16 +9,13 @@ const nodemailer = require('nodemailer');
 const prisma = new PrismaClient();
 const app = express();
 
-// Aumentamos o limite para 10mb para suportar o upload das imagens Base64
 app.use(cors());
 app.use(express.json({ limit: '10mb' })); 
 
-// AS SUAS CHAVES DE API AGORA FICAM SEGURAS AQUI NO BACKEND
 const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY; 
 const JWT_SECRET = process.env.JWT_SECRET || "fallback-secreto-apenas-para-desenvolvimento";
 
-// CONFIGURAÇÃO DE E-MAIL (NODEMAILER)
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || "smtp.gmail.com",
   port: process.env.SMTP_PORT || 587,
@@ -29,9 +26,6 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-// ==========================================
-// MIDDLEWARES DE SEGURANÇA 
-// ==========================================
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1]; 
@@ -53,32 +47,6 @@ const isSuperAdmin = (req, res, next) => {
   if (req.user.role !== 'SUPERADMIN') return res.status(403).json({ error: "Acesso exclusivo ao dono do sistema." });
   next();
 };
-
-// ==========================================
-// WHITE LABEL (ROTA PÚBLICA PARA O ECRÃ DE LOGIN)
-// ==========================================
-app.get('/api/brand/:trainerId', async (req, res) => {
-  const trainerId = parseInt(req.params.trainerId);
-  if (isNaN(trainerId)) return res.status(400).json({ error: "ID inválido." });
-  
-  try {
-    const trainer = await prisma.user.findUnique({
-      where: { id: trainerId }
-    });
-
-    if (!trainer || trainer.plano !== 'ELITE') {
-      return res.status(404).json({ error: "Marca não encontrada ou inativa." });
-    }
-
-    res.json({
-      name: trainer.brandName || trainer.name,
-      color: trainer.brandColor || '#2563eb',
-      logo: trainer.brandLogo || null
-    });
-  } catch (error) {
-    res.status(500).json({ error: "Erro ao procurar a marca." });
-  }
-});
 
 // ==========================================
 // LOGIN (COM INJEÇÃO DE WHITE LABEL)
@@ -113,9 +81,7 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
-// ==========================================
 // ROTAS DE RECUPERAÇÃO DE SENHA
-// ==========================================
 app.post('/api/forgot-password', async (req, res) => {
   const { email } = req.body;
   try {
@@ -123,11 +89,10 @@ app.post('/api/forgot-password', async (req, res) => {
     if (!user) return res.status(404).json({ error: "E-mail não encontrado." });
 
     const resetToken = crypto.randomBytes(32).toString('hex');
-    const resetExpires = new Date(Date.now() + 3600000); // Válido por 1 hora
+    const resetExpires = new Date(Date.now() + 3600000); 
 
     await prisma.user.update({ where: { id: user.id }, data: { resetToken, resetExpires } });
 
-    // Atenção: Quando for para produção, mude localhost:3000 para o seu domínio real!
     const resetLink = `http://localhost:3000?token=${resetToken}`; 
     console.log("=== LINK DE RECUPERAÇÃO GERADO ===");
     console.log(resetLink); 
@@ -137,11 +102,9 @@ app.post('/api/forgot-password', async (req, res) => {
         from: '"EvoTrainer" <no-reply@evotrainer.com>',
         to: user.email,
         subject: "Recuperação de Palavra-Passe",
-        html: `<p>Clique no link para redefinir a sua palavra-passe: <br><br> <a href="${resetLink}">${resetLink}</a></p>`
+        html: `<p>Clique no link para redefinir: <a href="${resetLink}">${resetLink}</a></p>`
       });
-    } catch (e) {
-      console.log("Aviso: E-mail não enviado porque o SMTP não está configurado. Use o link do console para testar.");
-    }
+    } catch (e) {}
 
     res.json({ message: "Se o e-mail existir, receberá um link de recuperação." });
   } catch (error) { res.status(500).json({ error: "Erro interno." }); }
@@ -160,21 +123,15 @@ app.post('/api/reset-password', async (req, res) => {
   } catch (error) { res.status(500).json({ error: "Erro interno." }); }
 });
 
-// ==========================================
-// REGISTOS
-// ==========================================
 app.post('/api/register', async (req, res) => {
   const { name, email, password, role, plano } = req.body;
   try {
     const userExists = await prisma.user.findUnique({ where: { email } });
     if (userExists) return res.status(400).json({ error: "Este e-mail já está registado." });
-    
     const hashedPassword = await bcrypt.hash(password, 10);
     const user = await prisma.user.create({ data: { name, email, password: hashedPassword, role, plano, status: 'Ativo' } });
-    
     const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '30d' });
     const { password: _, ...userWithoutPassword } = user;
-    
     res.status(201).json({ message: "Conta criada com sucesso!", token, user: userWithoutPassword });
   } catch (error) { res.status(500).json({ error: "Erro ao criar conta." }); }
 });
@@ -182,21 +139,15 @@ app.post('/api/register', async (req, res) => {
 app.post('/api/setup-master', async (req, res) => {
   const { name, email, password, secret_key } = req.body;
   if (secret_key !== "evotrainer2026") return res.status(403).json({ error: "Chave secreta inválida." });
-  
   try {
     const userExists = await prisma.user.findUnique({ where: { email } });
     if (userExists) return res.status(400).json({ error: "E-mail já em uso." });
-    
     const hashedPassword = await bcrypt.hash(password, 10);
     const master = await prisma.user.create({ data: { name, email, password: hashedPassword, role: 'SUPERADMIN', plano: 'DONO', status: 'Ativo' } });
-    
     res.json({ message: "Conta do Dono (SuperAdmin) criada com sucesso!", master });
   } catch (error) { res.status(400).json({ error: "Erro ao criar Master." }); }
 });
 
-// ==========================================
-// ROTAS DO DONO (SUPERADMIN)
-// ==========================================
 app.get('/api/superadmin/trainers', authenticateToken, isSuperAdmin, async (req, res) => {
   try {
     const trainers = await prisma.user.findMany({ where: { role: 'ADMIN' }, orderBy: { createdAt: 'desc' }, include: { _count: { select: { alunos: true } } } });
@@ -231,7 +182,7 @@ app.delete('/api/superadmin/trainers/:id', authenticateToken, isSuperAdmin, asyn
 });
 
 // ==========================================
-// TREINO INTELIGENTE (LIMITES DE SAAS E OPENAI)
+// TREINO INTELIGENTE (ATUALIZADO E RESILIENTE)
 // ==========================================
 app.post('/api/ai/gerar-treino', authenticateToken, isAdmin, async (req, res) => {
   const { alunoId, split, frequencia, prompt } = req.body;
@@ -239,7 +190,7 @@ app.post('/api/ai/gerar-treino', authenticateToken, isAdmin, async (req, res) =>
     const trainer = await prisma.user.findUnique({ where: { id: req.user.id } });
     const planoAtual = trainer.plano || 'GRATIS';
     const IA_LIMITS = { 'GRATIS': 0, 'START': 10, 'PRO': 40, 'ELITE': 9999 };
-    const limitePermitido = IA_LIMITS[planoAtual];
+    const limitePermitido = IA_LIMITS[planoAtual] || 0;
 
     if (trainer.iaUsadaMes >= limitePermitido) {
       return res.status(403).json({ error: `Atingiu o limite de IA do plano ${planoAtual}.` });
@@ -248,36 +199,94 @@ app.post('/api/ai/gerar-treino', authenticateToken, isAdmin, async (req, res) =>
     const aluno = await prisma.user.findUnique({ where: { id: parseInt(alunoId) } });
     if (!aluno || aluno.trainerId !== req.user.id) return res.status(404).json({ error: "Aluno não encontrado." });
 
-    const systemPrompt = `Você é um Personal Trainer Master. DEVE RETORNAR JSON COM A ESTRUTURA: { "fichas": [ { "title": "...", "duration": "...", "exercises": [ { "name": "...", "sets": "...", "weight": "...", "isConjugado": false, "conjugadoCom": "" } ] } ] }`;
-    const userPrompt = `Plano para o aluno ${aluno.name}. Divisão: ${split}. Foco: ${prompt}`;
+    if (!OPENAI_API_KEY) {
+      return res.status(500).json({ error: "Chave da OpenAI não está configurada no backend." });
+    }
+
+    const systemPrompt = `Você é um Personal Trainer Master. DEVE RETORNAR APENAS UM JSON COM A ESTRUTURA EXATA: { "fichas": [ { "title": "...", "duration": "...", "exercises": [ { "name": "...", "sets": "...", "weight": "...", "isConjugado": false, "conjugadoCom": "" } ] } ] }`;
+    const userPrompt = `Plano para o aluno ${aluno.name}. Divisão: ${split}. Foco: ${prompt}. Crie o JSON de forma válida.`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${OPENAI_API_KEY}` },
-      body: JSON.stringify({ model: 'gpt-4o-mini', messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }], response_format: { type: "json_object" } })
+      body: JSON.stringify({ 
+        model: 'gpt-4o-mini', 
+        messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }], 
+        response_format: { type: "json_object" } 
+      })
     });
 
     const data = await response.json();
-    const fichas = JSON.parse(data.choices[0].message.content).fichas;
+    
+    // Log detalhado para identificar o problema de comunicação com a OpenAI
+    if (data.error) {
+      console.error("ERRO NA API OPENAI:", data.error);
+      return res.status(500).json({ error: "OpenAI rejeitou o pedido: " + data.error.message });
+    }
+
+    if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+      console.error("RESPOSTA INVÁLIDA DA OPENAI:", data);
+      return res.status(500).json({ error: "Resposta inesperada da IA." });
+    }
+
+    let conteudoIA;
+    try {
+      conteudoIA = JSON.parse(data.choices[0].message.content);
+    } catch (parseErr) {
+      console.error("ERRO DE PARSE JSON:", data.choices[0].message.content);
+      return res.status(500).json({ error: "A IA não retornou um formato de dados válido (JSON)." });
+    }
+
+    const fichas = conteudoIA.fichas;
+    if (!fichas || !Array.isArray(fichas) || fichas.length === 0) {
+       return res.status(500).json({ error: "A IA não conseguiu criar nenhuma ficha de treino." });
+    }
+
     const dias = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
 
+    // Gerar as fichas no banco de dados e procurar os vídeos
     for (let i = 0; i < parseInt(frequencia); i++) {
       const treinoData = fichas[i % fichas.length];
+      
       const exercisesWithVideo = await Promise.all(treinoData.exercises.map(async (ex) => {
         let youtubeId = null;
         try {
-          const ytResponse = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(ex.name + ' execução')}&maxResults=1&type=video&key=${YOUTUBE_API_KEY}`);
-          const ytData = await ytResponse.json();
-          if (ytData.items && ytData.items.length > 0) youtubeId = ytData.items[0].id.videoId;
-        } catch (err) {}
-        return { name: ex.name, sets: ex.sets, weight: ex.weight || "", youtubeId, isConjugado: ex.isConjugado || false, conjugadoCom: ex.conjugadoCom || null };
+          if (YOUTUBE_API_KEY) {
+            const ytResponse = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(ex.name + ' execução')}&maxResults=1&type=video&key=${YOUTUBE_API_KEY}`);
+            const ytData = await ytResponse.json();
+            if (ytData.items && ytData.items.length > 0) youtubeId = ytData.items[0].id.videoId;
+          }
+        } catch (err) {
+          console.error("Erro na busca do YouTube:", err);
+        }
+        return { 
+          name: ex.name, 
+          sets: ex.sets || "3x10", 
+          weight: ex.weight || "", 
+          youtubeId, 
+          isConjugado: ex.isConjugado || false, 
+          conjugadoCom: ex.conjugadoCom || null 
+        };
       }));
-      await prisma.workoutTemplate.create({ data: { title: treinoData.title, duration: treinoData.duration, userId: aluno.id, dayOfWeek: dias[i], exercises: { create: exercisesWithVideo } } });
+      
+      await prisma.workoutTemplate.create({ 
+        data: { 
+          title: treinoData.title || `Treino ${i+1}`, 
+          duration: treinoData.duration || "45 min", 
+          userId: aluno.id, 
+          dayOfWeek: dias[i], 
+          exercises: { create: exercisesWithVideo } 
+        } 
+      });
     }
 
+    // Aumenta a quota de IA do treinador após o sucesso
     await prisma.user.update({ where: { id: req.user.id }, data: { iaUsadaMes: trainer.iaUsadaMes + 1 } });
-    res.json({ message: "Treino gerado!" });
-  } catch (error) { res.status(500).json({ error: "Erro IA" }); }
+    res.json({ message: "Treino gerado com sucesso!" });
+  } catch (error) { 
+    console.error("ERRO FATAL NA IA:", error);
+    res.status(500).json({ error: "Falha interna no servidor ao processar a Inteligência Artificial." }); 
+  }
 });
 
 // ==========================================
