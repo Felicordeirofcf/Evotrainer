@@ -34,6 +34,12 @@ const isAdmin = (req, res, next) => {
   next();
 };
 
+// NOVO: Segurança para o Dono do Sistema
+const isSuperAdmin = (req, res, next) => {
+  if (req.user.role !== 'SUPERADMIN') return res.status(403).json({ error: "Acesso exclusivo ao dono do sistema." });
+  next();
+};
+
 // ==========================================
 // LOGIN E AUTENTICAÇÃO
 // ==========================================
@@ -73,21 +79,90 @@ app.post('/api/register', async (req, res) => {
     
     res.status(201).json({ message: "Conta criada com sucesso!", token, user: userWithoutPassword });
   } catch (error) { 
-    console.error("ERRO NO REGISTRO:", error);
     res.status(500).json({ error: "Erro ao criar conta." }); 
   }
 });
 
-app.post('/api/setup-admin', async (req, res) => {
-  const { name, email, password } = req.body;
+// NOVO: CRIAR A SUA CONTA DE DONO (SUPERADMIN)
+app.post('/api/setup-master', async (req, res) => {
+  const { name, email, password, secret_key } = req.body;
+  
+  // Uma senha secreta para garantir que ninguém cria um superadmin a não ser você
+  if (secret_key !== "evotrainer2026") {
+    return res.status(403).json({ error: "Chave secreta inválida." });
+  }
+
   try {
+    const userExists = await prisma.user.findUnique({ where: { email } });
+    if (userExists) return res.status(400).json({ error: "E-mail já em uso." });
+
     const hashedPassword = await bcrypt.hash(password, 10);
-    const admin = await prisma.user.create({
-      data: { name, email, password: hashedPassword, role: 'ADMIN', status: 'Ativo' }
+    const master = await prisma.user.create({
+      data: { name, email, password: hashedPassword, role: 'SUPERADMIN', plano: 'DONO', status: 'Ativo' }
     });
-    res.json({ message: "Conta Admin criada com sucesso!", admin });
-  } catch (error) { res.status(400).json({ error: "Erro ao criar Admin." }); }
+    
+    res.json({ message: "Conta do Dono (SuperAdmin) criada com sucesso!", master });
+  } catch (error) { res.status(400).json({ error: "Erro ao criar Master." }); }
 });
+
+
+// ==========================================
+// ROTAS DO DONO (SUPERADMIN)
+// ==========================================
+
+// Buscar todos os Personal Trainers
+app.get('/api/superadmin/trainers', authenticateToken, isSuperAdmin, async (req, res) => {
+  try {
+    const trainers = await prisma.user.findMany({
+      where: { role: 'ADMIN' },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        _count: { select: { alunos: true } } // Traz a contagem de alunos
+      }
+    });
+    res.json(trainers);
+  } catch (error) { res.status(500).json({ error: "Erro ao procurar trainers" }); }
+});
+
+// Alterar plano de um Personal manualmente
+app.put('/api/superadmin/trainers/:id/plano', authenticateToken, isSuperAdmin, async (req, res) => {
+  const { plano } = req.body;
+  try {
+    const updated = await prisma.user.update({
+      where: { id: parseInt(req.params.id) },
+      data: { plano }
+    });
+    res.json({ message: `Plano atualizado para ${plano}`, user: updated });
+  } catch (error) { res.status(500).json({ error: "Erro ao alterar plano" }); }
+});
+
+// Apagar Personal Trainer e TUDO o que for dele
+app.delete('/api/superadmin/trainers/:id', authenticateToken, isSuperAdmin, async (req, res) => {
+  const trainerId = parseInt(req.params.id);
+  try {
+    // 1. Encontra todos os alunos deste Personal
+    const students = await prisma.user.findMany({ where: { trainerId } });
+    const studentIds = students.map(s => s.id);
+
+    // 2. Apaga o conteúdo em cascata, se ele tiver alunos
+    if (studentIds.length > 0) {
+       await prisma.workoutHistory.deleteMany({ where: { userId: { in: studentIds } } });
+       const treinos = await prisma.workoutTemplate.findMany({ where: { userId: { in: studentIds } } });
+       const treinoIds = treinos.map(t => t.id);
+       if(treinoIds.length > 0) {
+         await prisma.exercise.deleteMany({ where: { workoutId: { in: treinoIds } } });
+       }
+       await prisma.workoutTemplate.deleteMany({ where: { userId: { in: studentIds } } });
+       await prisma.user.deleteMany({ where: { id: { in: studentIds } } }); // Apaga os alunos
+    }
+    
+    // 3. Finalmente, apaga o próprio Personal Trainer
+    await prisma.user.delete({ where: { id: trainerId } });
+    
+    res.json({ message: "Personal Trainer e todos os seus dados apagados com sucesso!" });
+  } catch (error) { res.status(500).json({ error: "Erro ao apagar o Personal." }); }
+});
+
 
 // ==========================================
 // TREINO INTELIGENTE (LIMITES DE SAAS E OPENAI)
@@ -366,43 +441,25 @@ app.post('/api/treinos/finalizar', authenticateToken, async (req, res) => {
 });
 
 // ==========================================
-// WEBHOOKS (PAGAMENTOS ASAAS) - LÓGICA DE PLANOS
+// WEBHOOKS (PAGAMENTOS ASAAS)
 // ==========================================
 app.post('/api/webhooks/asaas', async (req, res) => {
   const { event, payment } = req.body;
-  console.log(`🔔 Webhook Asaas recebido: ${event}`);
-
   if (event === 'PAYMENT_RECEIVED' || event === 'PAYMENT_CONFIRMED') {
-    
     const userId = payment.externalReference; 
-    const valorPago = Number(payment.value); // Lê o valor que foi pago!
+    const valorPago = Number(payment.value); 
 
-    let novoPlano = 'PRO'; // Backup
-
-    // Identifica o plano com base no valor pago
-    if (valorPago === 30) {
-      novoPlano = 'START';
-    } else if (valorPago === 60) {
-      novoPlano = 'PRO';
-    } else if (valorPago === 100) {
-      novoPlano = 'ELITE';
-    }
+    let novoPlano = 'PRO'; 
+    if (valorPago === 30) novoPlano = 'START';
+    else if (valorPago === 60) novoPlano = 'PRO';
+    else if (valorPago === 100) novoPlano = 'ELITE';
 
     if (userId) {
       try {
-        await prisma.user.update({
-          where: { id: parseInt(userId) },
-          data: { plano: novoPlano } 
-        });
-        console.log(`✅ Sucesso: O Personal (ID: ${userId}) foi atualizado para o plano ${novoPlano}!`);
-      } catch (error) {
-        console.error(`❌ Erro ao atualizar o plano do utilizador ${userId}:`, error);
-      }
-    } else {
-      console.warn("⚠️ Pagamento recebido, mas sem 'externalReference' (ID do Personal).");
+        await prisma.user.update({ where: { id: parseInt(userId) }, data: { plano: novoPlano } });
+      } catch (error) { console.error(`Erro Webhook:`, error); }
     }
   }
-
   res.status(200).json({ received: true });
 });
 

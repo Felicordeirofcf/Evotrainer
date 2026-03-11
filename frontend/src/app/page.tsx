@@ -5,7 +5,7 @@ import {
   Users, LogOut, CheckCircle2, Flame, Play, 
   Video, X, User as UserIcon, Plus, Activity, Dumbbell,
   Trash2, Ban, Unlock, Home, Calendar, List, AlertTriangle, Pencil, Link as LinkIcon, Lock, Camera, Save, Search,
-  Download, Sparkles, Youtube, Star, MessageSquare, FileText, ChevronRight, ChevronLeft, MessageCircle, Crown, Check
+  Download, Sparkles, Youtube, Star, MessageSquare, FileText, ChevronRight, ChevronLeft, MessageCircle, Crown, Check, ShieldAlert
 } from 'lucide-react';
 
 // ==========================================
@@ -189,6 +189,7 @@ export default function App() {
   const [token, setToken] = useState<string | null>(null);
   
   const [isLoginMode, setIsLoginMode] = useState(true);
+  const [isMasterMode, setIsMasterMode] = useState(false); // NOVO ESTADO: PORTA SECRETA MASTER
 
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
@@ -198,6 +199,7 @@ export default function App() {
   const [signupEmail, setSignupEmail] = useState('');
   const [signupPassword, setSignupPassword] = useState('');
   const [signupConfirmPassword, setSignupConfirmPassword] = useState('');
+  const [masterSecret, setMasterSecret] = useState(''); // Estado para a chave mestra
   const [isSigningUp, setIsSigningUp] = useState(false);
 
   // --- ESTADOS GERAIS ---
@@ -210,7 +212,7 @@ export default function App() {
   const [tourStep, setTourStep] = useState(0);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
-  // --- ESTADOS ADMIN ---
+  // --- ESTADOS ADMIN (PERSONAL) ---
   const [alunos, setAlunos] = useState<any[]>([]);
   const [buscaAluno, setBuscaAluno] = useState(''); 
   const [showAddModal, setShowAddModal] = useState(false);
@@ -228,6 +230,11 @@ export default function App() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [treinoParaExcluir, setTreinoParaExcluir] = useState<{id: number, title: string} | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // --- ESTADOS SUPERADMIN (DONO) ---
+  const [trainers, setTrainers] = useState<any[]>([]);
+  const [buscaTrainer, setBuscaTrainer] = useState('');
+  const [filtroPlano, setFiltroPlano] = useState('TODOS');
 
   // --- IA (TREINO INTELIGENTE) ---
   const [iaPrompt, setIaPrompt] = useState('');
@@ -314,6 +321,7 @@ export default function App() {
     return headers;
   };
 
+  // --- HELPERS BUILDER ---
   const getGroupedExercises = (exercisesArray: any[]) => {
     const grouped: any[] = []; const skipIndices = new Set(); 
     exercisesArray.forEach((ex, idx) => {
@@ -381,11 +389,7 @@ export default function App() {
 
     agrupados.forEach((group: any, index: number) => {
        const bgColor = index % 2 === 0 ? '#f9fafb' : '#ffffff';
-       
-       const videoUrl = group.main.youtubeId 
-          ? `https://youtu.be/${group.main.youtubeId}`
-          : `https://www.youtube.com/results?search_query=${encodeURIComponent('como fazer ' + group.main.name + ' musculação execução')}`;
-       
+       const videoUrl = group.main.youtubeId ? `https://youtu.be/${group.main.youtubeId}` : `https://www.youtube.com/results?search_query=${encodeURIComponent('como fazer ' + group.main.name + ' musculação execução')}`;
        const videoLink = group.main.youtubeId 
           ? `<a href="${videoUrl}" target="_blank" style="display: inline-block; background-color: #fee2e2; color: #dc2626; padding: 6px 12px; border-radius: 6px; text-decoration: none; font-size: 11px; font-weight: bold; border: 1px solid #fca5a5;">▶ Assistir</a>` 
           : `<a href="${videoUrl}" target="_blank" style="display: inline-block; background-color: #f1f5f9; color: #475569; padding: 6px 12px; border-radius: 6px; text-decoration: none; font-size: 11px; font-weight: bold; border: 1px solid #cbd5e1;">🔍 Buscar</a>`;
@@ -401,10 +405,7 @@ export default function App() {
        `;
 
        group.partners.forEach((p: any) => {
-         const pVideoUrl = p.youtubeId 
-            ? `https://youtu.be/${p.youtubeId}`
-            : `https://www.youtube.com/results?search_query=${encodeURIComponent('como fazer ' + p.name + ' musculação execução')}`;
-         
+         const pVideoUrl = p.youtubeId ? `https://youtu.be/${p.youtubeId}` : `https://www.youtube.com/results?search_query=${encodeURIComponent('como fazer ' + p.name + ' musculação execução')}`;
          const pVideoLink = p.youtubeId 
             ? `<a href="${pVideoUrl}" target="_blank" style="display: inline-block; background-color: #fee2e2; color: #dc2626; padding: 6px 12px; border-radius: 6px; text-decoration: none; font-size: 11px; font-weight: bold; border: 1px solid #fca5a5;">▶ Assistir</a>` 
             : `<a href="${pVideoUrl}" target="_blank" style="display: inline-block; background-color: #f1f5f9; color: #475569; padding: 6px 12px; border-radius: 6px; text-decoration: none; font-size: 11px; font-weight: bold; border: 1px solid #cbd5e1;">🔍 Buscar</a>`;
@@ -422,7 +423,6 @@ export default function App() {
     });
 
     tableHTML += `</tbody></table>`;
-
     const geradoPor = isStudent ? 'Gerado via EvoTrainer App' : `Personal: ${currentUser?.name || 'Treinador'}`;
 
     const htmlContent = `
@@ -541,12 +541,52 @@ export default function App() {
     }
   };
 
+  // CRIAR CONTA NORMAL (OU SUPERADMIN)
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!signupName || !signupEmail || !signupPassword) return showToast("Preencha todos os campos.");
     if (signupPassword !== signupConfirmPassword) return showToast("As senhas não coincidem!");
     
     setIsSigningUp(true);
+
+    // LÓGICA MESTRA
+    if (isMasterMode) {
+      if (masterSecret !== "evotrainer2026") {
+        showToast("Chave mestra inválida!");
+        setIsSigningUp(false);
+        return;
+      }
+      
+      try {
+        const res = await fetch(`${API_URL}/setup-master`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            name: signupName, 
+            email: signupEmail, 
+            password: signupPassword,
+            secret_key: masterSecret
+          })
+        });
+        const data = await res.json();
+        
+        if (res.ok) {
+          showToast("A conta Master foi criada! Faça login agora.");
+          setIsMasterMode(false);
+          setIsLoginMode(true);
+          setSignupName(''); setSignupEmail(''); setSignupPassword(''); setSignupConfirmPassword('');
+        } else {
+          showToast(data.error || "Erro ao criar conta.");
+        }
+      } catch (error) {
+        showToast(`Erro ao ligar com o servidor.`);
+      } finally {
+        setIsSigningUp(false);
+      }
+      return;
+    }
+
+    // REGISTO NORMAL DE PERSONAL
     try {
       const res = await fetch(`${API_URL}/register`, {
         method: 'POST',
@@ -587,6 +627,35 @@ export default function App() {
     setTreinoIniciado(false);
   };
 
+  // --- SUPERADMIN API ---
+  const fetchTrainers = async () => {
+    setIsLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/superadmin/trainers`, { headers: getAuthHeaders() });
+      if (res.ok) setTrainers(await res.json());
+    } catch (e) {} finally { setIsLoading(false); }
+  };
+
+  const alterarPlanoTrainer = async (trainerId: number, novoPlano: string) => {
+    try {
+      const res = await fetch(`${API_URL}/superadmin/trainers/${trainerId}/plano`, { 
+        method: 'PUT', 
+        headers: getAuthHeaders(), 
+        body: JSON.stringify({ plano: novoPlano }) 
+      });
+      if (res.ok) { showToast("Plano atualizado!"); fetchTrainers(); }
+    } catch (e) { showToast("Erro ao alterar plano."); }
+  };
+
+  const excluirTrainer = async (trainerId: number, name: string) => {
+    if (!window.confirm(`ATENÇÃO: Apagar o Personal "${name}" e todos os alunos/fichas dele?`)) return;
+    try {
+      const res = await fetch(`${API_URL}/superadmin/trainers/${trainerId}`, { method: 'DELETE', headers: getAuthHeaders() });
+      if (res.ok) { showToast("Personal apagado."); fetchTrainers(); }
+    } catch (e) { showToast("Erro."); }
+  };
+
+  // --- ADMIN API ---
   const fetchAlunos = async () => {
     setIsLoading(true);
     try {
@@ -670,26 +739,16 @@ export default function App() {
 
   const gerarTreinoInteligente = async () => {
     setIsGeneratingIA(true);
-    if (!iaAlunoId) {
-      showToast("Selecione um aluno primeiro.");
-      setIsGeneratingIA(false); 
-      return;
-    }
+    if (!iaAlunoId) { showToast("Selecione um aluno primeiro."); setIsGeneratingIA(false); return; }
     try {
       showToast("A IA está a analisar o perfil. Isso pode demorar até 15 segundos...");
       const response = await fetch(`${API_URL}/ai/gerar-treino`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({ alunoId: iaAlunoId, split: iaSplit, frequencia: iaFrequencia, prompt: iaPrompt })
+        method: 'POST', headers: getAuthHeaders(), body: JSON.stringify({ alunoId: iaAlunoId, split: iaSplit, frequencia: iaFrequencia, prompt: iaPrompt })
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Falha ao gerar treino com IA.");
-      showToast(data.message);
-      setIaPrompt(''); setIaSplit('ABC'); setIaFrequencia('5'); 
-      await fetchAlunos(); setAdminTabAtiva('alunos');
-    } catch (err: any) {
-      console.error(err); showToast(`Aviso: ${err.message}`);
-    } finally { setIsGeneratingIA(false); }
+      showToast(data.message); setIaPrompt(''); setIaSplit('ABC'); setIaFrequencia('5'); await fetchAlunos(); setAdminTabAtiva('alunos');
+    } catch (err: any) { showToast(`Aviso: ${err.message}`); } finally { setIsGeneratingIA(false); }
   };
 
   const fetchTreinosAluno = async () => {
@@ -739,29 +798,44 @@ export default function App() {
   };
 
   useEffect(() => {
+    if (currentUser?.role === 'SUPERADMIN') fetchTrainers();
     if (currentUser?.role === 'ADMIN') fetchAlunos();
     if (currentUser?.role === 'STUDENT') fetchTreinosAluno();
   }, [currentUser]);
 
   const alunosFiltrados = alunos.filter(a => a.name.toLowerCase().includes(buscaAluno.toLowerCase()) || a.email.toLowerCase().includes(buscaAluno.toLowerCase()));
+  
+  const trainersFiltrados = trainers.filter(t => {
+    const nomeBate = t.name.toLowerCase().includes(buscaTrainer.toLowerCase()) || t.email.toLowerCase().includes(buscaTrainer.toLowerCase());
+    if (filtroPlano === 'TODOS') return nomeBate;
+    return nomeBate && t.plano === filtroPlano;
+  });
+
   const updateExercise = (i: number, f: string, v: any) => { const n = [...novoTreino.exercises]; n[i] = { ...n[i], [f]: v }; setNovoTreino({...novoTreino, exercises: n}); };
   const removerExercicio = (i: number) => { const n = [...novoTreino.exercises]; const r = n[i].name; n.splice(i, 1); n.forEach(ex => { if (ex.conjugadoCom === r) { ex.isConjugado = false; ex.conjugadoCom = ''; } }); setNovoTreino({...novoTreino, exercises: n}); };
   const toggleConjugado = (i: number) => { const n = [...novoTreino.exercises]; n[i].isConjugado = !n[i].isConjugado; if(!n[i].isConjugado) n[i].conjugadoCom = ''; setNovoTreino({ ...novoTreino, exercises: n }); };
   const toggleDone = (id: number) => { if (exerciciosFeitos.includes(id)) setExerciciosFeitos(exerciciosFeitos.filter(i => i !== id)); else setExerciciosFeitos([...exerciciosFeitos, id]); };
 
-  // ==================== RENDERIZAÇÃO ====================
+  // ==================== RENDERIZAÇÃO DE AUTENTICAÇÃO ====================
   if (!currentUser) {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 text-slate-50 relative overflow-hidden">
         <div className="absolute top-20 right-[-10%] w-[300px] h-[300px] bg-blue-600/10 blur-[100px] rounded-full pointer-events-none"></div>
         <div className="absolute bottom-0 left-[-10%] w-[300px] h-[300px] bg-indigo-600/10 blur-[100px] rounded-full pointer-events-none"></div>
         
+        {/* BOTÃO SECRETO PARA O MESTRE */}
+        <button onClick={() => { setIsLoginMode(false); setIsMasterMode(true); }} className="absolute top-4 right-4 text-slate-800 hover:text-slate-600 transition-colors">
+           <ShieldAlert size={20} />
+        </button>
+
         <div className="w-full max-w-md bg-slate-900/80 backdrop-blur-xl border border-slate-800 p-8 rounded-[3rem] shadow-2xl animate-fade-in text-center relative z-10">
           <div className="w-16 h-16 bg-blue-600 rounded-3xl mx-auto flex items-center justify-center mb-4 shadow-lg shadow-blue-500/20">
             <Dumbbell size={32} className="text-white" />
           </div>
           <h1 className="text-2xl font-black mb-1 tracking-tighter">EVO<span className="text-blue-500">TRAINER</span></h1>
-          <p className="text-slate-400 text-xs mb-8 font-medium">{isLoginMode ? 'Acesso ao Sistema' : 'Crie sua conta de Personal'}</p>
+          <p className="text-slate-400 text-xs mb-8 font-medium">
+            {isMasterMode ? 'Abertura de Conta Mestre' : (isLoginMode ? 'Acesso ao Sistema' : 'Crie sua conta de Personal')}
+          </p>
 
           {isLoginMode ? (
             <form onSubmit={handleLogin} className="space-y-4">
@@ -795,14 +869,22 @@ export default function App() {
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 w-5 h-5" />
                 <input type="password" required placeholder="Confirme a Senha" value={signupConfirmPassword} onChange={(e) => setSignupConfirmPassword(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 pl-12 text-white focus:outline-none focus:border-blue-500 transition-colors" />
               </div>
-              <button type="submit" disabled={isSigningUp} className="w-full mt-2 bg-indigo-600 hover:bg-indigo-500 text-white font-black text-lg py-4 rounded-xl flex items-center justify-center gap-2 transition-transform active:scale-95 disabled:opacity-50 shadow-[0_0_20px_rgba(79,70,229,0.4)]">
-                {isSigningUp ? <Activity className="animate-spin" /> : 'CRIAR CONTA'}
+              
+              {isMasterMode && (
+                 <div className="relative pt-2">
+                   <Lock className="absolute left-4 top-1/2 -translate-y-0 text-red-500 w-5 h-5" />
+                   <input type="password" required placeholder="Chave Secreta Master" value={masterSecret} onChange={(e) => setMasterSecret(e.target.value)} className="w-full bg-red-950/20 border border-red-800/50 rounded-2xl p-4 pl-12 text-red-400 focus:outline-none focus:border-red-500 transition-colors font-bold" />
+                 </div>
+              )}
+
+              <button type="submit" disabled={isSigningUp} className={`w-full mt-2 text-white font-black text-lg py-4 rounded-xl flex items-center justify-center gap-2 transition-transform active:scale-95 disabled:opacity-50 ${isMasterMode ? 'bg-red-600 hover:bg-red-500 shadow-[0_0_20px_rgba(220,38,38,0.4)]' : 'bg-indigo-600 hover:bg-indigo-500 shadow-[0_0_20px_rgba(79,70,229,0.4)]'}`}>
+                {isSigningUp ? <Activity className="animate-spin" /> : (isMasterMode ? 'CRIAR CONTA MESTRE' : 'CRIAR CONTA')}
               </button>
             </form>
           )}
 
-          <div className="mt-2 flex flex-col gap-2 text-center w-full">
-            <button onClick={() => setIsLoginMode(!isLoginMode)} className="text-sm font-bold text-slate-400 hover:text-white transition-colors w-full p-2">
+          <div className="mt-4 flex flex-col gap-2 text-center w-full">
+            <button onClick={() => { setIsLoginMode(!isLoginMode); setIsMasterMode(false); }} className="text-sm font-bold text-slate-400 hover:text-white transition-colors w-full p-2">
               {isLoginMode ? "Novo por aqui? Crie sua conta." : "Já tem conta? Faça Login."}
             </button>
           </div>
@@ -811,7 +893,101 @@ export default function App() {
     );
   }
 
-  // --- ECRÃ DO ADMIN ---
+  // --- ECRÃ DO SUPERADMIN (DONO) ---
+  if (currentUser.role === 'SUPERADMIN') {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col text-slate-50 md:items-center md:justify-center relative">
+        <div className="w-full h-screen md:h-[850px] md:max-w-md bg-slate-900 md:rounded-[40px] md:border-[8px] border-slate-800 flex flex-col relative overflow-hidden shadow-2xl">
+          {toastMsg && <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[300] bg-emerald-600 text-white font-bold px-4 py-2 rounded-full shadow-lg text-sm whitespace-nowrap animate-fade-in">{toastMsg}</div>}
+          
+          <header className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-900 z-10 shadow-sm shrink-0">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-red-600 rounded-xl flex items-center justify-center shadow-[0_0_15px_rgba(220,38,38,0.4)]">
+                <ShieldAlert size={24} className="text-white"/>
+              </div>
+              <div>
+                <h1 className="text-xl font-black text-white leading-tight">MASTER</h1>
+                <p className="text-[10px] text-red-400 font-bold uppercase tracking-widest mt-0.5">Dono do Sistema</p>
+              </div>
+            </div>
+            <button onClick={handleLogout} className="text-slate-400 hover:text-white bg-slate-800 p-2.5 rounded-xl transition-colors"><LogOut size={18} /></button>
+          </header>
+
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6 custom-scrollbar">
+            <div className="flex flex-col gap-4 mb-6">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-slate-950 border border-slate-800 p-4 rounded-2xl text-center shadow-inner">
+                  <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest mb-1">Total de Personais</p>
+                  <p className="text-2xl font-black text-blue-400">{trainers.length}</p>
+                </div>
+                <div className="bg-slate-950 border border-slate-800 p-4 rounded-2xl text-center shadow-inner">
+                  <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest mb-1">Clientes Pagantes</p>
+                  <p className="text-2xl font-black text-emerald-400">{trainers.filter(t => t.plano !== 'GRATIS').length}</p>
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 w-4 h-4" />
+                  <input type="text" placeholder="Procurar personal..." value={buscaTrainer} onChange={(e) => setBuscaTrainer(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded-xl py-3 pl-9 pr-3 text-white text-xs outline-none focus:border-blue-500 transition-colors" />
+                </div>
+                <select value={filtroPlano} onChange={e => setFiltroPlano(e.target.value)} className="bg-slate-950 border border-slate-700 rounded-xl px-3 text-white text-xs outline-none focus:border-blue-500 font-bold">
+                  <option value="TODOS">Todos</option>
+                  <option value="GRATIS">Grátis</option>
+                  <option value="START">Start</option>
+                  <option value="PRO">Pro</option>
+                  <option value="ELITE">Elite</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-4">
+              {isLoading ? <div className="text-center py-8"><Activity className="animate-spin w-8 h-8 text-red-500 mx-auto"/></div> : 
+               trainersFiltrados.length === 0 ? <p className="text-center text-slate-500 py-8 font-bold text-xs border-2 border-dashed border-slate-800 rounded-2xl">Nenhum Personal encontrado.</p> : (
+                trainersFiltrados.map(t => (
+                  <div key={t.id} className="bg-slate-950 p-5 rounded-2xl border border-slate-800 shadow-lg flex flex-col gap-4">
+                    <div className="flex justify-between items-start">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-slate-900 border border-slate-700 text-blue-500 font-black rounded-lg flex items-center justify-center shadow-inner">{t.name.charAt(0).toUpperCase()}</div>
+                        <div>
+                          <p className="font-black text-white text-sm leading-tight">{t.name}</p>
+                          <p className="text-[9px] text-slate-500 mt-0.5">{t.email}</p>
+                        </div>
+                      </div>
+                      <span className={`px-2 py-1 rounded-md text-[8px] font-black uppercase tracking-widest ${t.plano === 'GRATIS' ? 'bg-slate-800 text-slate-400' : 'bg-amber-500/20 text-amber-500 border border-amber-500/20'}`}>{t.plano}</span>
+                    </div>
+
+                    <div className="flex items-center justify-between bg-slate-900 p-3 rounded-xl border border-slate-800/50">
+                      <p className="text-[10px] text-slate-400 font-bold">Alunos Registados:</p>
+                      <p className="text-sm font-black text-cyan-400">{t._count?.alunos || 0}</p>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <select 
+                        value={t.plano} 
+                        onChange={(e) => alterarPlanoTrainer(t.id, e.target.value)}
+                        className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-[10px] font-bold outline-none"
+                      >
+                        <option value="GRATIS">GRÁTIS</option>
+                        <option value="START">START</option>
+                        <option value="PRO">PRO</option>
+                        <option value="ELITE">ELITE</option>
+                      </select>
+                      <button onClick={() => excluirTrainer(t.id, t.name)} className="p-2.5 bg-red-600/10 text-red-500 rounded-xl hover:bg-red-600 hover:text-white transition-colors">
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // --- ECRÃ DO ADMIN (PERSONAL TRAINER NORMAL) ---
   if (currentUser.role === 'ADMIN') {
     const groupedBuilderExercises = getGroupedExercises(novoTreino.exercises);
     const ativosCount = alunos.filter(a => a.status !== 'Bloqueado').length;
@@ -842,6 +1018,7 @@ export default function App() {
             {/* ADMIN TAB: ALUNOS & DASHBOARD */}
             {adminTabAtiva === 'alunos' && (
               <div className="animate-fade-in flex flex-col gap-6">
+                {/* Dashboard Simples */}
                 <div className="grid grid-cols-3 gap-3">
                   <div className="bg-blue-600/10 border border-blue-500/20 p-4 rounded-2xl flex flex-col items-center justify-center text-center shadow-lg">
                     <p className="text-[9px] text-blue-400 font-black uppercase tracking-widest mb-1">Total</p>
@@ -1150,6 +1327,7 @@ export default function App() {
                     <div key={w.id} className="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex justify-between items-center group">
                       <div><p className="font-black text-cyan-400 uppercase tracking-tight">{w.title}</p><p className="text-[10px] text-slate-600 font-black mt-1 uppercase tracking-widest">{w.dayOfWeek} • {w.duration}</p></div>
                       <div className="flex gap-2">
+                        {/* Botões de WhatsApp e PDF */}
                         <button onClick={() => enviarTreinoWhatsApp(w, alunoSelecionado)} title="Enviar WhatsApp e PDF" className="p-2.5 bg-emerald-600/10 text-emerald-500 rounded-xl active:bg-emerald-600 active:text-white transition-all"><MessageCircle size={16} /></button>
                         <button onClick={() => exportarTreinoPDF(w, alunoSelecionado, false)} title="Baixar PDF" className="p-2.5 bg-slate-800 text-slate-400 rounded-xl active:bg-slate-700 active:text-white transition-all"><Download size={16} /></button>
                         <button onClick={() => { abrirModalEdicao(w); }} title="Editar" className="p-2.5 bg-blue-600/10 text-blue-400 rounded-xl active:bg-blue-600 active:text-white transition-all"><Pencil size={16} /></button>
