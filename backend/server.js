@@ -366,28 +366,35 @@ app.post('/api/treinos/finalizar', authenticateToken, async (req, res) => {
 });
 
 // ==========================================
-// WEBHOOKS (PAGAMENTOS ASAAS)
+// WEBHOOKS (PAGAMENTOS ASAAS) - LÓGICA DE PLANOS
 // ==========================================
 app.post('/api/webhooks/asaas', async (req, res) => {
-  // O Asaas envia os dados do evento de pagamento no corpo do pedido
   const { event, payment } = req.body;
-
   console.log(`🔔 Webhook Asaas recebido: ${event}`);
 
-  // Se o pagamento for confirmado ou recebido
   if (event === 'PAYMENT_RECEIVED' || event === 'PAYMENT_CONFIRMED') {
     
-    // O 'externalReference' é o ID do Personal Trainer que vamos passar 
-    // no momento em que criarmos o link de pagamento.
     const userId = payment.externalReference; 
+    const valorPago = Number(payment.value); // Lê o valor que foi pago!
+
+    let novoPlano = 'PRO'; // Backup
+
+    // Identifica o plano com base no valor pago
+    if (valorPago === 30) {
+      novoPlano = 'START';
+    } else if (valorPago === 60) {
+      novoPlano = 'PRO';
+    } else if (valorPago === 100) {
+      novoPlano = 'ELITE';
+    }
 
     if (userId) {
       try {
         await prisma.user.update({
           where: { id: parseInt(userId) },
-          data: { plano: 'PRO' } // Faz o upgrade automático
+          data: { plano: novoPlano } 
         });
-        console.log(`✅ Sucesso: O Personal Trainer (ID: ${userId}) foi atualizado para o plano PRO!`);
+        console.log(`✅ Sucesso: O Personal (ID: ${userId}) foi atualizado para o plano ${novoPlano}!`);
       } catch (error) {
         console.error(`❌ Erro ao atualizar o plano do utilizador ${userId}:`, error);
       }
@@ -396,7 +403,6 @@ app.post('/api/webhooks/asaas', async (req, res) => {
     }
   }
 
-  // O Asaas exige sempre que respondamos com 200 OK para saber que recebemos o aviso
   res.status(200).json({ received: true });
 });
 

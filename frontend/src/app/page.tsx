@@ -5,7 +5,7 @@ import {
   Users, LogOut, CheckCircle2, Flame, Play, 
   Video, X, User as UserIcon, Plus, Activity, Dumbbell,
   Trash2, Ban, Unlock, Home, Calendar, List, AlertTriangle, Pencil, Link as LinkIcon, Lock, Camera, Save, Search,
-  Download, Sparkles, Youtube, Star, MessageSquare, FileText, ChevronRight, ChevronLeft, MessageCircle, Crown
+  Download, Sparkles, Youtube, Star, MessageSquare, FileText, ChevronRight, ChevronLeft, MessageCircle, Crown, Check
 } from 'lucide-react';
 
 // ==========================================
@@ -208,6 +208,7 @@ export default function App() {
 
   const [showTour, setShowTour] = useState(false);
   const [tourStep, setTourStep] = useState(0);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   // --- ESTADOS ADMIN ---
   const [alunos, setAlunos] = useState<any[]>([]);
@@ -313,7 +314,6 @@ export default function App() {
     return headers;
   };
 
-  // --- HELPERS BUILDER ---
   const getGroupedExercises = (exercisesArray: any[]) => {
     const grouped: any[] = []; const skipIndices = new Set(); 
     exercisesArray.forEach((ex, idx) => {
@@ -328,7 +328,6 @@ export default function App() {
     return grouped;
   };
 
-  // --- UPLOAD DE AVATAR ---
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -364,7 +363,6 @@ export default function App() {
     reader.readAsDataURL(file);
   };
 
-  // --- EXPORTAÇÃO E WHATSAPP ---
   const exportarTreinoPDF = (treino: any, aluno: any, isStudent = false) => {
     const agrupados = getGroupedExercises(treino.exercises);
     let tableHTML = `
@@ -481,7 +479,6 @@ export default function App() {
           </div>
           
           <script>
-            // Abre a janela de impressão automaticamente
             window.onload = () => { setTimeout(() => { window.print(); }, 800); }
           </script>
         </body>
@@ -514,7 +511,6 @@ export default function App() {
     window.open(url, '_blank');
   };
 
-  // --- LOGIN E CADASTRO ---
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!loginEmail || !loginPassword) return showToast("Preencha todos os campos.");
@@ -591,7 +587,6 @@ export default function App() {
     setTreinoIniciado(false);
   };
 
-  // --- ADMIN API ---
   const fetchAlunos = async () => {
     setIsLoading(true);
     try {
@@ -673,52 +668,30 @@ export default function App() {
     } catch (e) {} finally { setIsDeleting(false); }
   };
 
-  // --- TREINO INTELIGENTE (IA) ---
   const gerarTreinoInteligente = async () => {
     setIsGeneratingIA(true);
-
     if (!iaAlunoId) {
       showToast("Selecione um aluno primeiro.");
       setIsGeneratingIA(false); 
       return;
     }
-
     try {
       showToast("A IA está a analisar o perfil. Isso pode demorar até 15 segundos...");
-
       const response = await fetch(`${API_URL}/ai/gerar-treino`, {
         method: 'POST',
         headers: getAuthHeaders(),
-        body: JSON.stringify({
-          alunoId: iaAlunoId,
-          split: iaSplit,
-          frequencia: iaFrequencia,
-          prompt: iaPrompt
-        })
+        body: JSON.stringify({ alunoId: iaAlunoId, split: iaSplit, frequencia: iaFrequencia, prompt: iaPrompt })
       });
-
       const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Falha ao gerar treino com IA.");
-      }
-
+      if (!response.ok) throw new Error(data.error || "Falha ao gerar treino com IA.");
       showToast(data.message);
-      setIaPrompt('');
-      setIaSplit('ABC');
-      setIaFrequencia('5'); 
-      await fetchAlunos(); 
-      setAdminTabAtiva('alunos');
-
+      setIaPrompt(''); setIaSplit('ABC'); setIaFrequencia('5'); 
+      await fetchAlunos(); setAdminTabAtiva('alunos');
     } catch (err: any) {
-      console.error(err);
-      showToast(`Aviso: ${err.message}`);
-    } finally {
-      setIsGeneratingIA(false);
-    }
+      console.error(err); showToast(`Aviso: ${err.message}`);
+    } finally { setIsGeneratingIA(false); }
   };
 
-  // --- ALUNO API ---
   const fetchTreinosAluno = async () => {
     if (currentUser?.status === 'Bloqueado') { setTreinosAluno([]); return; }
     try {
@@ -742,12 +715,7 @@ export default function App() {
   const enviarFeedback = async () => {
     try {
       showToast("Feedback enviado com sucesso! 🔥");
-      setShowFeedbackModal(false);
-      setTreinoIniciado(false);
-      setExerciciosFeitos([]);
-      setAlunoTabAtiva('home');
-      setFeedbackComment('');
-      setFeedbackRating(5);
+      setShowFeedbackModal(false); setTreinoIniciado(false); setExerciciosFeitos([]); setAlunoTabAtiva('home'); setFeedbackComment(''); setFeedbackRating(5);
     } catch (e) { showToast("Erro ao enviar feedback."); }
   };
 
@@ -776,13 +744,12 @@ export default function App() {
   }, [currentUser]);
 
   const alunosFiltrados = alunos.filter(a => a.name.toLowerCase().includes(buscaAluno.toLowerCase()) || a.email.toLowerCase().includes(buscaAluno.toLowerCase()));
-
   const updateExercise = (i: number, f: string, v: any) => { const n = [...novoTreino.exercises]; n[i] = { ...n[i], [f]: v }; setNovoTreino({...novoTreino, exercises: n}); };
   const removerExercicio = (i: number) => { const n = [...novoTreino.exercises]; const r = n[i].name; n.splice(i, 1); n.forEach(ex => { if (ex.conjugadoCom === r) { ex.isConjugado = false; ex.conjugadoCom = ''; } }); setNovoTreino({...novoTreino, exercises: n}); };
   const toggleConjugado = (i: number) => { const n = [...novoTreino.exercises]; n[i].isConjugado = !n[i].isConjugado; if(!n[i].isConjugado) n[i].conjugadoCom = ''; setNovoTreino({ ...novoTreino, exercises: n }); };
   const toggleDone = (id: number) => { if (exerciciosFeitos.includes(id)) setExerciciosFeitos(exerciciosFeitos.filter(i => i !== id)); else setExerciciosFeitos([...exerciciosFeitos, id]); };
 
-  // ==================== RENDERIZAÇÃO DE AUTENTICAÇÃO ====================
+  // ==================== RENDERIZAÇÃO ====================
   if (!currentUser) {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 text-slate-50 relative overflow-hidden">
@@ -844,14 +811,11 @@ export default function App() {
     );
   }
 
-  // --- ADMIN VIEW ---
+  // --- ECRÃ DO ADMIN ---
   if (currentUser.role === 'ADMIN') {
     const groupedBuilderExercises = getGroupedExercises(novoTreino.exercises);
     const ativosCount = alunos.filter(a => a.status !== 'Bloqueado').length;
     const bloqueadosCount = alunos.filter(a => a.status === 'Bloqueado').length;
-
-    // NOVO: Link de Pagamento Asaas simulado via query string com o ID do personal
-    const checkoutLink = `https://fatura.asaas.com/c/SEU_LINK_AQUI?externalReference=${currentUser.id}`;
 
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col text-slate-50 md:items-center md:justify-center relative">
@@ -878,7 +842,6 @@ export default function App() {
             {/* ADMIN TAB: ALUNOS & DASHBOARD */}
             {adminTabAtiva === 'alunos' && (
               <div className="animate-fade-in flex flex-col gap-6">
-                {/* Dashboard Simples */}
                 <div className="grid grid-cols-3 gap-3">
                   <div className="bg-blue-600/10 border border-blue-500/20 p-4 rounded-2xl flex flex-col items-center justify-center text-center shadow-lg">
                     <p className="text-[9px] text-blue-400 font-black uppercase tracking-widest mb-1">Total</p>
@@ -1010,23 +973,23 @@ export default function App() {
               </div>
             )}
 
-            {/* ADMIN TAB: PERFIL DO PERSONAL */}
+            {/* ADMIN TAB: PERFIL DO PERSONAL (COM OPÇÕES DE UPGRADE) */}
             {adminTabAtiva === 'perfil' && (
               <div className="flex flex-col gap-6 animate-fade-in pb-8">
                  
-                 {/* NOVO: ÁREA DE ASSINATURA E PLANOS */}
-                 <div className={`bg-gradient-to-r ${currentUser.plano === 'PRO' || currentUser.plano === 'ELITE' ? 'from-amber-500 to-orange-500' : 'from-emerald-600 to-teal-600'} p-6 rounded-[2rem] shadow-lg flex items-center justify-between`}>
-                   <div>
-                     <p className="text-[10px] text-white/80 font-black uppercase tracking-widest flex items-center gap-1">
-                       <Crown size={12}/> Plano Atual
-                     </p>
-                     <h3 className="text-2xl font-black text-white mt-1 drop-shadow-md">{currentUser.plano || 'GRATIS'}</h3>
-                   </div>
-                   {(!currentUser.plano || currentUser.plano === 'GRATIS' || currentUser.plano === 'START') && (
-                     <button onClick={() => window.open(checkoutLink, '_blank')} className="bg-white text-emerald-700 font-black px-5 py-3 rounded-xl shadow-lg active:scale-95 transition-all text-[10px] uppercase tracking-widest flex items-center gap-2 hover:bg-slate-50">
-                       FAZER UPGRADE <ChevronRight size={14}/>
+                 {/* ÁREA DE ASSINATURA E PLANOS */}
+                 <div className={`bg-gradient-to-r ${currentUser.plano === 'PRO' || currentUser.plano === 'ELITE' ? 'from-amber-500 to-orange-500' : 'from-emerald-600 to-teal-600'} p-6 rounded-[2rem] shadow-lg flex flex-col gap-4`}>
+                   <div className="flex items-center justify-between">
+                     <div>
+                       <p className="text-[10px] text-white/80 font-black uppercase tracking-widest flex items-center gap-1">
+                         <Crown size={12}/> Plano Atual
+                       </p>
+                       <h3 className="text-2xl font-black text-white mt-1 drop-shadow-md">{currentUser.plano || 'GRATIS'}</h3>
+                     </div>
+                     <button onClick={() => setShowUpgradeModal(true)} className="bg-white text-slate-900 font-black px-5 py-3 rounded-xl shadow-lg active:scale-95 transition-all text-[10px] uppercase tracking-widest flex items-center gap-2 hover:bg-slate-50">
+                       VER PLANOS <ChevronRight size={14}/>
                      </button>
-                   )}
+                   </div>
                  </div>
 
                  <h2 className="text-2xl font-black flex items-center gap-2 px-1"><UserIcon className="text-blue-500"/> Conta do Personal</h2>
@@ -1109,6 +1072,70 @@ export default function App() {
             </div>
           )}
 
+          {/* MODAL ESCOLHER PLANO (UPGRADE) */}
+          {showUpgradeModal && (
+            <div className="fixed inset-0 bg-black/90 flex items-center justify-center p-4 z-[400] backdrop-blur-md">
+              <div className="bg-slate-900 border border-slate-800 p-6 rounded-[2.5rem] w-full max-w-sm max-h-[85vh] overflow-y-auto shadow-2xl animate-fade-in custom-scrollbar">
+                <div className="flex justify-between items-center mb-6 pb-4 border-b border-slate-800 shrink-0 sticky top-0 bg-slate-900 z-10">
+                  <h3 className="text-xl font-black flex items-center gap-2 leading-none"><Crown className="text-amber-500"/> Planos</h3>
+                  <button onClick={() => setShowUpgradeModal(false)} className="p-2 bg-slate-800 rounded-xl text-slate-500"><X size={20}/></button>
+                </div>
+                
+                <div className="flex flex-col gap-4">
+                  {/* START BRONZE */}
+                  <div className="bg-slate-950 border border-amber-700/30 p-5 rounded-3xl flex flex-col gap-4 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 bg-amber-700/20 text-amber-500 text-[8px] font-black px-3 py-1 rounded-bl-xl uppercase tracking-widest">R$ 30/mês</div>
+                    <div>
+                      <h4 className="text-amber-500 font-black text-lg">START Bronze</h4>
+                      <p className="text-slate-400 text-xs mt-1">Ideal para quem está a começar.</p>
+                    </div>
+                    <ul className="text-[10px] text-slate-300 space-y-2 mb-2">
+                      <li className="flex gap-2 items-center"><Check size={12} className="text-emerald-500"/> Até 20 Alunos</li>
+                      <li className="flex gap-2 items-center"><Check size={12} className="text-emerald-500"/> 10 Treinos com IA/mês</li>
+                    </ul>
+                    <button onClick={() => window.open(`https://www.asaas.com/c/gppqjpyhag2jw0c9?externalReference=${currentUser.id}`, '_blank')} className="w-full bg-amber-600 hover:bg-amber-500 text-white font-black py-3 rounded-xl text-xs uppercase tracking-widest transition-colors">
+                      Assinar Start
+                    </button>
+                  </div>
+
+                  {/* PRO SILVER */}
+                  <div className="bg-slate-950 border border-blue-500 p-5 rounded-3xl flex flex-col gap-4 relative overflow-hidden shadow-[0_0_15px_rgba(59,130,246,0.15)]">
+                    <div className="absolute top-0 right-0 bg-blue-600 text-white text-[8px] font-black px-3 py-1 rounded-bl-xl uppercase tracking-widest">R$ 60/mês</div>
+                    <div>
+                      <h4 className="text-blue-400 font-black text-lg">PRO Silver</h4>
+                      <p className="text-slate-400 text-xs mt-1">O plano mais popular.</p>
+                    </div>
+                    <ul className="text-[10px] text-slate-300 space-y-2 mb-2">
+                      <li className="flex gap-2 items-center"><Check size={12} className="text-emerald-500"/> Alunos Ilimitados</li>
+                      <li className="flex gap-2 items-center"><Check size={12} className="text-emerald-500"/> 40 Treinos com IA/mês</li>
+                      <li className="flex gap-2 items-center"><Check size={12} className="text-emerald-500"/> Suporte Prioritário</li>
+                    </ul>
+                    <button onClick={() => window.open(`https://www.asaas.com/c/6np0bp37c91vfla6?externalReference=${currentUser.id}`, '_blank')} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-3 rounded-xl text-xs uppercase tracking-widest transition-colors">
+                      Assinar Pro
+                    </button>
+                  </div>
+
+                  {/* ELITE OURO */}
+                  <div className="bg-slate-950 border border-yellow-500 p-5 rounded-3xl flex flex-col gap-4 relative overflow-hidden shadow-[0_0_15px_rgba(234,179,8,0.15)]">
+                    <div className="absolute top-0 right-0 bg-yellow-500 text-slate-900 text-[8px] font-black px-3 py-1 rounded-bl-xl uppercase tracking-widest">R$ 100/mês</div>
+                    <div>
+                      <h4 className="text-yellow-500 font-black text-lg">ELITE Ouro</h4>
+                      <p className="text-slate-400 text-xs mt-1">Poder absoluto na plataforma.</p>
+                    </div>
+                    <ul className="text-[10px] text-slate-300 space-y-2 mb-2">
+                      <li className="flex gap-2 items-center"><Check size={12} className="text-emerald-500"/> Alunos Ilimitados</li>
+                      <li className="flex gap-2 items-center"><Check size={12} className="text-emerald-500"/> Treinos IA Ilimitados</li>
+                      <li className="flex gap-2 items-center"><Check size={12} className="text-emerald-500"/> Consultoria de Escala</li>
+                    </ul>
+                    <button onClick={() => window.open(`https://www.asaas.com/c/sql5glydf5g3gvxs?externalReference=${currentUser.id}`, '_blank')} className="w-full bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-black py-3 rounded-xl text-xs uppercase tracking-widest transition-colors">
+                      Assinar Elite
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* MODAL GERENCIAR TREINOS COM WHATSAPP E PDF (ADMIN) */}
           {showGerenciarTreinosModal && alunoSelecionado && (
             <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-[200] backdrop-blur-md">
@@ -1123,7 +1150,6 @@ export default function App() {
                     <div key={w.id} className="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex justify-between items-center group">
                       <div><p className="font-black text-cyan-400 uppercase tracking-tight">{w.title}</p><p className="text-[10px] text-slate-600 font-black mt-1 uppercase tracking-widest">{w.dayOfWeek} • {w.duration}</p></div>
                       <div className="flex gap-2">
-                        {/* Botões de WhatsApp e PDF */}
                         <button onClick={() => enviarTreinoWhatsApp(w, alunoSelecionado)} title="Enviar WhatsApp e PDF" className="p-2.5 bg-emerald-600/10 text-emerald-500 rounded-xl active:bg-emerald-600 active:text-white transition-all"><MessageCircle size={16} /></button>
                         <button onClick={() => exportarTreinoPDF(w, alunoSelecionado, false)} title="Baixar PDF" className="p-2.5 bg-slate-800 text-slate-400 rounded-xl active:bg-slate-700 active:text-white transition-all"><Download size={16} /></button>
                         <button onClick={() => { abrirModalEdicao(w); }} title="Editar" className="p-2.5 bg-blue-600/10 text-blue-400 rounded-xl active:bg-blue-600 active:text-white transition-all"><Pencil size={16} /></button>
