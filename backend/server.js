@@ -9,13 +9,16 @@ const nodemailer = require('nodemailer');
 const prisma = new PrismaClient();
 const app = express();
 
+// Aumentamos o limite para 10mb para suportar o upload das imagens Base64
 app.use(cors());
 app.use(express.json({ limit: '10mb' })); 
 
+// AS SUAS CHAVES DE API AGORA FICAM SEGURAS AQUI NO BACKEND
 const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY; 
 const JWT_SECRET = process.env.JWT_SECRET || "fallback-secreto-apenas-para-desenvolvimento";
 
+// CONFIGURAÇÃO DE E-MAIL (NODEMAILER)
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || "smtp.gmail.com",
   port: process.env.SMTP_PORT || 587,
@@ -26,6 +29,9 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+// ==========================================
+// MIDDLEWARES DE SEGURANÇA 
+// ==========================================
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1]; 
@@ -47,6 +53,32 @@ const isSuperAdmin = (req, res, next) => {
   if (req.user.role !== 'SUPERADMIN') return res.status(403).json({ error: "Acesso exclusivo ao dono do sistema." });
   next();
 };
+
+// ==========================================
+// WHITE LABEL (ROTA PÚBLICA PARA O ECRÃ DE LOGIN)
+// ==========================================
+app.get('/api/brand/:trainerId', async (req, res) => {
+  const trainerId = parseInt(req.params.trainerId);
+  if (isNaN(trainerId)) return res.status(400).json({ error: "ID inválido." });
+  
+  try {
+    const trainer = await prisma.user.findUnique({
+      where: { id: trainerId }
+    });
+
+    if (!trainer || trainer.plano !== 'ELITE') {
+      return res.status(404).json({ error: "Marca não encontrada ou inativa." });
+    }
+
+    res.json({
+      name: trainer.brandName || trainer.name,
+      color: trainer.brandColor || '#2563eb',
+      logo: trainer.brandLogo || null
+    });
+  } catch (error) {
+    res.status(500).json({ error: "Erro ao procurar a marca." });
+  }
+});
 
 // ==========================================
 // LOGIN (COM INJEÇÃO DE WHITE LABEL)
@@ -81,7 +113,9 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
+// ==========================================
 // ROTAS DE RECUPERAÇÃO DE SENHA
+// ==========================================
 app.post('/api/forgot-password', async (req, res) => {
   const { email } = req.body;
   try {
@@ -89,10 +123,11 @@ app.post('/api/forgot-password', async (req, res) => {
     if (!user) return res.status(404).json({ error: "E-mail não encontrado." });
 
     const resetToken = crypto.randomBytes(32).toString('hex');
-    const resetExpires = new Date(Date.now() + 3600000); 
+    const resetExpires = new Date(Date.now() + 3600000); // Válido por 1 hora
 
     await prisma.user.update({ where: { id: user.id }, data: { resetToken, resetExpires } });
 
+    // Atenção: Quando for para produção, mude localhost:3000 para o seu domínio real!
     const resetLink = `http://localhost:3000?token=${resetToken}`; 
     console.log("=== LINK DE RECUPERAÇÃO GERADO ===");
     console.log(resetLink); 
@@ -102,9 +137,11 @@ app.post('/api/forgot-password', async (req, res) => {
         from: '"EvoTrainer" <no-reply@evotrainer.com>',
         to: user.email,
         subject: "Recuperação de Palavra-Passe",
-        html: `<p>Clique no link para redefinir: <a href="${resetLink}">${resetLink}</a></p>`
+        html: `<p>Clique no link para redefinir a sua palavra-passe: <br><br> <a href="${resetLink}">${resetLink}</a></p>`
       });
-    } catch (e) {}
+    } catch (e) {
+      console.log("Aviso: E-mail não enviado porque o SMTP não está configurado. Use o link do console para testar.");
+    }
 
     res.json({ message: "Se o e-mail existir, receberá um link de recuperação." });
   } catch (error) { res.status(500).json({ error: "Erro interno." }); }
@@ -123,15 +160,21 @@ app.post('/api/reset-password', async (req, res) => {
   } catch (error) { res.status(500).json({ error: "Erro interno." }); }
 });
 
+// ==========================================
+// REGISTOS
+// ==========================================
 app.post('/api/register', async (req, res) => {
   const { name, email, password, role, plano } = req.body;
   try {
     const userExists = await prisma.user.findUnique({ where: { email } });
     if (userExists) return res.status(400).json({ error: "Este e-mail já está registado." });
+    
     const hashedPassword = await bcrypt.hash(password, 10);
     const user = await prisma.user.create({ data: { name, email, password: hashedPassword, role, plano, status: 'Ativo' } });
+    
     const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '30d' });
     const { password: _, ...userWithoutPassword } = user;
+    
     res.status(201).json({ message: "Conta criada com sucesso!", token, user: userWithoutPassword });
   } catch (error) { res.status(500).json({ error: "Erro ao criar conta." }); }
 });
@@ -139,15 +182,21 @@ app.post('/api/register', async (req, res) => {
 app.post('/api/setup-master', async (req, res) => {
   const { name, email, password, secret_key } = req.body;
   if (secret_key !== "evotrainer2026") return res.status(403).json({ error: "Chave secreta inválida." });
+  
   try {
     const userExists = await prisma.user.findUnique({ where: { email } });
     if (userExists) return res.status(400).json({ error: "E-mail já em uso." });
+    
     const hashedPassword = await bcrypt.hash(password, 10);
     const master = await prisma.user.create({ data: { name, email, password: hashedPassword, role: 'SUPERADMIN', plano: 'DONO', status: 'Ativo' } });
+    
     res.json({ message: "Conta do Dono (SuperAdmin) criada com sucesso!", master });
   } catch (error) { res.status(400).json({ error: "Erro ao criar Master." }); }
 });
 
+// ==========================================
+// ROTAS DO DONO (SUPERADMIN)
+// ==========================================
 app.get('/api/superadmin/trainers', authenticateToken, isSuperAdmin, async (req, res) => {
   try {
     const trainers = await prisma.user.findMany({ where: { role: 'ADMIN' }, orderBy: { createdAt: 'desc' }, include: { _count: { select: { alunos: true } } } });
@@ -181,6 +230,9 @@ app.delete('/api/superadmin/trainers/:id', authenticateToken, isSuperAdmin, asyn
   } catch (error) { res.status(500).json({ error: "Erro" }); }
 });
 
+// ==========================================
+// TREINO INTELIGENTE (LIMITES DE SAAS E OPENAI)
+// ==========================================
 app.post('/api/ai/gerar-treino', authenticateToken, isAdmin, async (req, res) => {
   const { alunoId, split, frequencia, prompt } = req.body;
   try {
@@ -190,8 +242,9 @@ app.post('/api/ai/gerar-treino', authenticateToken, isAdmin, async (req, res) =>
     const limitePermitido = IA_LIMITS[planoAtual];
 
     if (trainer.iaUsadaMes >= limitePermitido) {
-      return res.status(403).json({ error: `Atingiu o limite de IA.` });
+      return res.status(403).json({ error: `Atingiu o limite de IA do plano ${planoAtual}.` });
     }
+    
     const aluno = await prisma.user.findUnique({ where: { id: parseInt(alunoId) } });
     if (!aluno || aluno.trainerId !== req.user.id) return res.status(404).json({ error: "Aluno não encontrado." });
 
@@ -227,6 +280,9 @@ app.post('/api/ai/gerar-treino', authenticateToken, isAdmin, async (req, res) =>
   } catch (error) { res.status(500).json({ error: "Erro IA" }); }
 });
 
+// ==========================================
+// ROTAS DE ALUNOS
+// ==========================================
 app.get('/api/alunos', authenticateToken, isAdmin, async (req, res) => {
   try {
     const alunos = await prisma.user.findMany({ where: { role: 'STUDENT', trainerId: req.user.id }, orderBy: { createdAt: 'desc' }, include: { workouts: { orderBy: { id: 'asc' } }, _count: { select: { workouts: true } } } });
@@ -295,6 +351,9 @@ app.put('/api/alunos/:id/senha', authenticateToken, async (req, res) => {
   } catch (error) { res.status(500).json({ error: "Erro." }); }
 });
 
+// ==========================================
+// ROTAS DE TREINOS
+// ==========================================
 app.post('/api/treinos', authenticateToken, isAdmin, async (req, res) => {
   try {
     const novoTreino = await prisma.workoutTemplate.create({ data: { title: req.body.title, duration: req.body.duration, userId: req.body.userId, dayOfWeek: req.body.dayOfWeek, exercises: { create: req.body.exercises } } });
@@ -333,16 +392,25 @@ app.post('/api/treinos/finalizar', authenticateToken, async (req, res) => {
   } catch (error) { res.status(500).json({ error: "Erro" }); }
 });
 
+// ==========================================
+// WEBHOOKS (PAGAMENTOS ASAAS)
+// ==========================================
 app.post('/api/webhooks/asaas', async (req, res) => {
   const { event, payment } = req.body;
   if (event === 'PAYMENT_RECEIVED' || event === 'PAYMENT_CONFIRMED') {
     const userId = payment.externalReference; 
     const valorPago = Number(payment.value); 
+    
     let novoPlano = 'PRO'; 
     if (valorPago === 30) novoPlano = 'START';
     else if (valorPago === 60) novoPlano = 'PRO';
     else if (valorPago === 100) novoPlano = 'ELITE';
-    if (userId) { try { await prisma.user.update({ where: { id: parseInt(userId) }, data: { plano: novoPlano } }); } catch (error) {} }
+    
+    if (userId) { 
+      try { 
+        await prisma.user.update({ where: { id: parseInt(userId) }, data: { plano: novoPlano } }); 
+      } catch (error) {} 
+    }
   }
   res.status(200).json({ received: true });
 });

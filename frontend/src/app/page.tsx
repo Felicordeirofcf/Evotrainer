@@ -3,9 +3,9 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Users, LogOut, CheckCircle2, Flame, Play, 
-  Video, X, User as UserIcon, Plus, Activity, Dumbbell,
+  X, User as UserIcon, Plus, Activity, Dumbbell,
   Trash2, Ban, Unlock, Home, Calendar, List, AlertTriangle, Pencil, Link as LinkIcon, Lock, Camera, Save, Search,
-  Download, Sparkles, Youtube, Star, MessageSquare, FileText, ChevronRight, ChevronLeft, MessageCircle, Crown, Check, ShieldAlert, Palette
+  Download, Sparkles, Youtube, ChevronRight, ChevronLeft, MessageCircle, Crown, Check, ShieldAlert, Palette
 } from 'lucide-react';
 
 // ==========================================
@@ -187,7 +187,8 @@ export default function App() {
   // --- ESTADOS DE AUTENTICAÇÃO ---
   const [currentUser, setCurrentUser] = useState<any>(null); 
   const [token, setToken] = useState<string | null>(null);
-  const [currentBrand, setCurrentBrand] = useState<any>(null); // ESTADO DO WHITE LABEL
+  const [currentBrand, setCurrentBrand] = useState<any>(null); 
+  const [loginBrand, setLoginBrand] = useState<any>(null); 
   
   const [authMode, setAuthMode] = useState<'LOGIN'|'SIGNUP'|'MASTER'|'FORGOT'|'RESET'>('LOGIN');
 
@@ -277,16 +278,31 @@ export default function App() {
     setTimeout(() => setToastMsg(''), 3500);
   };
 
+  // DETETAR LINK DE WHITE LABEL E RECUPERAÇÃO DE SENHA NO LOGIN
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
+      
       const tokenUrl = params.get('token');
       if (tokenUrl) {
         setResetTokenUrl(tokenUrl);
         setAuthMode('RESET');
       }
+
+      const trainerQueryId = params.get('t');
+      if (trainerQueryId && !currentUser) {
+        fetch(`${API_URL}/brand/${trainerQueryId}`)
+          .then(res => {
+            if(res.ok) return res.json();
+            return null;
+          })
+          .then(data => {
+            if(data) setLoginBrand(data);
+          })
+          .catch(e => console.error("Erro ao buscar White Label:", e));
+      }
     }
-  }, []);
+  }, [currentUser]);
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: any) => {
@@ -297,14 +313,6 @@ export default function App() {
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
   }, []);
-
-  const handleInstallClick = async () => {
-    if (!deferredPrompt) return;
-    deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    if (outcome === 'accepted') setShowInstallBanner(false);
-    setDeferredPrompt(null);
-  };
 
   useEffect(() => {
     const savedToken = localStorage.getItem('treino_ai_token');
@@ -357,17 +365,14 @@ export default function App() {
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>, isBrandLogo = false) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     if (file.size > 3 * 1024 * 1024) { 
       showToast("A imagem é muito grande. Escolha uma até 3MB.");
       return;
     }
-
     showToast("A guardar imagem...");
     const reader = new FileReader();
     reader.onloadend = async () => {
       const base64String = reader.result as string;
-      
       const payloadToUpdate = isBrandLogo ? { brandLogo: base64String } : { avatar: base64String };
       const updatedProfileForm = { ...profileForm, ...payloadToUpdate };
       setProfileForm(updatedProfileForm);
@@ -375,26 +380,20 @@ export default function App() {
 
       try {
         const res = await fetch(`${API_URL}/alunos/${currentUser.id}/perfil`, {
-          method: 'PUT',
-          headers: getAuthHeaders(),
-          body: JSON.stringify(updatedProfileForm)
+          method: 'PUT', headers: getAuthHeaders(), body: JSON.stringify(updatedProfileForm)
         });
         if (res.ok) {
           const updatedUser = await res.json();
           setCurrentUser(updatedUser);
           localStorage.setItem('treino_ai_user', JSON.stringify(updatedUser));
-          
           if(isBrandLogo && currentUser.plano === 'ELITE') {
             const newBrand = { name: updatedUser.brandName, color: updatedUser.brandColor, logo: updatedUser.brandLogo };
             setCurrentBrand(newBrand);
             localStorage.setItem('treino_ai_brand', JSON.stringify(newBrand));
           }
-          
           showToast("Imagem atualizada com sucesso!");
         }
-      } catch (error) {
-        showToast("Erro ao guardar a imagem no servidor.");
-      }
+      } catch (error) { showToast("Erro ao guardar a imagem."); }
     };
     reader.readAsDataURL(file);
   };
@@ -415,7 +414,6 @@ export default function App() {
         <tbody>
     `;
 
-    // APLICANDO A COR DO WHITE LABEL NO PDF (Se existir)
     const pdfBrandColor = currentBrand?.color || '#2563eb';
     const pdfBrandName = currentBrand?.name || 'EVOTRAINER';
 
@@ -455,7 +453,6 @@ export default function App() {
     });
 
     tableHTML += `</tbody></table>`;
-
     const geradoPor = isStudent ? `Gerado via ${pdfBrandName} App` : `Personal: ${currentUser?.name || 'Treinador'}`;
     const logoHtml = currentBrand?.logo 
        ? `<img src="${currentBrand.logo}" style="max-height: 50px; max-width: 150px; object-fit: contain;" alt="${pdfBrandName}"/>`
@@ -506,25 +503,15 @@ export default function App() {
               <p class="meta-info">Duração estimada: <strong>${treino.duration}</strong></p>
             </div>
           </div>
-          
           ${tableHTML}
-          
-          <div class="footer">
-            ${geradoPor}
-          </div>
-          
-          <script>
-            window.onload = () => { setTimeout(() => { window.print(); }, 800); }
-          </script>
+          <div class="footer">${geradoPor}</div>
+          <script>window.onload = () => { setTimeout(() => { window.print(); }, 800); }</script>
         </body>
       </html>
     `;
 
     const printWindow = window.open('', '_blank');
-    if(!printWindow) {
-        showToast("Permita pop-ups no seu navegador para gerar o PDF.");
-        return;
-    }
+    if(!printWindow) { showToast("Permita pop-ups no seu navegador para gerar o PDF."); return; }
     printWindow.document.write(htmlContent);
     printWindow.document.close();
   };
@@ -532,13 +519,12 @@ export default function App() {
   const enviarTreinoWhatsApp = (treino: any, aluno: any) => {
     let telefone = aluno.phone || '';
     telefone = telefone.replace(/\D/g, ''); 
-
-    if (telefone && !telefone.startsWith('55')) {
-      telefone = '55' + telefone;
-    }
+    if (telefone && !telefone.startsWith('55')) telefone = '55' + telefone;
 
     const brandNameMsg = currentBrand?.name || 'EvoTrainer';
-    const mensagem = `Olá *${aluno.name.split(' ')[0]}*! 💪\n\nA sua nova ficha de treino *${treino.title}* já está configurada.\n\n⏱ *Duração:* ${treino.duration}\n📅 *Dia:* ${treino.dayOfWeek}\n\nAcesse ao seu App ${brandNameMsg} para ver os vídeos de execução perfeitos!\n\nBora esmagar! 🔥`;
+    const appLink = typeof window !== 'undefined' ? `${window.location.origin}/?t=${currentUser.id}` : 'app.evotrainer.com';
+
+    const mensagem = `Olá *${aluno.name.split(' ')[0]}*! 💪\n\nA sua nova ficha de treino *${treino.title}* já está configurada.\n\n⏱ *Duração:* ${treino.duration}\n📅 *Dia:* ${treino.dayOfWeek}\n\nAceda ao seu App ${brandNameMsg} para ver os vídeos de execução perfeitos:\n${appLink}\n\nBora esmagar! 🔥`;
 
     const url = telefone && telefone.length >= 12 
       ? `https://wa.me/${telefone}?text=${encodeURIComponent(mensagem)}`
@@ -554,15 +540,12 @@ export default function App() {
     setIsLoggingIn(true);
     try {
       const res = await fetch(`${API_URL}/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: loginEmail, password: loginPassword })
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: loginEmail, password: loginPassword })
       });
       const data = await res.json();
       
       if (res.ok) {
-        setToken(data.token);
-        setCurrentUser(data.user);
+        setToken(data.token); setCurrentUser(data.user);
         localStorage.setItem('treino_ai_token', data.token);
         localStorage.setItem('treino_ai_user', JSON.stringify(data.user));
         
@@ -570,80 +553,48 @@ export default function App() {
           setCurrentBrand(data.brand);
           localStorage.setItem('treino_ai_brand', JSON.stringify(data.brand));
         } else {
-          setCurrentBrand(null);
-          localStorage.removeItem('treino_ai_brand');
+          setCurrentBrand(null); localStorage.removeItem('treino_ai_brand');
         }
-
-        setLoginPassword('');
-        showToast("Bem-vindo de volta!");
-      } else {
-        showToast(data.error || "Erro no login.");
-      }
-    } catch (error) {
-      showToast(`Erro ao ligar com o servidor.`);
-    } finally {
-      setIsLoggingIn(false);
-    }
+        setLoginPassword(''); showToast("Bem-vindo de volta!");
+      } else { showToast(data.error || "Erro no login."); }
+    } catch (error) { showToast(`Erro ao ligar com o servidor.`); } finally { setIsLoggingIn(false); }
   };
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!signupName || !signupEmail || !signupPassword) return showToast("Preencha todos os campos.");
     if (signupPassword !== signupConfirmPassword) return showToast("As senhas não coincidem!");
-    
     setIsSigningUp(true);
 
     if (authMode === 'MASTER') {
-      if (masterSecret !== "evotrainer2026") {
-        showToast("Chave mestra inválida!");
-        setIsSigningUp(false);
-        return;
-      }
-      
+      if (masterSecret !== "evotrainer2026") { showToast("Chave mestra inválida!"); setIsSigningUp(false); return; }
       try {
         const res = await fetch(`${API_URL}/setup-master`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            name: signupName, email: signupEmail, password: signupPassword, secret_key: masterSecret
-          })
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: signupName, email: signupEmail, password: signupPassword, secret_key: masterSecret })
         });
         const data = await res.json();
-        
         if (res.ok) {
-          showToast("A conta Master foi criada! Faça login agora.");
-          setAuthMode('LOGIN');
-          setSignupName(''); setSignupEmail(''); setSignupPassword(''); setSignupConfirmPassword('');
-        } else {
-          showToast(data.error || "Erro ao criar conta.");
-        }
-      } catch (error) { showToast(`Erro ao ligar com o servidor.`); } 
-      finally { setIsSigningUp(false); }
+          showToast("Conta Master criada! Faça login.");
+          setAuthMode('LOGIN'); setSignupName(''); setSignupEmail(''); setSignupPassword(''); setSignupConfirmPassword('');
+        } else { showToast(data.error || "Erro ao criar conta."); }
+      } catch (error) { showToast(`Erro ao ligar com o servidor.`); } finally { setIsSigningUp(false); }
       return;
     }
 
     try {
       const res = await fetch(`${API_URL}/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          name: signupName, email: signupEmail, password: signupPassword, role: 'ADMIN', plano: 'GRATIS'
-        })
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: signupName, email: signupEmail, password: signupPassword, role: 'ADMIN', plano: 'GRATIS' })
       });
       const data = await res.json();
-      
       if (res.ok) {
-        setToken(data.token);
-        setCurrentUser(data.user);
+        setToken(data.token); setCurrentUser(data.user);
         localStorage.setItem('treino_ai_token', data.token);
         localStorage.setItem('treino_ai_user', JSON.stringify(data.user));
         localStorage.setItem('evotrainer_tour_pending', 'true');
-        
         setSignupName(''); setSignupEmail(''); setSignupPassword(''); setSignupConfirmPassword('');
         showToast("Bem-vindo ao EvoTrainer!");
       } else { showToast(data.error || "Erro ao criar conta."); }
-    } catch (error) { showToast(`Erro ao ligar com o servidor.`); } 
-    finally { setIsSigningUp(false); }
+    } catch (error) { showToast(`Erro ao ligar com o servidor.`); } finally { setIsSigningUp(false); }
   };
 
   const handleForgotPassword = async (e: React.FormEvent) => {
@@ -651,14 +602,11 @@ export default function App() {
     if (!loginEmail) return showToast("Digite o seu e-mail.");
     setIsLoggingIn(true);
     try {
-      const res = await fetch(`${API_URL}/forgot-password`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: loginEmail })
-      });
+      const res = await fetch(`${API_URL}/forgot-password`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: loginEmail }) });
       const data = await res.json();
       showToast(data.message || data.error);
       if(res.ok) setAuthMode('LOGIN');
-    } catch (error) { showToast("Erro de ligação."); }
-    finally { setIsLoggingIn(false); }
+    } catch (error) { showToast("Erro de ligação."); } finally { setIsLoggingIn(false); }
   };
 
   const handleResetPassword = async (e: React.FormEvent) => {
@@ -666,28 +614,21 @@ export default function App() {
     if (!resetNewPassword) return showToast("Digite a nova palavra-passe.");
     setIsLoggingIn(true);
     try {
-      const res = await fetch(`${API_URL}/reset-password`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: resetTokenUrl, newPassword: resetNewPassword })
-      });
+      const res = await fetch(`${API_URL}/reset-password`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: resetTokenUrl, newPassword: resetNewPassword }) });
       const data = await res.json();
       showToast(data.message || data.error);
       if(res.ok) {
         setAuthMode('LOGIN');
         if(typeof window !== 'undefined') window.history.replaceState(null, '', window.location.pathname);
       }
-    } catch (error) { showToast("Erro de ligação."); }
-    finally { setIsLoggingIn(false); }
+    } catch (error) { showToast("Erro de ligação."); } finally { setIsLoggingIn(false); }
   };
 
   const handleLogout = () => {
-    setCurrentUser(null);
-    setToken(null);
-    setCurrentBrand(null);
-    localStorage.clear();
-    setTreinoIniciado(false);
+    setCurrentUser(null); setToken(null); setCurrentBrand(null); setLoginBrand(null);
+    localStorage.clear(); setTreinoIniciado(false);
   };
 
-  // --- SUPERADMIN API ---
   const fetchTrainers = async () => {
     setIsLoading(true);
     try {
@@ -698,24 +639,19 @@ export default function App() {
 
   const alterarPlanoTrainer = async (trainerId: number, novoPlano: string) => {
     try {
-      const res = await fetch(`${API_URL}/superadmin/trainers/${trainerId}/plano`, { 
-        method: 'PUT', 
-        headers: getAuthHeaders(), 
-        body: JSON.stringify({ plano: novoPlano }) 
-      });
+      const res = await fetch(`${API_URL}/superadmin/trainers/${trainerId}/plano`, { method: 'PUT', headers: getAuthHeaders(), body: JSON.stringify({ plano: novoPlano }) });
       if (res.ok) { showToast("Plano atualizado!"); fetchTrainers(); }
     } catch (e) { showToast("Erro ao alterar plano."); }
   };
 
   const excluirTrainer = async (trainerId: number, name: string) => {
-    if (!window.confirm(`ATENÇÃO: Apagar o Personal "${name}" e todos os alunos/fichas dele?`)) return;
+    if (!window.confirm(`ATENÇÃO: Apagar o Personal "${name}" e todos os alunos/fichas?`)) return;
     try {
       const res = await fetch(`${API_URL}/superadmin/trainers/${trainerId}`, { method: 'DELETE', headers: getAuthHeaders() });
       if (res.ok) { showToast("Personal apagado."); fetchTrainers(); }
     } catch (e) { showToast("Erro."); }
   };
 
-  // --- ADMIN API ---
   const fetchAlunos = async () => {
     setIsLoading(true);
     try {
@@ -742,7 +678,7 @@ export default function App() {
   };
 
   const excluirAluno = async (alunoId: number, nome: string) => {
-    if (!window.confirm(`Apagar o aluno "${nome}" e todo o seu histórico?`)) return;
+    if (!window.confirm(`Apagar o aluno "${nome}" e o seu histórico?`)) return;
     try {
       const res = await fetch(`${API_URL}/alunos/${alunoId}`, { method: 'DELETE', headers: getAuthHeaders() });
       if (res.ok) { showToast(`Aluno apagado.`); fetchAlunos(); }
@@ -765,7 +701,7 @@ export default function App() {
   const salvarTreino = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!alunoSelecionado) return;
-    setIsCriandoTreino(true); showToast("A sincronizar vídeos do YouTube...");
+    setIsCriandoTreino(true); showToast("Sincronizando vídeos...");
     try {
       const exercisesComVideos = [];
       for (const ex of novoTreino.exercises) {
@@ -793,7 +729,7 @@ export default function App() {
     setIsDeleting(true);
     try {
       const res = await fetch(`${API_URL}/treinos/${treinoParaExcluir.id}`, { method: 'DELETE', headers: getAuthHeaders() });
-      if (res.ok) { showToast("Treino apagado!"); fetchAlunos(); setShowDeleteModal(false); setTreinoParaExcluir(null); }
+      if (res.ok) { showToast("Apagado!"); fetchAlunos(); setShowDeleteModal(false); setTreinoParaExcluir(null); }
     } catch (e) {} finally { setIsDeleting(false); }
   };
 
@@ -801,7 +737,7 @@ export default function App() {
     setIsGeneratingIA(true);
     if (!iaAlunoId) { showToast("Selecione um aluno primeiro."); setIsGeneratingIA(false); return; }
     try {
-      showToast("A IA está a analisar o perfil. Isso pode demorar até 15 segundos...");
+      showToast("A IA está a analisar o perfil...");
       const response = await fetch(`${API_URL}/ai/gerar-treino`, {
         method: 'POST', headers: getAuthHeaders(), body: JSON.stringify({ alunoId: iaAlunoId, split: iaSplit, frequencia: iaFrequencia, prompt: iaPrompt })
       });
@@ -844,7 +780,6 @@ export default function App() {
       const res = await fetch(`${API_URL}/alunos/${currentUser.id}/perfil`, { method: 'PUT', headers: getAuthHeaders(), body: JSON.stringify(profileForm) });
       if (res.ok) {
         const up = await res.json(); setCurrentUser(up); localStorage.setItem('treino_ai_user', JSON.stringify(up)); showToast("Perfil salvo!");
-        
         if(currentUser.role === 'ADMIN' && currentUser.plano === 'ELITE') {
            const newBrand = { name: profileForm.brandName, color: profileForm.brandColor, logo: profileForm.brandLogo };
            setCurrentBrand(newBrand);
@@ -870,7 +805,6 @@ export default function App() {
   }, [currentUser]);
 
   const alunosFiltrados = alunos.filter(a => a.name.toLowerCase().includes(buscaAluno.toLowerCase()) || a.email.toLowerCase().includes(buscaAluno.toLowerCase()));
-  
   const trainersFiltrados = trainers.filter(t => {
     const nomeBate = t.name.toLowerCase().includes(buscaTrainer.toLowerCase()) || t.email.toLowerCase().includes(buscaTrainer.toLowerCase());
     if (filtroPlano === 'TODOS') return nomeBate;
@@ -882,13 +816,8 @@ export default function App() {
   const toggleConjugado = (i: number) => { const n = [...novoTreino.exercises]; n[i].isConjugado = !n[i].isConjugado; if(!n[i].isConjugado) n[i].conjugadoCom = ''; setNovoTreino({ ...novoTreino, exercises: n }); };
   const toggleDone = (id: number) => { if (exerciciosFeitos.includes(id)) setExerciciosFeitos(exerciciosFeitos.filter(i => i !== id)); else setExerciciosFeitos([...exerciciosFeitos, id]); };
 
-
-  // ==========================================
-  // ESTILOS DINÂMICOS (WHITE LABEL)
-  // ==========================================
-  const primaryColor = currentBrand?.color || '#2563eb'; // blue-600 padrão
+  const primaryColor = currentBrand?.color || '#2563eb'; 
   const brandName = currentBrand?.name || 'EVOTRAINER';
-  
   const getBrandStyle = (type: 'bg' | 'text' | 'border') => {
     if(!currentBrand?.color) return {};
     if(type === 'bg') return { backgroundColor: currentBrand.color };
@@ -896,56 +825,72 @@ export default function App() {
     if(type === 'border') return { borderColor: currentBrand.color };
     return {};
   }
+  
+  const loginColor = loginBrand?.color || '#2563eb';
+  const getLoginBrandStyle = (type: 'bg' | 'text' | 'border') => {
+    if(!loginBrand?.color) return {};
+    if(type === 'bg') return { backgroundColor: loginBrand.color };
+    if(type === 'text') return { color: loginBrand.color };
+    if(type === 'border') return { borderColor: loginBrand.color };
+    return {};
+  }
 
-
-  // ==================== RENDERIZAÇÃO DE AUTENTICAÇÃO ====================
+  // ==================== RENDERIZAÇÃO: NÃO AUTENTICADO ====================
   if (!currentUser) {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 text-slate-50 relative overflow-hidden">
-        <div className="absolute top-20 right-[-10%] w-[300px] h-[300px] bg-blue-600/10 blur-[100px] rounded-full pointer-events-none"></div>
+        <div className="absolute top-20 right-[-10%] w-[300px] h-[300px] blur-[100px] rounded-full pointer-events-none opacity-20" style={getLoginBrandStyle('bg')}></div>
         <div className="absolute bottom-0 left-[-10%] w-[300px] h-[300px] bg-indigo-600/10 blur-[100px] rounded-full pointer-events-none"></div>
         
-        {toastMsg && <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[300] bg-blue-600 text-white font-bold px-4 py-2 rounded-full shadow-lg text-sm whitespace-nowrap animate-fade-in">{toastMsg}</div>}
+        {toastMsg && <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[300] text-white font-bold px-4 py-2 rounded-full shadow-lg text-sm whitespace-nowrap animate-fade-in" style={{...getLoginBrandStyle('bg'), backgroundColor: loginBrand?.color || '#2563eb' }}>{toastMsg}</div>}
 
-        <button onClick={() => setAuthMode('MASTER')} className="absolute top-4 right-4 text-slate-800 hover:text-slate-600 transition-colors">
-           <ShieldAlert size={20} />
-        </button>
+        {!loginBrand && (
+           <button onClick={() => setAuthMode('MASTER')} className="absolute top-4 right-4 text-slate-800 hover:text-slate-600 transition-colors">
+              <ShieldAlert size={20} />
+           </button>
+        )}
 
         <div className="w-full max-w-md bg-slate-900/80 backdrop-blur-xl border border-slate-800 p-8 rounded-[3rem] shadow-2xl animate-fade-in text-center relative z-10">
-          <div className="w-16 h-16 bg-blue-600 rounded-3xl mx-auto flex items-center justify-center mb-4 shadow-lg shadow-blue-500/20">
-            <Dumbbell size={32} className="text-white" />
+          
+          <div className="w-20 h-20 rounded-3xl mx-auto flex items-center justify-center mb-6 shadow-lg overflow-hidden border-2" style={{...getLoginBrandStyle('bg'), borderColor: `${loginColor}50`, backgroundColor: `${loginColor}20` }}>
+            {loginBrand?.logo ? (
+               <img src={loginBrand.logo} alt="Logo" className="w-full h-full object-cover" />
+            ) : (
+               <Dumbbell size={40} style={getLoginBrandStyle('text')} />
+            )}
           </div>
-          <h1 className="text-2xl font-black mb-1 tracking-tighter">EVO<span className="text-blue-500">TRAINER</span></h1>
+          
+          <h1 className="text-3xl font-black mb-2 tracking-tighter" style={loginBrand ? getLoginBrandStyle('text') : {}}>
+             {loginBrand ? loginBrand.name : <>EVO<span className="text-blue-500">TRAINER</span></>}
+          </h1>
           
           <p className="text-slate-400 text-xs mb-8 font-medium">
             {authMode === 'MASTER' && 'Abertura de Conta Mestre'}
             {authMode === 'LOGIN' && 'Acesso ao Sistema'}
-            {authMode === 'SIGNUP' && 'Crie sua conta de Personal'}
+            {authMode === 'SIGNUP' && 'Crie sua conta'}
             {authMode === 'FORGOT' && 'Recuperação de Palavra-Passe'}
             {authMode === 'RESET' && 'Criar Nova Palavra-Passe'}
           </p>
 
-          {/* FORMULÁRIO DE LOGIN */}
           {authMode === 'LOGIN' && (
             <form onSubmit={handleLogin} className="space-y-4">
               <div className="relative">
                 <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 w-5 h-5" />
-                <input type="email" required placeholder="Seu E-mail" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-4 pl-12 pr-4 text-white focus:outline-none focus:border-blue-500 transition-colors" />
+                <input type="email" required placeholder="Seu E-mail" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-4 pl-12 pr-4 text-white focus:outline-none transition-colors" style={{ outlineColor: loginColor }} />
               </div>
               <div className="relative">
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 w-5 h-5" />
-                <input type="password" required placeholder="Sua Senha" value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-4 pl-12 pr-4 text-white focus:outline-none focus:border-blue-500 transition-colors" />
+                <input type="password" required placeholder="Sua Senha" value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-4 pl-12 pr-4 text-white focus:outline-none transition-colors" style={{ outlineColor: loginColor }} />
               </div>
               <div className="text-right">
-                <button type="button" onClick={() => setAuthMode('FORGOT')} className="text-[10px] text-slate-500 hover:text-blue-400 font-bold uppercase tracking-widest">Esqueci a Senha</button>
+                <button type="button" onClick={() => setAuthMode('FORGOT')} className="text-[10px] text-slate-500 hover:text-white font-bold uppercase tracking-widest transition-colors">Esqueci a Senha</button>
               </div>
-              <button type="submit" disabled={isLoggingIn} className="w-full mt-4 bg-blue-600 hover:bg-blue-500 text-white font-black text-sm py-5 rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-blue-600/30 active:scale-95 transition-all tracking-widest uppercase">
+              <button type="submit" disabled={isLoggingIn} className="w-full mt-4 text-white font-black text-sm py-5 rounded-2xl flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-all tracking-widest uppercase" style={{ backgroundColor: loginColor, boxShadow: `0 10px 25px -5px ${loginColor}60` }}>
                 {isLoggingIn ? <Activity className="animate-spin" /> : 'ENTRAR NA CONTA'}
               </button>
             </form>
           )}
 
-          {/* FORMULÁRIO DE REGISTO */}
           {authMode === 'SIGNUP' && (
             <form onSubmit={handleSignup} className="space-y-3">
               <div className="relative">
@@ -970,7 +915,6 @@ export default function App() {
             </form>
           )}
 
-          {/* FORMULÁRIO DO MESTRE */}
           {authMode === 'MASTER' && (
              <form onSubmit={handleSignup} className="space-y-3">
               <div className="relative">
@@ -995,7 +939,6 @@ export default function App() {
              </form>
           )}
 
-          {/* FORMULÁRIO ESQUECI A SENHA */}
           {authMode === 'FORGOT' && (
              <form onSubmit={handleForgotPassword} className="space-y-4">
               <p className="text-sm text-slate-400 mb-4">Insira o seu e-mail para receber um link de recuperação mágico.</p>
@@ -1009,7 +952,6 @@ export default function App() {
              </form>
           )}
 
-          {/* FORMULÁRIO REDEFINIR SENHA */}
           {authMode === 'RESET' && (
              <form onSubmit={handleResetPassword} className="space-y-4">
               <div className="relative">
@@ -1022,9 +964,8 @@ export default function App() {
              </form>
           )}
 
-          {/* RODAPÉ DO MÓDULO DE LOGIN */}
           <div className="mt-6 flex flex-col gap-2 text-center w-full">
-            {(authMode === 'LOGIN' || authMode === 'SIGNUP' || authMode === 'MASTER') && (
+            {!loginBrand && (authMode === 'LOGIN' || authMode === 'SIGNUP' || authMode === 'MASTER') && (
               <button onClick={() => setAuthMode(authMode === 'LOGIN' ? 'SIGNUP' : 'LOGIN')} className="text-sm font-bold text-slate-400 hover:text-white transition-colors w-full p-2">
                 {authMode === 'LOGIN' ? "Novo por aqui? Crie sua conta." : "Já tem conta? Faça Login."}
               </button>
@@ -1040,7 +981,7 @@ export default function App() {
     );
   }
 
-  // --- ECRÃ DO SUPERADMIN (DONO) ---
+  // ==================== RENDERIZAÇÃO: SUPERADMIN ====================
   if (currentUser.role === 'SUPERADMIN') {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col text-slate-50 md:items-center md:justify-center relative">
@@ -1134,9 +1075,8 @@ export default function App() {
     );
   }
 
-  // --- ECRÃ DO ADMIN (PERSONAL TRAINER NORMAL) ---
+  // ==================== RENDERIZAÇÃO: ADMIN ====================
   if (currentUser.role === 'ADMIN') {
-    const groupedBuilderExercises = getGroupedExercises(novoTreino.exercises);
     const ativosCount = alunos.filter(a => a.status !== 'Bloqueado').length;
     const bloqueadosCount = alunos.filter(a => a.status === 'Bloqueado').length;
 
@@ -1162,10 +1102,8 @@ export default function App() {
 
           <div className="flex-1 overflow-y-auto p-4 sm:p-6 pb-28 custom-scrollbar">
             
-            {/* ADMIN TAB: ALUNOS & DASHBOARD */}
             {adminTabAtiva === 'alunos' && (
               <div className="animate-fade-in flex flex-col gap-6">
-                {/* Dashboard Simples */}
                 <div className="grid grid-cols-3 gap-3">
                   <div className="bg-blue-600/10 border border-blue-500/20 p-4 rounded-2xl flex flex-col items-center justify-center text-center shadow-lg">
                     <p className="text-[9px] text-blue-400 font-black uppercase tracking-widest mb-1">Total</p>
@@ -1237,7 +1175,6 @@ export default function App() {
               </div>
             )}
 
-            {/* ADMIN TAB: GERADOR IA COM DIVISÃO AUTOMÁTICA */}
             {adminTabAtiva === 'ia' && (
               <div className="animate-fade-in flex flex-col gap-6">
                 <div className="bg-gradient-to-br from-indigo-600 to-purple-800 p-6 rounded-[2.5rem] shadow-2xl relative overflow-hidden">
@@ -1297,7 +1234,6 @@ export default function App() {
               </div>
             )}
 
-            {/* ADMIN TAB: PERFIL DO PERSONAL (COM OPÇÕES DE UPGRADE) */}
             {adminTabAtiva === 'perfil' && (
               <div className="flex flex-col gap-6 animate-fade-in pb-8">
                  
@@ -1448,7 +1384,6 @@ export default function App() {
                 </div>
                 
                 <div className="flex flex-col gap-4">
-                  {/* START BRONZE */}
                   <div className="bg-slate-950 border border-amber-700/30 p-5 rounded-3xl flex flex-col gap-4 relative overflow-hidden">
                     <div className="absolute top-0 right-0 bg-amber-700/20 text-amber-500 text-[8px] font-black px-3 py-1 rounded-bl-xl uppercase tracking-widest">R$ 30/mês</div>
                     <div>
@@ -1464,7 +1399,6 @@ export default function App() {
                     </button>
                   </div>
 
-                  {/* PRO SILVER */}
                   <div className="bg-slate-950 border border-blue-500 p-5 rounded-3xl flex flex-col gap-4 relative overflow-hidden shadow-[0_0_15px_rgba(59,130,246,0.15)]">
                     <div className="absolute top-0 right-0 bg-blue-600 text-white text-[8px] font-black px-3 py-1 rounded-bl-xl uppercase tracking-widest">R$ 60/mês</div>
                     <div>
@@ -1481,7 +1415,6 @@ export default function App() {
                     </button>
                   </div>
 
-                  {/* ELITE OURO */}
                   <div className="bg-slate-950 border border-yellow-500 p-5 rounded-3xl flex flex-col gap-4 relative overflow-hidden shadow-[0_0_15px_rgba(234,179,8,0.15)]">
                     <div className="absolute top-0 right-0 bg-yellow-500 text-slate-900 text-[8px] font-black px-3 py-1 rounded-bl-xl uppercase tracking-widest">R$ 100/mês</div>
                     <div>
@@ -1613,7 +1546,7 @@ export default function App() {
     );
   }
 
-  // --- ECRÃ DO ALUNO ---
+  // ==================== RENDERIZAÇÃO: ALUNO ====================
   const aluno = currentUser;
   const treinoSelecionado = treinosAluno.find(t => t.dayOfWeek === diaAtivo);
   const groupedTreinoSelecionado = treinoSelecionado ? getGroupedExercises(treinoSelecionado.exercises || []) : [];
@@ -1621,7 +1554,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col text-slate-50 md:items-center md:justify-center">
       <div className="w-full h-screen md:h-[850px] md:max-w-md bg-slate-900 md:rounded-[40px] md:border-[8px] border-slate-800 flex flex-col relative overflow-hidden shadow-2xl">
-        {toastMsg && <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[130] bg-blue-600 text-white font-bold px-4 py-2 rounded-full shadow-lg text-sm whitespace-nowrap animate-fade-in" style={getBrandStyle('bg')}>{toastMsg}</div>}
+        {toastMsg && <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[130] text-white font-bold px-4 py-2 rounded-full shadow-lg text-sm whitespace-nowrap animate-fade-in" style={getBrandStyle('bg')}>{toastMsg}</div>}
         
         <InstallBanner showInstallBanner={showInstallBanner} setShowInstallBanner={setShowInstallBanner} handleInstallClick={handleInstallClick} brandColor={primaryColor} />
         <YoutubeModal videoAtivo={videoAtivo} setVideoAtivo={setVideoAtivo} brandColor={primaryColor} />
@@ -1891,20 +1824,4 @@ export default function App() {
       </div>
     </div>
   );
-}
-
-// Helper: Group conjugate exercises
-function getGroupedExercises(exercisesArray: any[]) {
-  const grouped: any[] = [];
-  const skipIndices = new Set(); 
-  exercisesArray.forEach((ex, idx) => {
-    if (skipIndices.has(idx)) return; 
-    const group = { main: { ...ex, originalIndex: idx }, partners: [] as any[] };
-    if (ex.isConjugado && ex.conjugadoCom) {
-      const pIdx = exercisesArray.findIndex((e, i) => i !== idx && !skipIndices.has(i) && e.name === ex.conjugadoCom);
-      if (pIdx !== -1) { group.partners.push({ ...exercisesArray[pIdx], originalIndex: pIdx }); skipIndices.add(pIdx); }
-    }
-    grouped.push(group);
-  });
-  return grouped;
 }
