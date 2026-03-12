@@ -440,9 +440,26 @@ app.put('/api/treinos/:workoutId', authenticateToken, isAdmin, async (req, res) 
 
 app.delete('/api/treinos/:workoutId', authenticateToken, isAdmin, async (req, res) => {
   try {
-    await prisma.exercise.deleteMany({ where: { workoutId: parseInt(req.params.workoutId) } });
-    await prisma.workoutTemplate.delete({ where: { id: parseInt(req.params.workoutId) } });
-    res.json({ message: "Apagado!" });
+    const workoutId = parseInt(req.params.workoutId);
+    
+    // 1. Busca os dados da ficha antes de a excluir para saber o título e a quem pertence
+    const treino = await prisma.workoutTemplate.findUnique({ where: { id: workoutId } });
+    
+    if (treino && treino.userId) {
+      // 2. Apaga todo o histórico (feedback/notas) associado a esta ficha específica deste aluno
+      await prisma.workoutHistory.deleteMany({ 
+        where: { 
+          userId: treino.userId,
+          workoutName: treino.title 
+        } 
+      });
+    }
+
+    // 3. Exclui os exercícios e depois a ficha
+    await prisma.exercise.deleteMany({ where: { workoutId: workoutId } });
+    await prisma.workoutTemplate.delete({ where: { id: workoutId } });
+    
+    res.json({ message: "Ficha e feedbacks apagados!" });
   } catch (error) { res.status(500).json({ error: "Erro" }); }
 });
 
