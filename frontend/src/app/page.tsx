@@ -63,7 +63,7 @@ const InstallBanner = ({ showInstallBanner, setShowInstallBanner, handleInstallC
 
   if (showInstallBanner && !isIOS) {
     return (
-      <div className="fixed bottom-24 left-4 right-4 z-[110] p-4 rounded-2xl shadow-2xl flex items-center justify-between border animate-fade-in sm:max-w-sm sm:mx-auto bg-slate-900 border-slate-700">
+      <div className="fixed z-[110] p-4 rounded-2xl shadow-2xl flex items-center justify-between border animate-fade-in sm:max-w-sm sm:mx-auto bg-slate-900 border-slate-700 w-[calc(100%-2rem)] left-4 right-4" style={{ bottom: 'calc(max(env(safe-area-inset-bottom), 1rem) + 5rem)' }}>
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-xl text-white shadow-lg" style={{ backgroundColor: brandColor || '#2563eb' }}><Download size={24} /></div>
           <div><p className="text-white font-black text-sm">Instalar App</p><p className="text-slate-400 text-[10px]">Acesso rápido na tela inicial!</p></div>
@@ -78,7 +78,7 @@ const InstallBanner = ({ showInstallBanner, setShowInstallBanner, handleInstallC
 
   if (isIOS && !showInstallBanner) {
     return (
-      <div className="fixed bottom-10 left-4 right-4 z-[110] p-5 rounded-3xl shadow-2xl border animate-bounce sm:max-w-sm sm:mx-auto" style={{ backgroundColor: brandColor || '#2563eb', borderColor: 'rgba(255,255,255,0.2)' }}>
+      <div className="fixed z-[110] p-5 rounded-3xl shadow-2xl border animate-bounce sm:max-w-sm sm:mx-auto w-[calc(100%-2rem)] left-4 right-4" style={{ bottom: 'calc(max(env(safe-area-inset-bottom), 1rem) + 4rem)', backgroundColor: brandColor || '#2563eb', borderColor: 'rgba(255,255,255,0.2)' }}>
         <button onClick={dismissBanner} className="absolute top-2 right-2 text-white/50 hover:text-white p-1"><X size={16}/></button>
         <div className="flex flex-col items-center text-center gap-2">
           <div className="bg-white/20 p-2 rounded-xl text-white"><Download size={24} /></div>
@@ -101,7 +101,7 @@ const YoutubeModal = ({ videoAtivo, setVideoAtivo, brandColor }: any) => {
   const iframeSrc = `https://www.youtube.com/embed/${videoAtivo}?autoplay=1&rel=0`;
 
   return (
-    <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-[400] flex items-center justify-center p-4 animate-fade-in">
+    <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-[400] flex items-center justify-center p-4 animate-fade-in" style={{ paddingTop: 'max(env(safe-area-inset-top), 1rem)', paddingBottom: 'max(env(safe-area-inset-bottom), 1rem)' }}>
       <div className="bg-slate-900 border border-slate-800 rounded-[2.5rem] w-full max-w-lg overflow-hidden shadow-2xl flex flex-col relative">
         <div className="p-5 flex justify-between items-center border-b border-slate-800 bg-slate-950">
           <h3 className="text-white font-black text-xs uppercase tracking-[0.2em] flex items-center gap-2"><Youtube size={18} className="text-red-500"/> Execução Correta</h3>
@@ -134,7 +134,7 @@ const TourModal = ({ showTour, setShowTour, tourStep, setTourStep }: any) => {
   const current = tourSteps[tourStep];
 
   return (
-    <div className="fixed inset-0 bg-black/95 backdrop-blur-md z-[500] flex items-center justify-center p-6 animate-fade-in">
+    <div className="fixed inset-0 bg-black/95 backdrop-blur-md z-[500] flex items-center justify-center p-6 animate-fade-in" style={{ paddingTop: 'max(env(safe-area-inset-top), 1.5rem)' }}>
       <div className="bg-slate-900 border border-slate-800 rounded-[3rem] w-full max-w-sm text-center p-8 shadow-2xl relative overflow-hidden">
         <div className="absolute -top-10 -right-10 opacity-5"><Sparkles size={200} /></div>
         <div className="relative z-10">
@@ -843,14 +843,14 @@ export default function App() {
   // ==================== RENDERIZAÇÃO: LOGIN ====================
   if (!currentUser) {
     return (
-      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 text-slate-50 relative overflow-hidden">
+      <div className="min-h-[100dvh] bg-slate-950 flex flex-col items-center justify-center p-6 text-slate-50 relative overflow-hidden">
         <div className="absolute top-20 right-[-10%] w-[300px] h-[300px] blur-[100px] rounded-full pointer-events-none opacity-20" style={getLoginBrandStyle('bg')}></div>
         <div className="absolute bottom-0 left-[-10%] w-[300px] h-[300px] bg-indigo-600/10 blur-[100px] rounded-full pointer-events-none"></div>
         
         {toastMsg && <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[300] text-white font-bold px-4 py-2 rounded-full shadow-lg text-sm whitespace-nowrap animate-fade-in" style={{...getLoginBrandStyle('bg'), backgroundColor: loginBrand?.color || '#2563eb' }}>{toastMsg}</div>}
 
         {!loginBrand && (
-           <button onClick={() => setAuthMode('MASTER')} className="absolute top-4 right-4 text-slate-800 hover:text-slate-600 transition-colors">
+           <button onClick={() => setAuthMode('MASTER')} className="absolute top-4 right-4 text-slate-800 hover:text-slate-600 transition-colors" style={{ paddingTop: 'max(env(safe-area-inset-top), 1rem)' }}>
               <ShieldAlert size={20} />
            </button>
         )}
@@ -992,11 +992,11 @@ export default function App() {
   // ==================== RENDERIZAÇÃO: SUPERADMIN ====================
   if (currentUser.role === 'SUPERADMIN') {
     return (
-      <div className="min-h-screen bg-slate-950 flex flex-col text-slate-50 md:items-center md:justify-center relative">
-        <div className="w-full h-screen md:h-[850px] md:max-w-md bg-slate-900 md:rounded-[40px] md:border-[8px] border-slate-800 flex flex-col relative overflow-hidden shadow-2xl">
+      <div className="min-h-[100dvh] bg-slate-950 flex flex-col text-slate-50 relative">
+        <div className="w-full flex-1 flex flex-col md:max-w-6xl mx-auto relative bg-slate-900 md:bg-transparent">
           {toastMsg && <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[300] bg-emerald-600 text-white font-bold px-4 py-2 rounded-full shadow-lg text-sm whitespace-nowrap animate-fade-in">{toastMsg}</div>}
           
-          <header className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-900 z-10 shadow-sm shrink-0">
+          <header className="px-6 pb-4 border-b border-slate-800 flex justify-between items-center bg-slate-900 z-10 shadow-sm shrink-0 md:rounded-b-[2rem]" style={{ paddingTop: 'max(env(safe-area-inset-top), 1.5rem)' }}>
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 bg-red-600 rounded-xl flex items-center justify-center shadow-[0_0_15px_rgba(220,38,38,0.4)]">
                 <ShieldAlert size={24} className="text-white"/>
@@ -1009,12 +1009,12 @@ export default function App() {
             <button onClick={handleLogout} className="text-slate-400 hover:text-white bg-slate-800 p-2.5 rounded-xl transition-colors"><LogOut size={18} /></button>
           </header>
 
-          <div className="flex-1 overflow-y-auto p-4 sm:p-6 custom-scrollbar pb-32">
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6 pb-36 md:pb-40 custom-scrollbar">
             
             {adminTabAtiva === 'alunos' && (
               <div className="animate-fade-in">
                 <div className="flex flex-col gap-4 mb-6">
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-2 gap-3 md:gap-6">
                     <div className="bg-slate-950 border border-slate-800 p-4 rounded-2xl text-center shadow-inner">
                       <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest mb-1">Total de Personais</p>
                       <p className="text-2xl font-black text-blue-400">{trainers.length}</p>
@@ -1036,49 +1036,52 @@ export default function App() {
                   </div>
                 </div>
 
-                <div className="flex flex-col gap-4">
-                  {trainersFiltrados.map(t => (
-                    <div key={t.id} className="bg-slate-950 p-5 rounded-2xl border border-slate-800 shadow-lg flex flex-col gap-4">
-                      <div className="flex justify-between items-start">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-slate-900 border border-slate-700 text-blue-500 font-black rounded-lg flex items-center justify-center shadow-inner">{t.name.charAt(0).toUpperCase()}</div>
-                          <div>
-                            <p className="font-black text-white text-sm leading-tight">{t.name}</p>
-                            <p className="text-[9px] text-slate-500 mt-0.5">{t.email}</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {isLoading ? <div className="col-span-full text-center py-8"><Activity className="animate-spin w-8 h-8 text-red-500 mx-auto"/></div> : 
+                   trainersFiltrados.length === 0 ? <p className="col-span-full text-center text-slate-500 py-8 font-bold text-xs border-2 border-dashed border-slate-800 rounded-2xl">Nenhum Personal encontrado.</p> : (
+                    trainersFiltrados.map(t => (
+                      <div key={t.id} className="bg-slate-950 p-5 rounded-2xl border border-slate-800 shadow-lg flex flex-col gap-4">
+                        <div className="flex justify-between items-start">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-slate-900 border border-slate-700 text-blue-500 font-black rounded-lg flex items-center justify-center shadow-inner">{t.name.charAt(0).toUpperCase()}</div>
+                            <div>
+                              <p className="font-black text-white text-sm leading-tight">{t.name}</p>
+                              <p className="text-[9px] text-slate-500 mt-0.5">{t.email}</p>
+                            </div>
                           </div>
+                          <span className={`px-2 py-1 rounded-md text-[8px] font-black uppercase tracking-widest ${t.plano === 'GRATIS' ? 'bg-slate-800 text-slate-400' : 'bg-amber-500/20 text-amber-500 border border-amber-500/20'}`}>{t.plano}</span>
                         </div>
-                        <span className={`px-2 py-1 rounded-md text-[8px] font-black uppercase tracking-widest ${t.plano === 'GRATIS' ? 'bg-slate-800 text-slate-400' : 'bg-amber-500/20 text-amber-500 border border-amber-500/20'}`}>{t.plano}</span>
-                      </div>
 
-                      <div className="flex items-center justify-between bg-slate-900 p-3 rounded-xl border border-slate-800/50">
-                        <p className="text-[10px] text-slate-400 font-bold">Alunos Registados:</p>
-                        <p className="text-sm font-black text-cyan-400">{t._count?.alunos || 0}</p>
-                      </div>
+                        <div className="flex items-center justify-between bg-slate-900 p-3 rounded-xl border border-slate-800/50">
+                          <p className="text-[10px] text-slate-400 font-bold">Alunos Registados:</p>
+                          <p className="text-sm font-black text-cyan-400">{t._count?.alunos || 0}</p>
+                        </div>
 
-                      <div className="flex gap-2">
-                        <select 
-                          value={t.plano} 
-                          onChange={(e) => alterarPlanoTrainer(t.id, e.target.value)}
-                          className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-[10px] font-bold outline-none"
-                        >
-                          <option value="GRATIS">GRÁTIS</option>
-                          <option value="START">START</option>
-                          <option value="PRO">PRO</option>
-                          <option value="ELITE">ELITE</option>
-                        </select>
-                        <button onClick={() => excluirTrainer(t.id, t.name)} className="p-2.5 bg-red-600/10 text-red-500 rounded-xl hover:bg-red-600 hover:text-white transition-colors">
-                          <Trash2 size={16} />
-                        </button>
+                        <div className="flex gap-2">
+                          <select 
+                            value={t.plano} 
+                            onChange={(e) => alterarPlanoTrainer(t.id, e.target.value)}
+                            className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-[10px] font-bold outline-none"
+                          >
+                            <option value="GRATIS">GRÁTIS</option>
+                            <option value="START">START</option>
+                            <option value="PRO">PRO</option>
+                            <option value="ELITE">ELITE</option>
+                          </select>
+                          <button onClick={() => excluirTrainer(t.id, t.name)} className="p-2.5 bg-red-600/10 text-red-500 rounded-xl hover:bg-red-600 hover:text-white transition-colors">
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
               </div>
             )}
 
             {/* NOVA ABA: OFERTAS E PREÇOS */}
             {adminTabAtiva === 'ofertas' && sysConfig && (
-              <div className="animate-fade-in flex flex-col gap-6">
+              <div className="animate-fade-in flex flex-col gap-6 md:max-w-3xl mx-auto w-full">
                  <div className="bg-gradient-to-r from-orange-500 to-red-600 p-6 rounded-[2rem] shadow-lg relative overflow-hidden">
                    <h2 className="text-xl font-black text-white relative z-10 flex items-center gap-2"><Zap /> Central de Promoções</h2>
                    <p className="text-xs text-white/80 mt-2 relative z-10">Ao alterar aqui, os preços da Landing Page e do App são atualizados na hora.</p>
@@ -1100,21 +1103,21 @@ export default function App() {
 
                     <div className="bg-slate-950 border border-slate-800 p-6 rounded-3xl space-y-4">
                        <h3 className="text-sm font-black text-amber-500 uppercase tracking-widest mb-4">Plano Start</h3>
-                       <div className="grid grid-cols-3 gap-2">
+                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                          <input type="text" placeholder="Preço (ex: 30)" value={sysConfig.startPrice} onChange={e=>setSysConfig({...sysConfig, startPrice: e.target.value})} className="col-span-1 bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs outline-none focus:border-amber-500 text-white" />
-                         <input type="text" placeholder="Link de Pagamento Asaas" value={sysConfig.startLink} onChange={e=>setSysConfig({...sysConfig, startLink: e.target.value})} className="col-span-2 bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs outline-none focus:border-amber-500 text-white" />
+                         <input type="text" placeholder="Link de Pagamento Asaas" value={sysConfig.startLink} onChange={e=>setSysConfig({...sysConfig, startLink: e.target.value})} className="sm:col-span-2 bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs outline-none focus:border-amber-500 text-white" />
                        </div>
                        
                        <h3 className="text-sm font-black text-blue-500 uppercase tracking-widest mt-6 mb-4">Plano Pro</h3>
-                       <div className="grid grid-cols-3 gap-2">
+                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                          <input type="text" placeholder="Preço (ex: 60)" value={sysConfig.proPrice} onChange={e=>setSysConfig({...sysConfig, proPrice: e.target.value})} className="col-span-1 bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs outline-none focus:border-blue-500 text-white" />
-                         <input type="text" placeholder="Link de Pagamento Asaas" value={sysConfig.proLink} onChange={e=>setSysConfig({...sysConfig, proLink: e.target.value})} className="col-span-2 bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs outline-none focus:border-blue-500 text-white" />
+                         <input type="text" placeholder="Link de Pagamento Asaas" value={sysConfig.proLink} onChange={e=>setSysConfig({...sysConfig, proLink: e.target.value})} className="sm:col-span-2 bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs outline-none focus:border-blue-500 text-white" />
                        </div>
 
                        <h3 className="text-sm font-black text-yellow-500 uppercase tracking-widest mt-6 mb-4">Plano Elite</h3>
-                       <div className="grid grid-cols-3 gap-2">
+                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                          <input type="text" placeholder="Preço (ex: 100)" value={sysConfig.elitePrice} onChange={e=>setSysConfig({...sysConfig, elitePrice: e.target.value})} className="col-span-1 bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs outline-none focus:border-yellow-500 text-white" />
-                         <input type="text" placeholder="Link de Pagamento Asaas" value={sysConfig.eliteLink} onChange={e=>setSysConfig({...sysConfig, eliteLink: e.target.value})} className="col-span-2 bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs outline-none focus:border-yellow-500 text-white" />
+                         <input type="text" placeholder="Link de Pagamento Asaas" value={sysConfig.eliteLink} onChange={e=>setSysConfig({...sysConfig, eliteLink: e.target.value})} className="sm:col-span-2 bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs outline-none focus:border-yellow-500 text-white" />
                        </div>
                     </div>
 
@@ -1126,7 +1129,7 @@ export default function App() {
             )}
           </div>
 
-          <div className="absolute bottom-0 left-0 w-full bg-slate-900/95 backdrop-blur-xl border-t border-slate-800/50 flex justify-around items-center p-4 pb-10 z-50">
+          <div className="fixed bottom-0 md:bottom-8 left-0 right-0 w-full md:max-w-lg mx-auto bg-slate-900/95 backdrop-blur-xl border-t md:border border-slate-800/50 flex justify-around items-center p-4 z-50 shadow-[0_-10px_30px_rgba(0,0,0,0.5)] md:rounded-3xl" style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 1rem)' }}>
             {[
               { id: 'alunos', icon: Users, label: 'Personais' },
               { id: 'ofertas', icon: Zap, label: 'Promoções' }
@@ -1148,15 +1151,15 @@ export default function App() {
     const bloqueadosCount = alunos.filter(a => a.status === 'Bloqueado').length;
 
     return (
-      <div className="min-h-screen bg-slate-950 flex flex-col text-slate-50 md:items-center md:justify-center relative">
-        <div className="w-full h-screen md:h-[850px] md:max-w-md bg-slate-900 md:rounded-[40px] md:border-[8px] border-slate-800 flex flex-col relative overflow-hidden shadow-2xl">
+      <div className="min-h-[100dvh] bg-slate-950 flex flex-col text-slate-50 relative">
+        <div className="w-full flex-1 flex flex-col md:max-w-6xl mx-auto relative bg-slate-900 md:bg-transparent">
           {toastMsg && <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[300] bg-blue-600 text-white font-bold px-4 py-2 rounded-full shadow-lg text-sm whitespace-nowrap animate-fade-in">{toastMsg}</div>}
           
           <InstallBanner showInstallBanner={showInstallBanner} setShowInstallBanner={setShowInstallBanner} handleInstallClick={handleInstallClick} />
           <TourModal showTour={showTour} setShowTour={setShowTour} tourStep={tourStep} setTourStep={setTourStep} />
           <YoutubeModal videoAtivo={videoAtivo} setVideoAtivo={setVideoAtivo} />
 
-          <header className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-900 z-10 shadow-sm shrink-0">
+          <header className="px-6 pb-4 border-b border-slate-800 flex justify-between items-center bg-slate-900 z-10 shadow-sm shrink-0 md:rounded-b-[2rem]" style={{ paddingTop: 'max(env(safe-area-inset-top), 1.5rem)' }}>
             <div className="flex items-center gap-3">
               <img src="/logo.jpg" alt="EvoTrainer" className="w-12 h-12 rounded-xl object-cover border border-blue-500/30 shadow-[0_0_10px_rgba(59,130,246,0.2)]" />
               <div>
@@ -1167,12 +1170,12 @@ export default function App() {
             <button onClick={handleLogout} className="text-slate-400 hover:text-white bg-slate-800 p-2.5 rounded-xl transition-colors"><LogOut size={18} /></button>
           </header>
 
-          <div className="flex-1 overflow-y-auto p-4 sm:p-6 pb-28 custom-scrollbar">
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6 pb-36 md:pb-40 custom-scrollbar">
             
             {/* ADMIN TAB: ALUNOS & DASHBOARD */}
             {adminTabAtiva === 'alunos' && (
               <div className="animate-fade-in flex flex-col gap-6">
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-3 gap-3 md:gap-6">
                   <div className="bg-blue-600/10 border border-blue-500/20 p-4 rounded-2xl flex flex-col items-center justify-center text-center shadow-lg">
                     <p className="text-[9px] text-blue-400 font-black uppercase tracking-widest mb-1">Total</p>
                     <p className="text-2xl font-black text-white">{alunos.length}</p>
@@ -1199,9 +1202,9 @@ export default function App() {
                   </div>
                 </div>
                 
-                <div className="flex flex-col gap-4">
-                  {isLoading ? <div className="text-center py-8"><Activity className="animate-spin w-8 h-8 text-blue-500 mx-auto"/></div> : 
-                   alunosFiltrados.length === 0 ? <p className="text-center text-slate-500 py-8 font-bold text-sm border-2 border-dashed border-slate-800 rounded-3xl">Nenhum aluno encontrado.</p> : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {isLoading ? <div className="col-span-full text-center py-8"><Activity className="animate-spin w-8 h-8 text-blue-500 mx-auto"/></div> : 
+                   alunosFiltrados.length === 0 ? <p className="col-span-full text-center text-slate-500 py-8 font-bold text-sm border-2 border-dashed border-slate-800 rounded-3xl">Nenhum aluno encontrado.</p> : (
                     alunosFiltrados.map(aluno => (
                       <div key={aluno.id} className={`bg-slate-950 p-5 rounded-[1.8rem] border border-slate-800 shadow-lg flex flex-col gap-4 transition-opacity ${aluno.status === 'Bloqueado' ? 'opacity-50' : ''}`}>
                         <div className="flex justify-between items-start">
@@ -1266,7 +1269,7 @@ export default function App() {
 
             {/* ADMIN TAB: GERADOR IA COM DIVISÃO AUTOMÁTICA E NOVOS PARÂMETROS */}
             {adminTabAtiva === 'ia' && (
-              <div className="animate-fade-in flex flex-col gap-6">
+              <div className="animate-fade-in flex flex-col gap-6 md:max-w-3xl mx-auto w-full">
                 <div className="bg-gradient-to-br from-indigo-600 to-purple-800 p-6 rounded-[2.5rem] shadow-2xl relative overflow-hidden">
                   <div className="relative z-10">
                     <h2 className="text-2xl font-black text-white flex items-center gap-2 leading-none"><Sparkles fill="currentColor"/> Mágico de IA <span className="bg-white text-indigo-600 text-[10px] px-2 py-0.5 rounded-md ml-1">v2.0</span></h2>
@@ -1351,7 +1354,7 @@ export default function App() {
 
             {/* ADMIN TAB: PERFIL DO PERSONAL (COM OPÇÕES DE UPGRADE) */}
             {adminTabAtiva === 'perfil' && (
-              <div className="flex flex-col gap-6 animate-fade-in pb-8">
+              <div className="flex flex-col gap-6 animate-fade-in pb-8 md:max-w-3xl mx-auto w-full">
                  
                  {/* ÁREA DE ASSINATURA E PLANOS */}
                  <div className={`bg-gradient-to-r ${currentUser.plano === 'PRO' || currentUser.plano === 'ELITE' ? 'from-amber-500 to-orange-500' : 'from-emerald-600 to-teal-600'} p-6 rounded-[2rem] shadow-lg flex flex-col gap-4`}>
@@ -1458,14 +1461,14 @@ export default function App() {
           </div>
 
           {/* ADMIN BOTTOM NAV */}
-          <div className="absolute bottom-0 left-0 w-full bg-slate-900/95 backdrop-blur-xl border-t border-slate-800/50 flex justify-around items-center p-4 pb-10 z-50 shadow-[0_-10px_30px_rgba(0,0,0,0.5)]">
+          <div className="fixed bottom-0 md:bottom-8 left-0 right-0 w-full md:max-w-lg mx-auto bg-slate-900/95 backdrop-blur-xl border-t md:border border-slate-800/50 flex justify-around items-center p-4 z-50 shadow-[0_-10px_30px_rgba(0,0,0,0.5)] md:rounded-3xl" style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 1rem)' }}>
             {[
               { id: 'alunos', icon: Users, label: 'Alunos' },
               { id: 'ia', icon: Sparkles, label: 'Inteligência' },
               { id: 'perfil', icon: UserIcon, label: 'Perfil' }
             ].map(tab => (
               <button key={tab.id} onClick={() => setAdminTabAtiva(tab.id)} className={`flex flex-col items-center gap-1.5 transition-all duration-300 ${adminTabAtiva === tab.id ? 'text-blue-500 scale-110' : 'text-slate-600 hover:text-slate-400'}`}>
-                <tab.icon size={adminTabAtiva === tab.id ? 26 : 24} strokeWidth={adminTabAtiva === tab.id ? 2.5 : 2} />
+                <tab.icon size={24} strokeWidth={adminTabAtiva === tab.id ? 2.5 : 2} />
                 <span className="text-[9px] font-black uppercase tracking-[0.1em]">{tab.label}</span>
               </button>
             ))}
@@ -1473,8 +1476,8 @@ export default function App() {
 
           {/* MODAL ADICIONAR ALUNO (ADMIN) */}
           {showAddModal && (
-            <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-[200] backdrop-blur-md">
-              <div className="bg-slate-900 border border-slate-800 p-6 rounded-[2.5rem] w-full max-w-sm shadow-2xl animate-fade-in">
+            <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-[200] backdrop-blur-md" style={{ paddingTop: 'max(env(safe-area-inset-top), 1rem)' }}>
+              <div className="bg-slate-900 border border-slate-800 p-6 rounded-[2.5rem] w-full max-w-sm max-h-[90dvh] overflow-y-auto custom-scrollbar shadow-2xl animate-fade-in">
                 <h3 className="text-xl font-black mb-6 flex items-center gap-2 leading-none"><UserIcon className="text-blue-500"/> Registar Aluno</h3>
                 <form onSubmit={criarAluno} className="flex flex-col gap-4">
                   <input type="text" required placeholder="Nome Completo" value={novoAluno.name} onChange={e => setNovoAluno({...novoAluno, name: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white outline-none focus:border-blue-500 font-bold" />
@@ -1492,8 +1495,8 @@ export default function App() {
 
           {/* MODAL ESCOLHER PLANO (UPGRADE DINÂMICO) */}
           {showUpgradeModal && (
-            <div className="fixed inset-0 bg-black/90 flex items-center justify-center p-4 z-[400] backdrop-blur-md">
-              <div className="bg-slate-900 border border-slate-800 p-6 rounded-[2.5rem] w-full max-w-sm max-h-[85vh] overflow-y-auto shadow-2xl animate-fade-in custom-scrollbar">
+            <div className="fixed inset-0 bg-black/90 flex items-center justify-center p-4 z-[400] backdrop-blur-md" style={{ paddingTop: 'max(env(safe-area-inset-top), 1rem)' }}>
+              <div className="bg-slate-900 border border-slate-800 p-6 rounded-[2.5rem] w-full max-w-sm max-h-[85dvh] overflow-y-auto shadow-2xl animate-fade-in custom-scrollbar">
                 <div className="flex justify-between items-center mb-6 pb-4 border-b border-slate-800 shrink-0 sticky top-0 bg-slate-900 z-10">
                   <h3 className="text-xl font-black flex items-center gap-2 leading-none"><Crown className="text-amber-500"/> Planos</h3>
                   <button onClick={() => setShowUpgradeModal(false)} className="p-2 bg-slate-800 rounded-xl text-slate-500"><X size={20}/></button>
@@ -1540,8 +1543,8 @@ export default function App() {
 
           {/* MODAL GERENCIAR TREINOS COM WHATSAPP E PDF (ADMIN) */}
           {showGerenciarTreinosModal && alunoSelecionado && (
-            <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-[200] backdrop-blur-md">
-              <div className="bg-slate-900 border border-slate-800 p-6 rounded-[2.5rem] w-full max-w-md max-h-[80vh] flex flex-col shadow-2xl animate-fade-in">
+            <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-[200] backdrop-blur-md" style={{ paddingTop: 'max(env(safe-area-inset-top), 1rem)' }}>
+              <div className="bg-slate-900 border border-slate-800 p-6 rounded-[2.5rem] w-full max-w-md max-h-[85dvh] flex flex-col shadow-2xl animate-fade-in">
                 <div className="flex justify-between items-center mb-6 pb-4 border-b border-slate-800 shrink-0">
                   <h3 className="text-xl font-black flex items-center gap-2 leading-none"><List className="text-blue-500"/> Fichas</h3>
                   <button onClick={() => setShowGerenciarTreinosModal(false)} className="p-2 bg-slate-800 rounded-xl text-slate-500"><X size={20}/></button>
@@ -1566,7 +1569,7 @@ export default function App() {
 
           {/* MODAL CRIAR/EDITAR TREINO (ADMIN - COM YOUTUBE E AUTO-BUSCA) */}
           {showTreinoModal && (
-            <div className="fixed inset-0 bg-black/95 z-[250] p-4 flex flex-col justify-start overflow-y-auto pt-10 pb-10">
+            <div className="fixed inset-0 bg-black/95 z-[250] p-4 flex flex-col justify-start overflow-y-auto custom-scrollbar" style={{ paddingTop: 'max(env(safe-area-inset-top), 2rem)', paddingBottom: 'max(env(safe-area-inset-bottom), 2rem)' }}>
               <div className="bg-slate-900 border border-slate-800 p-6 rounded-[2.5rem] w-full max-w-xl mx-auto shadow-2xl animate-fade-in">
                 <div className="flex justify-between items-center mb-6 pb-4 border-b border-slate-800">
                   <div>
@@ -1655,8 +1658,8 @@ export default function App() {
   const groupedTreinoSelecionado = treinoSelecionado ? getGroupedExercises(treinoSelecionado.exercises || []) : [];
 
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col text-slate-50 md:items-center md:justify-center">
-      <div className="w-full h-screen md:h-[850px] md:max-w-md bg-slate-900 md:rounded-[40px] md:border-[8px] border-slate-800 flex flex-col relative overflow-hidden shadow-2xl">
+    <div className="min-h-[100dvh] bg-slate-950 flex flex-col text-slate-50 md:items-center md:justify-center relative md:py-10">
+      <div className="w-full h-full min-h-[100dvh] md:min-h-[850px] md:h-[850px] md:max-w-md bg-slate-900 md:rounded-[40px] md:border-[8px] border-slate-800 flex flex-col relative overflow-hidden md:shadow-2xl">
         {toastMsg && <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[130] text-white font-bold px-4 py-2 rounded-full shadow-lg text-sm whitespace-nowrap animate-fade-in" style={getBrandStyle('bg')}>{toastMsg}</div>}
         
         <InstallBanner showInstallBanner={showInstallBanner} setShowInstallBanner={setShowInstallBanner} handleInstallClick={handleInstallClick} brandColor={primaryColor} />
@@ -1664,7 +1667,7 @@ export default function App() {
 
         {/* FEEDBACK MODAL (ALUNO PÓS-TREINO) */}
         {showFeedbackModal && (
-          <div className="fixed inset-0 bg-black/95 backdrop-blur-xl z-[400] flex items-center justify-center p-6 animate-fade-in">
+          <div className="fixed inset-0 bg-black/95 backdrop-blur-xl z-[400] flex items-center justify-center p-6 animate-fade-in" style={{ paddingTop: 'max(env(safe-area-inset-top), 1rem)' }}>
             <div className="bg-slate-900 border border-slate-800 p-8 rounded-[3rem] w-full max-w-sm text-center space-y-8 shadow-2xl">
                <div className="w-20 h-20 bg-gradient-to-br from-orange-400 to-red-600 rounded-full flex items-center justify-center mx-auto shadow-lg shadow-red-500/30 animate-bounce"><Flame size={40} className="text-white"/></div>
                <div>
@@ -1686,7 +1689,7 @@ export default function App() {
           </div>
         )}
 
-        <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-900 z-10 shadow-md">
+        <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-900 z-10 shadow-md shrink-0" style={{ paddingTop: 'max(env(safe-area-inset-top), 1.5rem)' }}>
            <div className="flex items-center gap-3">
              <div className="w-12 h-12 rounded-full flex items-center justify-center font-black text-xl border shadow-lg overflow-hidden" style={{ backgroundColor: `${primaryColor}20`, borderColor: `${primaryColor}50`, color: primaryColor }}>
                 {currentBrand?.logo ? (
@@ -1703,7 +1706,7 @@ export default function App() {
            <button onClick={handleLogout} className="text-slate-400 hover:text-white bg-slate-800 p-2.5 rounded-xl transition-colors"><LogOut size={18}/></button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 pb-28 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 pb-36 custom-scrollbar">
           
           {/* TAB: INÍCIO */}
           {alunoTabAtiva === 'home' && !treinoIniciado && (
@@ -1875,7 +1878,19 @@ export default function App() {
                         </div>
                         
                         <button 
-                          onClick={() => openVideo(group.main.youtubeId, group.main.name)} 
+                          onClick={async () => {
+                            if (group.main.youtubeId) {
+                              setVideoAtivo(group.main.youtubeId);
+                            } else {
+                              showToast("A procurar vídeo...");
+                              const id = await buscarVideoNoYouTube(group.main.name);
+                              if (id) {
+                                setVideoAtivo(id);
+                              } else {
+                                setVideoAtivo(`SEARCH:como fazer ${group.main.name} musculação execução`);
+                              }
+                            }
+                          }} 
                           className={`p-3.5 rounded-2xl active:scale-90 transition-all ${group.main.youtubeId ? 'bg-red-600/10 text-red-500 border border-red-500/10' : 'bg-slate-800 text-slate-400 border border-slate-700 hover:text-red-400'}`}
                         >
                           <Youtube size={22} />
@@ -1893,7 +1908,19 @@ export default function App() {
                                 </div>
                                 
                                 <button 
-                                  onClick={() => openVideo(p.youtubeId, p.name)} 
+                                  onClick={async () => {
+                                    if (p.youtubeId) {
+                                      setVideoAtivo(p.youtubeId);
+                                    } else {
+                                      showToast("A procurar vídeo...");
+                                      const id = await buscarVideoNoYouTube(p.name);
+                                      if (id) {
+                                        setVideoAtivo(id);
+                                      } else {
+                                        setVideoAtivo(`SEARCH:como fazer ${p.name} musculação execução`);
+                                      }
+                                    }
+                                  }} 
                                   className={`p-2 rounded-xl active:scale-90 transition-all ${p.youtubeId ? 'text-red-500/80 bg-red-500/10' : 'text-slate-500 bg-slate-800/50 hover:text-red-400'}`}
                                 >
                                   <Youtube size={18} />
@@ -1917,7 +1944,7 @@ export default function App() {
 
         {/* NAVEGAÇÃO INFERIOR */}
         {!treinoIniciado && (
-          <div className="absolute bottom-0 left-0 w-full bg-slate-900/95 backdrop-blur-xl border-t border-slate-800/50 flex justify-around items-center p-4 pb-10 z-50 shadow-[0_-10px_30px_rgba(0,0,0,0.5)]">
+          <div className="absolute bottom-0 left-0 w-full bg-slate-900/95 backdrop-blur-xl border-t border-slate-800/50 flex justify-around items-center p-4 z-50 shadow-[0_-10px_30px_rgba(0,0,0,0.5)] md:rounded-b-[40px]" style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 1.5rem)' }}>
             {[
               { id: 'home', icon: Home, label: 'Início' },
               { id: 'treinos', icon: Dumbbell, label: 'Fichas' },
