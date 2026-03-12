@@ -772,7 +772,7 @@ export default function App() {
       setAdminTabAtiva('alunos');
       
       if (alunoBuscado) {
-        enviarAvisoWhatsAppPosTreino("Periodização Completa via IA", alunoBuscado);
+        enviarAvisoWhatsAppPosTreino("Periodização Completa", alunoBuscado);
       }
       
       setIaPrompt('');
