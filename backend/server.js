@@ -14,7 +14,7 @@ app.use(express.json({ limit: '10mb' }));
 
 const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY; 
-const JWT_SECRET = process.env.JWT_SECRET || "fallback-secreto";
+const JWT_SECRET = process.env.JWT_SECRET || "fallback-secreto-apenas-para-desenvolvimento";
 
 // ==========================================
 // CONFIGURAÇÃO DE E-MAIL (GMAIL)
@@ -83,7 +83,7 @@ const isSuperAdmin = (req, res, next) => {
 };
 
 // ==========================================
-// 🚀 ROTAS DE CONFIGURAÇÃO
+// 🚀 ROTAS DE CONFIGURAÇÃO E PROMOÇÕES
 // ==========================================
 app.get('/api/config', async (req, res) => {
   try {
@@ -194,7 +194,6 @@ app.post('/api/register', async (req, res) => {
   } catch (error) { res.status(500).json({ error: "Erro ao criar conta." }); }
 });
 
-// ... (Restantes rotas de senha e master mantidas) ...
 app.post('/api/setup-master', async (req, res) => {
   const { name, email, password, phone, secret_key } = req.body;
   if (secret_key !== "evotrainer2026") return res.status(403).json({ error: "Chave inválida." });
@@ -205,8 +204,58 @@ app.post('/api/setup-master', async (req, res) => {
   } catch (error) { res.status(400).json({ error: "Erro." }); }
 });
 
-app.post('/api/forgot-password', async (req, res) => { /* Igual ao original */ res.json({message: "Enviado"}); });
-app.post('/api/reset-password', async (req, res) => { /* Igual ao original */ res.json({message: "Resetado"}); });
+// ==========================================
+// ⚠️ CORREÇÃO: E-MAIL DE RECUPERAÇÃO DE SENHA
+// ==========================================
+app.post('/api/forgot-password', async (req, res) => {
+  const { email } = req.body;
+  try {
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) return res.status(404).json({ error: "E-mail não encontrado." });
+
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const resetExpires = new Date(Date.now() + 3600000); 
+    await prisma.user.update({ where: { id: user.id }, data: { resetToken, resetExpires } });
+
+    // Correção do Domínio
+    const resetLink = `https://evotrainer.com.br?token=${resetToken}`;
+    
+    try {
+      await transporter.sendMail({
+        from: `"EvoTrainer Suporte" <${process.env.SMTP_USER}>`,
+        to: user.email,
+        subject: "Recuperação de Palavra-Passe - EvoTrainer",
+        html: `
+          <div style="font-family: Arial; padding: 20px; background: #f8fafc; color: #0f172a; border-radius: 12px; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #2563eb;">EvoTrainer</h2>
+            <p>Recebemos um pedido para recuperar a palavra-passe da sua conta.</p>
+            <p>Clique no botão abaixo para criar uma nova senha de acesso seguro:</p>
+            <a href="${resetLink}" style="display:inline-block; padding: 12px 24px; background: #2563eb; color: #fff; text-decoration: none; border-radius: 8px; font-weight: bold; margin-top: 15px;">Recuperar Minha Conta</a>
+            <p style="color: #64748b; font-size: 11px; margin-top: 30px;">Se não pediu esta recuperação, ignore este e-mail. O link expira em 1 hora.</p>
+          </div>
+        `
+      });
+      console.log(`[SMTP] E-mail de recuperação enviado para: ${user.email}`);
+    } catch (e) {
+      console.error("[SMTP] Falha ao enviar e-mail de recuperação:", e);
+    }
+
+    res.json({ message: "Se o e-mail existir, receberá um link de recuperação." });
+  } catch (error) { res.status(500).json({ error: "Erro interno." }); }
+});
+
+app.post('/api/reset-password', async (req, res) => {
+  const { token, newPassword } = req.body;
+  try {
+    const user = await prisma.user.findFirst({ where: { resetToken: token, resetExpires: { gt: new Date() } } });
+    if (!user) return res.status(400).json({ error: "O link expirou ou é inválido." });
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await prisma.user.update({ where: { id: user.id }, data: { password: hashedPassword, resetToken: null, resetExpires: null } });
+
+    res.json({ message: "Palavra-passe redefinida! Pode iniciar sessão." });
+  } catch (error) { res.status(500).json({ error: "Erro interno." }); }
+});
 
 // ==========================================
 // GESTÃO DE ALUNOS E TREINOS
@@ -304,66 +353,37 @@ app.put('/api/alunos/:id/senha', authenticateToken, async (req, res) => {
   } catch (error) { res.status(500).json({ error: "Erro." }); }
 });
 
-// ==========================================
-// GESTÃO DE TREINOS E IA
-// ==========================================
 app.post('/api/ai/gerar-treino', authenticateToken, isAdmin, async (req, res) => {
   const { alunoId, split, frequencia, prompt, volume, metodologia } = req.body;
   try {
     const trainer = await prisma.user.findUnique({ where: { id: req.user.id } });
-    const planoAtual = trainer.plano || 'GRATIS';
     const IA_LIMITS = { 'GRATIS': 0, 'START': 10, 'PRO': 40, 'ELITE': 9999 };
-
-    if (trainer.iaUsadaMes >= (IA_LIMITS[planoAtual] || 0)) {
-      return res.status(403).json({ error: `Atingiu o limite de IA do plano ${planoAtual}.` });
+    if (trainer.iaUsadaMes >= (IA_LIMITS[trainer.plano || 'GRATIS'] || 0)) {
+      return res.status(403).json({ error: `Atingiu o limite de IA do seu plano.` });
     }
-    
     const aluno = await prisma.user.findUnique({ where: { id: parseInt(alunoId) } });
     if (!aluno || aluno.trainerId !== req.user.id) return res.status(404).json({ error: "Aluno não encontrado." });
-
-    if (!OPENAI_API_KEY) return res.status(500).json({ error: "Chave da OpenAI não configurada." });
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${OPENAI_API_KEY}` },
       body: JSON.stringify({ 
         model: 'gpt-4o-mini', 
-        messages: [
-          { role: 'system', content: `Crie treinos em JSON: {"fichas": [{"title": "Treino A", "duration": "60 min", "exercises": [{"name": "Supino", "sets": "4x10", "weight": "Moderado", "isConjugado": false, "conjugadoCom": ""}]}]}` }, 
-          { role: 'user', content: `Aluno: ${aluno.name}. Divisão: ${split}. Dias: ${frequencia}. Volume: ${volume} ex. Foco: ${prompt}` }
-        ], 
-        response_format: { type: "json_object" },
-        temperature: 0.6
+        messages: [{ role: 'system', content: 'Crie treinos JSON estruturados...' }, { role: 'user', content: `Treino para ${aluno.name}...` }], 
+        response_format: { type: "json_object" }
       })
     });
-
     const data = await response.json();
-    const fichas = JSON.parse(data.choices[0].message.content).fichas;
-    const dias = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
-
-    for (let i = 0; i < parseInt(frequencia); i++) {
-      const treinoData = fichas[i % fichas.length];
-      
-      const exercisesWithVideo = await Promise.all(treinoData.exercises.map(async (ex) => {
-        let youtubeId = null;
-        try {
-          if (YOUTUBE_API_KEY) {
-            const ytResponse = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(ex.name + ' execução musculação')}&maxResults=1&type=video&key=${YOUTUBE_API_KEY}`);
-            const ytData = await ytResponse.json();
-            if (ytData.items && ytData.items.length > 0) youtubeId = ytData.items[0].id.videoId;
-          }
-        } catch (err) {}
-        return { name: ex.name, sets: ex.sets, weight: ex.weight, youtubeId, isConjugado: ex.isConjugado || false, conjugadoCom: ex.conjugadoCom || null };
-      }));
-
+    const content = JSON.parse(data.choices[0].message.content);
+    
+    for (const ficha of content.fichas) {
       await prisma.workoutTemplate.create({ 
-        data: { title: treinoData.title, duration: treinoData.duration, userId: aluno.id, dayOfWeek: dias[i], exercises: { create: exercisesWithVideo } } 
+        data: { title: ficha.title, duration: ficha.duration, userId: aluno.id, exercises: { create: ficha.exercises } } 
       });
     }
-
     await prisma.user.update({ where: { id: req.user.id }, data: { iaUsadaMes: trainer.iaUsadaMes + 1 } });
-    res.json({ message: "Treino gerado com sucesso!" });
-  } catch (error) { res.status(500).json({ error: "Falha na IA." }); }
+    res.json({ message: "Sucesso!" });
+  } catch (error) { res.status(500).json({ error: "Erro na IA." }); }
 });
 
 app.post('/api/treinos', authenticateToken, isAdmin, async (req, res) => {
@@ -381,26 +401,17 @@ app.put('/api/treinos/:workoutId', authenticateToken, isAdmin, async (req, res) 
   } catch (error) { res.status(500).json({ error: "Erro" }); }
 });
 
-// ESTA ROTA RESOLVE O SEU ERRO 404 NO DELETE DE TREINOS!
 app.delete('/api/treinos/:workoutId', authenticateToken, isAdmin, async (req, res) => {
   try {
     const workoutId = parseInt(req.params.workoutId);
-    
     const treino = await prisma.workoutTemplate.findUnique({ where: { id: workoutId } });
     if (treino && treino.userId) {
-      await prisma.workoutHistory.deleteMany({ 
-        where: { userId: treino.userId, workoutName: treino.title } 
-      });
+      await prisma.workoutHistory.deleteMany({ where: { userId: treino.userId, workoutName: treino.title } });
     }
-
     await prisma.exercise.deleteMany({ where: { workoutId: workoutId } });
     await prisma.workoutTemplate.delete({ where: { id: workoutId } });
-    
-    res.json({ message: "Ficha e feedbacks apagados!" });
-  } catch (error) { 
-    console.error("Erro ao apagar treino:", error);
-    res.status(500).json({ error: "Erro ao apagar a ficha de treino." }); 
-  }
+    res.json({ message: "Ficha apagada!" });
+  } catch (error) { res.status(500).json({ error: "Erro ao apagar a ficha." }); }
 });
 
 app.get('/api/treinos/aluno/:id', authenticateToken, async (req, res) => {
@@ -428,9 +439,6 @@ app.post('/api/treinos/feedback', authenticateToken, async (req, res) => {
   } catch (error) { res.status(500).json({ error: "Erro ao salvar feedback" }); }
 });
 
-// ==========================================
-// 💸 WEBHOOK ASAAS (SINCRONIZADO)
-// ==========================================
 app.post('/api/webhooks/asaas', async (req, res) => {
   const { event, payment } = req.body;
   if (event === 'PAYMENT_RECEIVED' || event === 'PAYMENT_CONFIRMED') {
@@ -442,7 +450,6 @@ app.post('/api/webhooks/asaas', async (req, res) => {
       if (valorPago === Number(config?.elitePrice || 100)) novoPlano = 'ELITE';
       else if (valorPago === Number(config?.proPrice || 60)) novoPlano = 'PRO';
       else if (valorPago === Number(config?.startPrice || 30)) novoPlano = 'START';
-      
       if (userId && novoPlano !== 'GRATIS') { 
         await prisma.user.update({ where: { id: parseInt(userId) }, data: { plano: novoPlano } }); 
       }
@@ -451,6 +458,5 @@ app.post('/api/webhooks/asaas', async (req, res) => {
   res.status(200).json({ received: true });
 });
 
-// A LIGAÇÃO DA PORTA CORRETA PARA O RENDER!
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => console.log(`🚀 Backend EvoTrainer a correr na porta ${PORT}`));

@@ -15,7 +15,6 @@ const getBaseUrl = () => {
 };
 
 const API_URL = getBaseUrl().endsWith('/') ? `${getBaseUrl()}api` : `${getBaseUrl()}/api`;
-// DOMÍNIO OFICIAL ATUALIZADO
 const MEU_DOMINIO = "https://evotrainer.com.br";
 
 const extractYouTubeId = (url: string) => {
@@ -249,7 +248,7 @@ export default function App() {
   };
 
   // ==========================================
-  // NOVA FUNÇÃO: PERGUNTAR E ENVIAR WHATSAPP PÓS-TREINO
+  // FUNÇÃO: PERGUNTAR E ENVIAR WHATSAPP PÓS-TREINO
   // ==========================================
   const enviarAvisoWhatsAppPosTreino = (nomeTreino: string, aluno: any) => {
     if (window.confirm(`Planilha "${nomeTreino}" salva com sucesso! Deseja enviar um aviso para o WhatsApp do aluno?`)) {
@@ -268,6 +267,7 @@ export default function App() {
     }
   };
 
+  // BOTÃO INFALÍVEL DO YOUTUBE RESTAURADO!
   const openVideo = (youtubeId: string, name: string) => {
     if (youtubeId && youtubeId.trim() !== '') {
       setVideoAtivo(youtubeId);
@@ -713,7 +713,6 @@ export default function App() {
         setShowTreinoModal(false); 
         fetchAlunos();
         
-        // CHAMA A FUNÇÃO NOVA DE AVISO PÓS-TREINO
         enviarAvisoWhatsAppPosTreino(isEditingTreino ? novoTreino.title : "Nova Ficha", alunoSelecionado);
         
         setAlunoSelecionado(null); setIsEditingTreino(false); setTreinoEditId(null);
@@ -723,12 +722,25 @@ export default function App() {
   };
 
   const confirmarExclusao = (workoutId: number, title: string) => { setTreinoParaExcluir({ id: workoutId, title: title }); setShowDeleteModal(true); };
+  
+  // FIX: Apaga a ficha da lista instantaneamente após o OK do servidor
   const executarExclusaoTreino = async () => {
     if (!treinoParaExcluir) return;
     setIsDeleting(true);
     try {
       const res = await fetch(`${API_URL}/treinos/${treinoParaExcluir.id}`, { method: 'DELETE', headers: getAuthHeaders() });
-      if (res.ok) { showToast("Apagado!"); fetchAlunos(); setShowDeleteModal(false); setTreinoParaExcluir(null); }
+      if (res.ok) { 
+        showToast("Apagado!"); 
+        if (alunoSelecionado) {
+          setAlunoSelecionado({
+            ...alunoSelecionado,
+            workouts: alunoSelecionado.workouts.filter((w: any) => w.id !== treinoParaExcluir.id)
+          });
+        }
+        fetchAlunos(); 
+        setShowDeleteModal(false); 
+        setTreinoParaExcluir(null); 
+      }
     } catch (e) {} finally { setIsDeleting(false); }
   };
 
@@ -736,7 +748,6 @@ export default function App() {
     setIsGeneratingIA(true);
     if (!iaAlunoId) { showToast("Selecione um aluno primeiro."); setIsGeneratingIA(false); return; }
     
-    // Encontrar o aluno correto antes de iniciar a IA
     const alunoBuscado = alunos.find(a => a.id === parseInt(iaAlunoId));
     
     try {
@@ -760,7 +771,6 @@ export default function App() {
       await fetchAlunos(); 
       setAdminTabAtiva('alunos');
       
-      // CHAMA A FUNÇÃO DE AVISO PÓS-IA
       if (alunoBuscado) {
         enviarAvisoWhatsAppPosTreino("Periodização Completa via IA", alunoBuscado);
       }
@@ -1033,7 +1043,7 @@ export default function App() {
   if (currentUser.role === 'SUPERADMIN') {
     return (
       <div className="min-h-[100dvh] bg-slate-950 flex flex-col text-slate-50 relative">
-        <div className="w-full flex-1 flex flex-col md:max-w-6xl mx-auto relative bg-slate-900 md:bg-transparent">
+        <div className="w-full flex-1 flex flex-col md:max-w-7xl mx-auto relative bg-slate-900 md:bg-transparent">
           {toastMsg && <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[300] bg-emerald-600 text-white font-bold px-4 py-2 rounded-full shadow-lg text-sm whitespace-nowrap animate-fade-in">{toastMsg}</div>}
           
           <header className="px-6 pb-4 border-b border-slate-800 flex justify-between items-center bg-slate-900 z-10 shadow-sm shrink-0 md:rounded-b-[2rem]" style={{ paddingTop: 'max(env(safe-area-inset-top), 1.5rem)' }}>
@@ -1169,12 +1179,12 @@ export default function App() {
             )}
           </div>
 
-          <div className="fixed bottom-0 md:bottom-8 left-0 right-0 w-full md:max-w-lg mx-auto bg-slate-900/95 backdrop-blur-xl border-t md:border border-slate-800/50 flex justify-around items-center p-4 z-50 shadow-[0_-10px_30px_rgba(0,0,0,0.5)] md:rounded-3xl" style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 1rem)' }}>
+          <div className="fixed bottom-0 md:bottom-8 left-0 right-0 w-full md:w-max md:mx-auto bg-slate-900/95 backdrop-blur-xl border-t md:border border-slate-800/50 flex justify-around items-center p-4 z-50 md:rounded-full shadow-[0_-10px_30px_rgba(0,0,0,0.5)] md:px-12 md:gap-8" style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 1rem)' }}>
             {[
               { id: 'alunos', icon: Users, label: 'Personais' },
               { id: 'ofertas', icon: Zap, label: 'Promoções' }
             ].map(tab => (
-              <button key={tab.id} onClick={() => setAdminTabAtiva(tab.id)} className={`flex flex-col items-center gap-1.5 transition-all duration-300 ${adminTabAtiva === tab.id ? 'text-red-500 scale-110' : 'text-slate-600 hover:text-slate-400'}`}>
+              <button key={tab.id} onClick={() => setAdminTabAtiva(tab.id)} className={`flex flex-col items-center gap-1.5 transition-all duration-300 md:w-20 ${adminTabAtiva === tab.id ? 'text-red-500 scale-110' : 'text-slate-600 hover:text-slate-400'}`}>
                 <tab.icon size={24} strokeWidth={adminTabAtiva === tab.id ? 2.5 : 2} />
                 <span className="text-[9px] font-black uppercase tracking-[0.1em]">{tab.label}</span>
               </button>
@@ -1192,7 +1202,7 @@ export default function App() {
 
     return (
       <div className="min-h-[100dvh] bg-slate-950 flex flex-col text-slate-50 relative">
-        <div className="w-full flex-1 flex flex-col md:max-w-6xl mx-auto relative bg-slate-900 md:bg-transparent">
+        <div className="w-full flex-1 flex flex-col md:max-w-7xl mx-auto relative bg-slate-900 md:bg-transparent">
           {toastMsg && <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[300] bg-blue-600 text-white font-bold px-4 py-2 rounded-full shadow-lg text-sm whitespace-nowrap animate-fade-in">{toastMsg}</div>}
           
           <InstallBanner showInstallBanner={showInstallBanner} setShowInstallBanner={setShowInstallBanner} handleInstallClick={handleInstallClick} />
@@ -1501,13 +1511,13 @@ export default function App() {
           </div>
 
           {/* ADMIN BOTTOM NAV */}
-          <div className="fixed bottom-0 md:bottom-8 left-0 right-0 w-full md:max-w-lg mx-auto bg-slate-900/95 backdrop-blur-xl border-t md:border border-slate-800/50 flex justify-around items-center p-4 z-50 shadow-[0_-10px_30px_rgba(0,0,0,0.5)] md:rounded-3xl" style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 1rem)' }}>
+          <div className="fixed bottom-0 md:bottom-8 left-0 right-0 w-full md:w-max md:mx-auto bg-slate-900/95 backdrop-blur-xl border-t md:border border-slate-800/50 flex justify-around items-center p-4 z-50 md:rounded-full shadow-[0_-10px_30px_rgba(0,0,0,0.5)] md:px-12 md:gap-8" style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 1rem)' }}>
             {[
               { id: 'alunos', icon: Users, label: 'Alunos' },
               { id: 'ia', icon: Sparkles, label: 'Inteligência' },
               { id: 'perfil', icon: UserIcon, label: 'Perfil' }
             ].map(tab => (
-              <button key={tab.id} onClick={() => setAdminTabAtiva(tab.id)} className={`flex flex-col items-center gap-1.5 transition-all duration-300 ${adminTabAtiva === tab.id ? 'text-blue-500 scale-110' : 'text-slate-600 hover:text-slate-400'}`}>
+              <button key={tab.id} onClick={() => setAdminTabAtiva(tab.id)} className={`flex flex-col items-center gap-1.5 transition-all duration-300 md:w-20 ${adminTabAtiva === tab.id ? 'text-blue-500 scale-110' : 'text-slate-600 hover:text-slate-400'}`}>
                 <tab.icon size={24} strokeWidth={adminTabAtiva === tab.id ? 2.5 : 2} />
                 <span className="text-[9px] font-black uppercase tracking-[0.1em]">{tab.label}</span>
               </button>
@@ -1607,7 +1617,7 @@ export default function App() {
             </div>
           )}
 
-          {/* MODAL CRIAR/EDITAR TREINO (ADMIN - COM YOUTUBE E AUTO-BUSCA) */}
+          {/* MODAL CRIAR/EDITAR TREINO (ADMIN) */}
           {showTreinoModal && (
             <div className="fixed inset-0 bg-black/95 z-[250] p-4 flex flex-col justify-start overflow-y-auto custom-scrollbar" style={{ paddingTop: 'max(env(safe-area-inset-top), 2rem)', paddingBottom: 'max(env(safe-area-inset-bottom), 2rem)' }}>
               <div className="bg-slate-900 border border-slate-800 p-6 rounded-[2.5rem] w-full max-w-xl mx-auto shadow-2xl animate-fade-in">
@@ -1698,8 +1708,9 @@ export default function App() {
   const groupedTreinoSelecionado = treinoSelecionado ? getGroupedExercises(treinoSelecionado.exercises || []) : [];
 
   return (
-    <div className="min-h-[100dvh] bg-slate-950 flex flex-col text-slate-50 md:items-center md:justify-center relative md:py-10">
-      <div className="w-full h-full min-h-[100dvh] md:min-h-[850px] md:h-[850px] md:max-w-md bg-slate-900 md:rounded-[40px] md:border-[8px] border-slate-800 flex flex-col relative overflow-hidden md:shadow-2xl">
+    <div className="min-h-[100dvh] bg-slate-950 flex flex-col text-slate-50 items-center md:justify-center relative md:py-10">
+      {/* O aluno mantém-se contido num formato de telemóvel mesmo no Desktop */}
+      <div className="w-full h-full min-h-[100dvh] md:min-h-[850px] md:h-[850px] md:max-w-[420px] bg-slate-900 md:rounded-[40px] md:border-[8px] border-slate-800 flex flex-col relative overflow-hidden md:shadow-[0_0_50px_rgba(0,0,0,0.5)]">
         {toastMsg && <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[130] text-white font-bold px-4 py-2 rounded-full shadow-lg text-sm whitespace-nowrap animate-fade-in" style={getBrandStyle('bg')}>{toastMsg}</div>}
         
         <InstallBanner showInstallBanner={showInstallBanner} setShowInstallBanner={setShowInstallBanner} handleInstallClick={handleInstallClick} brandColor={primaryColor} />
@@ -1729,7 +1740,7 @@ export default function App() {
           </div>
         )}
 
-        <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-900 z-10 shadow-md shrink-0" style={{ paddingTop: 'max(env(safe-area-inset-top), 1.5rem)' }}>
+        <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-900 z-10 shadow-md shrink-0" style={{ paddingTop: 'max(env(safe-area-inset-top, 1.5rem), 1.5rem)' }}>
            <div className="flex items-center gap-3">
              <div className="w-12 h-12 rounded-full flex items-center justify-center font-black text-xl border shadow-lg overflow-hidden" style={{ backgroundColor: `${primaryColor}20`, borderColor: `${primaryColor}50`, color: primaryColor }}>
                 {currentBrand?.logo ? (
@@ -1746,7 +1757,7 @@ export default function App() {
            <button onClick={handleLogout} className="text-slate-400 hover:text-white bg-slate-800 p-2.5 rounded-xl transition-colors"><LogOut size={18}/></button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 pb-36 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 custom-scrollbar" style={{ paddingBottom: 'calc(100px + env(safe-area-inset-bottom))' }}>
           
           {/* TAB: INÍCIO */}
           {alunoTabAtiva === 'home' && !treinoIniciado && (
@@ -1898,7 +1909,7 @@ export default function App() {
           {/* ECRÃ DE TREINO (A EXECUTAR) */}
           {treinoIniciado && treinoSelecionado && (
             <div className="flex flex-col gap-4 animate-fade-in">
-              <div className="mb-4 flex justify-between items-center bg-slate-950/80 backdrop-blur-md sticky top-0 py-4 z-20 rounded-b-[2rem] border-b border-slate-800 -mt-6 px-2">
+              <div className="mb-4 flex justify-between items-center bg-slate-950/80 backdrop-blur-md sticky top-0 py-4 z-20 border-b border-slate-800 px-2" style={{ paddingTop: 'max(env(safe-area-inset-top, 1.5rem), 1.5rem)' }}>
                 <div><span className="text-[9px] font-black uppercase tracking-widest block mb-0.5" style={getBrandStyle('text')}>Modo Foco</span><h2 className="text-lg font-black text-white leading-tight">{treinoSelecionado.title}</h2></div>
                 <button onClick={() => { if(window.confirm("Sair do treino atual?")) setTreinoIniciado(false); }} className="text-[10px] text-red-500 font-black bg-red-500/10 px-4 py-2 rounded-xl uppercase tracking-widest border border-red-500/10">Sair</button>
               </div>
@@ -1918,19 +1929,7 @@ export default function App() {
                         </div>
                         
                         <button 
-                          onClick={async () => {
-                            if (group.main.youtubeId) {
-                              setVideoAtivo(group.main.youtubeId);
-                            } else {
-                              showToast("A procurar vídeo...");
-                              const id = await buscarVideoNoYouTube(group.main.name);
-                              if (id) {
-                                setVideoAtivo(id);
-                              } else {
-                                setVideoAtivo(`SEARCH:como fazer ${group.main.name} musculação execução`);
-                              }
-                            }
-                          }} 
+                          onClick={() => openVideo(group.main.youtubeId, group.main.name)} 
                           className={`p-3.5 rounded-2xl active:scale-90 transition-all ${group.main.youtubeId ? 'bg-red-600/10 text-red-500 border border-red-500/10' : 'bg-slate-800 text-slate-400 border border-slate-700 hover:text-red-400'}`}
                         >
                           <Youtube size={22} />
@@ -1948,19 +1947,7 @@ export default function App() {
                                 </div>
                                 
                                 <button 
-                                  onClick={async () => {
-                                    if (p.youtubeId) {
-                                      setVideoAtivo(p.youtubeId);
-                                    } else {
-                                      showToast("A procurar vídeo...");
-                                      const id = await buscarVideoNoYouTube(p.name);
-                                      if (id) {
-                                        setVideoAtivo(id);
-                                      } else {
-                                        setVideoAtivo(`SEARCH:como fazer ${p.name} musculação execução`);
-                                      }
-                                    }
-                                  }} 
+                                  onClick={() => openVideo(p.youtubeId, p.name)} 
                                   className={`p-2 rounded-xl active:scale-90 transition-all ${p.youtubeId ? 'text-red-500/80 bg-red-500/10' : 'text-slate-500 bg-slate-800/50 hover:text-red-400'}`}
                                 >
                                   <Youtube size={18} />
@@ -1984,7 +1971,7 @@ export default function App() {
 
         {/* NAVEGAÇÃO INFERIOR */}
         {!treinoIniciado && (
-          <div className="absolute bottom-0 left-0 w-full bg-slate-900/95 backdrop-blur-xl border-t border-slate-800/50 flex justify-around items-center p-4 z-50 shadow-[0_-10px_30px_rgba(0,0,0,0.5)] md:rounded-b-[40px]" style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 1.5rem)' }}>
+          <div className="absolute bottom-0 left-0 w-full bg-slate-900/95 backdrop-blur-xl border-t border-slate-800/50 flex justify-around items-center p-4 z-50 shadow-[0_-10px_30px_rgba(0,0,0,0.5)] md:rounded-b-[40px]" style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 1.5rem), 1.5rem)' }}>
             {[
               { id: 'home', icon: Home, label: 'Início' },
               { id: 'treinos', icon: Dumbbell, label: 'Fichas' },
