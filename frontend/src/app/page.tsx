@@ -15,6 +15,8 @@ const getBaseUrl = () => {
 };
 
 const API_URL = getBaseUrl().endsWith('/') ? `${getBaseUrl()}api` : `${getBaseUrl()}/api`;
+// DOMÍNIO OFICIAL ATUALIZADO
+const MEU_DOMINIO = "https://evotrainer.com.br";
 
 const extractYouTubeId = (url: string) => {
   if (!url) return '';
@@ -244,6 +246,26 @@ export default function App() {
     const headers: any = { 'Content-Type': 'application/json' };
     if (token) headers['Authorization'] = `Bearer ${token}`;
     return headers;
+  };
+
+  // ==========================================
+  // NOVA FUNÇÃO: PERGUNTAR E ENVIAR WHATSAPP PÓS-TREINO
+  // ==========================================
+  const enviarAvisoWhatsAppPosTreino = (nomeTreino: string, aluno: any) => {
+    if (window.confirm(`Planilha "${nomeTreino}" salva com sucesso! Deseja enviar um aviso para o WhatsApp do aluno?`)) {
+      let telefone = aluno.phone || '';
+      telefone = telefone.replace(/\D/g, ''); 
+      if (telefone && !telefone.startsWith('55')) telefone = '55' + telefone;
+
+      const appLink = currentUser?.plano === 'ELITE' ? `${MEU_DOMINIO}/?t=${currentUser.id}` : MEU_DOMINIO;
+      const mensagem = `Fala ${aluno.name.split(' ')[0]}! 💪\n\nEstou encaminhando uma nova planilha de treinos para você: *${nomeTreino}*.\n\nVerifique o seu app para conferir os vídeos e focar na execução correta:\n${appLink}`;
+
+      const url = telefone && telefone.length >= 12 
+        ? `https://wa.me/${telefone}?text=${encodeURIComponent(mensagem)}`
+        : `https://wa.me/?text=${encodeURIComponent(mensagem)}`;
+
+      window.open(url, '_blank');
+    }
   };
 
   const openVideo = (youtubeId: string, name: string) => {
@@ -490,7 +512,7 @@ export default function App() {
     if (telefone && !telefone.startsWith('55')) telefone = '55' + telefone;
 
     const brandNameMsg = currentBrand?.name || 'EvoTrainer';
-    const appLink = typeof window !== 'undefined' ? `${window.location.origin}/?t=${currentUser.id}` : 'app.evotrainer.com';
+    const appLink = currentUser?.plano === 'ELITE' ? `${MEU_DOMINIO}/?t=${currentUser.id}` : MEU_DOMINIO;
 
     const mensagem = `Olá *${aluno.name.split(' ')[0]}*! 💪\n\nA sua nova ficha de treino *${treino.title}* já está configurada.\n\n⏱ *Duração:* ${treino.duration}\n📅 *Dia:* ${treino.dayOfWeek}\n\nAceda ao seu App ${brandNameMsg} para ver os vídeos de execução perfeitos:\n${appLink}\n\nBora esmagar! 🔥`;
 
@@ -640,7 +662,7 @@ export default function App() {
     e.preventDefault();
     try {
       const res = await fetch(`${API_URL}/alunos`, { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify(novoAluno) });
-      if (res.ok) { showToast("Aluno registado!"); setShowAddModal(false); setNovoAluno({ name: '', email: '', password: '', phone: '' }); fetchAlunos(); }
+      if (res.ok) { showToast("Aluno registado! E-mail com instruções enviado."); setShowAddModal(false); setNovoAluno({ name: '', email: '', password: '', phone: '' }); fetchAlunos(); }
       else { const d = await res.json(); showToast(d.error || "Erro."); }
     } catch (e) { showToast("Erro de ligação."); }
   };
@@ -677,7 +699,7 @@ export default function App() {
   const salvarTreino = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!alunoSelecionado) return;
-    setIsCriandoTreino(true); showToast("Guardando ficha...");
+    setIsCriandoTreino(true); showToast("A guardar ficha...");
     try {
       const exercisesComVideos = novoTreino.exercises.map(ex => ({
           ...ex,
@@ -688,10 +710,14 @@ export default function App() {
       const metodo = isEditingTreino ? 'PUT' : 'POST';
       const res = await fetch(url, { method: metodo, headers: getAuthHeaders(), body: JSON.stringify(payload) });
       if (res.ok) {
-        showToast(isEditingTreino ? "Treino atualizado!" : "Treino criado!");
-        setShowTreinoModal(false); setAlunoSelecionado(null); setIsEditingTreino(false); setTreinoEditId(null);
-        setNovoTreino({ title: '', duration: '', dayOfWeek: 'Segunda', exercises: [{ name: '', sets: '', weight: '', youtubeId: '', isConjugado: false, conjugadoCom: '' }] });
+        setShowTreinoModal(false); 
         fetchAlunos();
+        
+        // CHAMA A FUNÇÃO NOVA DE AVISO PÓS-TREINO
+        enviarAvisoWhatsAppPosTreino(isEditingTreino ? novoTreino.title : "Nova Ficha", alunoSelecionado);
+        
+        setAlunoSelecionado(null); setIsEditingTreino(false); setTreinoEditId(null);
+        setNovoTreino({ title: '', duration: '', dayOfWeek: 'Segunda', exercises: [{ name: '', sets: '', weight: '', youtubeId: '', isConjugado: false, conjugadoCom: '' }] });
       }
     } catch (e) { showToast("Erro ao guardar."); } finally { setIsCriandoTreino(false); }
   };
@@ -709,6 +735,10 @@ export default function App() {
   const gerarTreinoInteligente = async () => {
     setIsGeneratingIA(true);
     if (!iaAlunoId) { showToast("Selecione um aluno primeiro."); setIsGeneratingIA(false); return; }
+    
+    // Encontrar o aluno correto antes de iniciar a IA
+    const alunoBuscado = alunos.find(a => a.id === parseInt(iaAlunoId));
+    
     try {
       showToast("A IA Master está a analisar a biomecânica...");
       const payload = {
@@ -725,7 +755,17 @@ export default function App() {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Falha ao gerar treino com IA.");
-      showToast(data.message); setIaPrompt(''); await fetchAlunos(); setAdminTabAtiva('alunos');
+      
+      showToast("Fichas criadas pela IA!"); 
+      await fetchAlunos(); 
+      setAdminTabAtiva('alunos');
+      
+      // CHAMA A FUNÇÃO DE AVISO PÓS-IA
+      if (alunoBuscado) {
+        enviarAvisoWhatsAppPosTreino("Periodização Completa via IA", alunoBuscado);
+      }
+      
+      setIaPrompt('');
     } catch (err: any) { showToast(err.message); } finally { setIsGeneratingIA(false); }
   };
 
