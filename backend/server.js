@@ -193,7 +193,7 @@ app.post('/api/reset-password', async (req, res) => {
   } catch (error) { res.status(500).json({ error: "Erro interno." }); }
 });
 
-// REGISTO DE PERSONAL TRAINER (AGORA COM AVISO POR E-MAIL PARA O DONO)
+// REGISTO DE PERSONAL TRAINER (AGORA COM AVISO POR E-MAIL E LINK WHATSAPP PRONTO)
 app.post('/api/register', async (req, res) => {
   const { name, email, password, phone, role, plano } = req.body;
   try {
@@ -208,6 +208,10 @@ app.post('/api/register', async (req, res) => {
     // ENVIAR E-MAIL DE ALERTA PARA O DONO DO SISTEMA
     if (role === 'ADMIN') {
       try {
+        const primeiroNome = name.split(' ')[0];
+        const waText = encodeURIComponent(`Olá, ${primeiroNome}! Vi que você acabou de criar sua conta no EvoTrainer. Como posso te ajudar a escalar sua consultoria hoje?`);
+        const waLink = `https://wa.me/${phone ? phone.replace(/\D/g, '') : ''}?text=${waText}`;
+
         await transporter.sendMail({
           from: `"EvoTrainer Alertas" <${process.env.SMTP_USER}>`,
           to: process.env.SMTP_USER, // Envia para o próprio e-mail configurado (o seu)
@@ -222,7 +226,7 @@ app.post('/api/register', async (req, res) => {
                 <p><strong>📱 WhatsApp:</strong> ${phone || 'Não fornecido'}</p>
               </div>
               <p style="margin-top: 20px;">
-                <a href="https://wa.me/${phone ? phone.replace(/\D/g, '') : ''}" style="background: #22c55e; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
+                <a href="${waLink}" style="background: #22c55e; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
                   Chamar no WhatsApp
                 </a>
               </p>
