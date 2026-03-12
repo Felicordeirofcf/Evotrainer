@@ -238,10 +238,13 @@ export default function App() {
   const [buscaTrainer, setBuscaTrainer] = useState('');
   const [filtroPlano, setFiltroPlano] = useState('TODOS');
 
+  // --- NOVOS ESTADOS DA IA ---
   const [iaPrompt, setIaPrompt] = useState('');
   const [iaAlunoId, setIaAlunoId] = useState('');
   const [iaSplit, setIaSplit] = useState('ABC');
   const [iaFrequencia, setIaFrequencia] = useState('5');
+  const [iaVolume, setIaVolume] = useState('7');
+  const [iaMethodology, setIaMethodology] = useState('Tradicional, Progressão de Carga Constante');
   const [isGeneratingIA, setIsGeneratingIA] = useState(false);
 
   const [treinosAluno, setTreinosAluno] = useState<any[]>([]);
@@ -705,12 +708,23 @@ export default function App() {
     if (!iaAlunoId) { showToast("Selecione um aluno primeiro."); setIsGeneratingIA(false); return; }
     try {
       showToast("A IA Master está a analisar a biomecânica...");
+      
+      // Enviando todos os novos parâmetros para o Backend!
+      const payload = {
+        alunoId: iaAlunoId,
+        split: iaSplit,
+        frequencia: iaFrequencia,
+        prompt: iaPrompt,
+        volume: iaVolume,
+        metodologia: iaMethodology
+      };
+
       const response = await fetch(`${API_URL}/ai/gerar-treino`, {
-        method: 'POST', headers: getAuthHeaders(), body: JSON.stringify({ alunoId: iaAlunoId, split: iaSplit, frequencia: iaFrequencia, prompt: iaPrompt })
+        method: 'POST', headers: getAuthHeaders(), body: JSON.stringify(payload)
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Falha ao gerar treino com IA.");
-      showToast(data.message); setIaPrompt(''); setIaSplit('ABC'); setIaFrequencia('5'); await fetchAlunos(); setAdminTabAtiva('alunos');
+      showToast(data.message); setIaPrompt(''); await fetchAlunos(); setAdminTabAtiva('alunos');
     } catch (err: any) { showToast(err.message); } finally { setIsGeneratingIA(false); }
   };
 
@@ -1101,7 +1115,7 @@ export default function App() {
                         <div className="flex justify-between items-start">
                           <div className="flex items-center gap-3">
                             {aluno.avatar ? (
-                              <img src={aluno.avatar} alt="Avatar" className="w-11 h-11 rounded-xl object-cover shadow-inner" />
+                              <img src={aluno.avatar} alt="Avatar" className="w-full h-full object-cover rounded-xl shadow-inner" />
                             ) : (
                               <div className="w-11 h-11 bg-slate-900 border border-slate-700 text-blue-500 font-black rounded-xl flex items-center justify-center shadow-inner">{aluno.name.charAt(0).toUpperCase()}</div>
                             )}
@@ -1137,12 +1151,13 @@ export default function App() {
               </div>
             )}
 
+            {/* SEÇÃO IA 2.0 (ATUALIZADA COM OS NOVOS CAMPOS) */}
             {adminTabAtiva === 'ia' && (
               <div className="animate-fade-in flex flex-col gap-6">
                 <div className="bg-gradient-to-br from-indigo-600 to-purple-800 p-6 rounded-[2.5rem] shadow-2xl relative overflow-hidden">
                   <div className="relative z-10">
-                    <h2 className="text-2xl font-black text-white flex items-center gap-2 leading-none"><Sparkles fill="currentColor"/> Mágico de IA</h2>
-                    <p className="text-indigo-200 text-xs mt-3 leading-relaxed font-medium">A IA organiza uma proposta inicial de treino com base na divisão escolhida, otimizando o processo. Recomendamos a revisão do personal antes de aplicar ao aluno.</p>
+                    <h2 className="text-2xl font-black text-white flex items-center gap-2 leading-none"><Sparkles fill="currentColor"/> Mágico de IA <span className="bg-white text-indigo-600 text-[10px] px-2 py-0.5 rounded-md ml-1">v2.0</span></h2>
+                    <p className="text-indigo-200 text-xs mt-3 leading-relaxed font-medium">A IA atua como um PhD em Biomecânica. Agora você tem o poder de ditar o volume e os métodos de alta intensidade do fisiculturismo.</p>
                   </div>
                   <Sparkles size={120} className="absolute -bottom-6 -right-6 text-white opacity-10 transform -rotate-12" />
                 </div>
@@ -1173,6 +1188,31 @@ export default function App() {
                         {[1, 2, 3, 4, 5, 6, 7].map(num => (
                           <option key={num} value={num}>{num} {num === 1 ? 'dia' : 'dias'}</option>
                         ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* NOVOS CAMPOS: VOLUME E METODOLOGIA */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Volume por Ficha</label>
+                      <select value={iaVolume} onChange={e => setIaVolume(e.target.value)} className="bg-slate-950 border border-slate-700 rounded-2xl p-4 text-white outline-none focus:border-indigo-500 font-bold appearance-none cursor-pointer">
+                        {[4, 5, 6, 7, 8, 9, 10, 11, 12].map(num => (
+                          <option key={num} value={num}>{num} Exercícios</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Metodologia Principal</label>
+                      <select value={iaMethodology} onChange={e => setIaMethodology(e.target.value)} className="bg-slate-950 border border-slate-700 rounded-2xl p-4 text-white outline-none focus:border-indigo-500 font-bold appearance-none cursor-pointer text-[12px] sm:text-sm">
+                        <option value="Tradicional, Progressão de Carga Constante">Tradicional</option>
+                        <option value="FST-7 (Fascial Stretch Training no último exercício)">FST-7</option>
+                        <option value="Drop-set (aplicado nos últimos exercícios)">Drop-Set</option>
+                        <option value="Rest-Pause">Rest-Pause</option>
+                        <option value="GVT (German Volume Training 10x10)">GVT (10x10)</option>
+                        <option value="Heavy Duty (Séries únicas até a falha extrema)">Heavy Duty</option>
+                        <option value="Priorizar Bi-sets (Agrupados 2 a 2)">Bi-sets Intensivos</option>
+                        <option value="Adaptação Anatômica (Iniciantes, foco em máquinas)">Adaptação (Iniciante)</option>
                       </select>
                     </div>
                   </div>

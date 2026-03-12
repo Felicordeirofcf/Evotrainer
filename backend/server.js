@@ -182,10 +182,10 @@ app.delete('/api/superadmin/trainers/:id', authenticateToken, isSuperAdmin, asyn
 });
 
 // ==========================================
-// TREINO INTELIGENTE (IA PhD EM BIOMECÂNICA)
+// TREINO INTELIGENTE - IA COM VOLUME E METODOLOGIA
 // ==========================================
 app.post('/api/ai/gerar-treino', authenticateToken, isAdmin, async (req, res) => {
-  const { alunoId, split, frequencia, prompt } = req.body;
+  const { alunoId, split, frequencia, prompt, volume, metodologia } = req.body;
   try {
     const trainer = await prisma.user.findUnique({ where: { id: req.user.id } });
     const planoAtual = trainer.plano || 'GRATIS';
@@ -193,37 +193,34 @@ app.post('/api/ai/gerar-treino', authenticateToken, isAdmin, async (req, res) =>
     const limitePermitido = IA_LIMITS[planoAtual] || 0;
 
     if (trainer.iaUsadaMes >= limitePermitido) {
-      return res.status(403).json({ error: `Você atingiu o limite de treinos gerados por IA do seu plano atual.` });
+      return res.status(403).json({ error: `Atingiu o limite de IA do plano ${planoAtual}.` });
     }
     
     const aluno = await prisma.user.findUnique({ where: { id: parseInt(alunoId) } });
     if (!aluno || aluno.trainerId !== req.user.id) return res.status(404).json({ error: "Aluno não encontrado." });
 
     if (!OPENAI_API_KEY) {
-      return res.status(500).json({ error: "A chave da OpenAI não está configurada no servidor." });
+      return res.status(500).json({ error: "Chave da OpenAI não está configurada no backend." });
     }
 
-    // --- PROMPT PROFISSIONAL MELHORADO ---
-    const systemPrompt = `Você é um Treinador de Elite, Especialista e PhD em Biomecânica, Cinesiologia e Fisiologia do Exercício.
-Sua missão é prescrever treinos altamente técnicos, otimizados e com base em evidências científicas atuais (ex: Brad Schoenfeld, Chris Beardsley) para hipertrofia, força ou reabilitação.
+    const systemPrompt = `Você é um Personal Trainer de Elite, Especialista em Fisiologia do Exercício, Cinesiologia, Biomecânica e Periodização. Sua missão é montar fichas de treino que entregam resultados reais e seguros no "chão de fábrica" das academias.
 
 DIRETRIZES TÉCNICAS OBRIGATÓRIAS:
-1. Seleção de Exercícios: Use terminologia técnica precisa. Priorize exercícios com alta estabilidade e bom perfil de resistência (ex: "Agachamento Búlgaro no Smith", "Puxada Vertical Frontal Pegada Neutra", "Cadeira Extensora com Pico de Contração"). Evite nomes genéricos como "Treino de braço" ou "Abdominal normal".
-2. Volume e Intensidade: Especifique Séries e Repetições usando diretrizes avançadas, incluindo RIR (Repetições na Reserva) ou RPE (Percepção Subjetiva de Esforço). Exemplo de formatação no campo sets: "3x 8-10 (RIR 1-2)".
-3. Carga e Descanso: No campo "weight", você deve sugerir a dinâmica de carga ou o tempo de descanso anatômico ideal. Exemplo: "Progressão de Carga | 120s rest" ou "Carga Desafiadora | 90s rest".
-4. Técnicas Avançadas: Aplique métodos de intensificação (Bi-set, Rest-Pause, Drop-set) apenas quando fizer sentido fisiológico. Marque isConjugado: true SOMENTE se for um Bi-set/Super-set real.
-5. Segurança: Se o usuário mencionar qualquer patologia (ex: hérnia, condromalácia), adapte OBRIGATORIAMENTE os vetores de força e exercícios para evitar compressão/cisalhamento nas articulações afetadas.
+1. Nomenclatura Comercial: Use APENAS os nomes tradicionais e populares dos exercícios no Brasil (ex: "Supino Reto com Halteres", "Cadeira Extensora", "Remada Curvada", "Tríceps Testa", "Elevação Pélvica"). NÃO use jargões anatômicos confusos.
+2. Controle de Intensidade e Carga: No campo "sets", especifique séries, repetições, RIR (Repetições na Reserva) ou RPE. No campo "weight", sugira a dinâmica de carga e o tempo de intervalo anatômico exato.
+3. Segurança Biomecânica: Se houver restrição clínica ou dor descrita, adapte os exercícios para preservar as articulações afetadas.
+4. Conjugados (Bi-sets): Marque 'isConjugado: true' APENAS quando a metodologia instruir a fazer Bi-sets/Super-sets e preencha 'conjugadoCom' com o nome exato do parceiro.
 
-FORMATO DE SAÍDA ESTRITO (DEVE SER UM JSON VÁLIDO E NADA MAIS):
+FORMATO DE SAÍDA ESTRITO (RETORNE APENAS JSON VÁLIDO, SEM MARKDOWN OU OUTRO TEXTO):
 {
   "fichas": [
     {
-      "title": "Treino A - [Foco Anatômico Técnico]",
-      "duration": "[Ex: 50 min]",
+      "title": "Treino A - [Foco Muscular]",
+      "duration": "Ex: 60 min",
       "exercises": [
         {
-          "name": "Nome Técnico Completo do Exercício",
-          "sets": "Ex: 4x 8-12 (RPE 8)",
+          "name": "Nome Comercial do Exercício",
+          "sets": "Ex: 3x 8-12 (RIR 1-2)",
           "weight": "Ex: Progressão | 90s",
           "isConjugado": false,
           "conjugadoCom": ""
@@ -233,11 +230,18 @@ FORMATO DE SAÍDA ESTRITO (DEVE SER UM JSON VÁLIDO E NADA MAIS):
   ]
 }`;
 
-    const userPrompt = `Crie um planejamento de treino profissional para o aluno ${aluno.name}.
-    Divisão solicitada: ${split} (Importante: Crie exatamente a quantidade de fichas necessárias para essa divisão, ex: se a divisão for ABC, retorne exatamente 3 fichas distintas no JSON).
-    Frequência semanal na academia: ${frequencia} dias.
-    Objetivo, Perfil do Aluno e Contexto Clínico: ${prompt}.
-    Aja como um PhD. Não retorne nenhum texto além do JSON validado.`;
+    const userPrompt = `Monte o treinamento para o aluno ${aluno.name}.
+
+PARÂMETROS ESTRUTURAIS DO TREINO:
+- Divisão Solicitada: ${split} (Crie exatamente a quantidade de fichas necessárias para este ciclo, ex: 3 fichas para ABC).
+- Frequência na Semana: ${frequencia} dias.
+- Volume por Ficha: Exatamente ${volume || 7} exercícios por cada dia de treino.
+- Metodologia/Técnica Principal: ${metodologia || 'Tradicional'}. Aplique esta técnica em exercícios base ou isoladores de cada ficha, adaptando a prescrição de séries e repetições de acordo com a regra da metodologia.
+
+PERFIL E CONTEXTO CLÍNICO:
+${prompt}
+
+Crie o JSON rigorosamente dentro destes parâmetros e respeitando o volume exato de exercícios.`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -246,39 +250,34 @@ FORMATO DE SAÍDA ESTRITO (DEVE SER UM JSON VÁLIDO E NADA MAIS):
         model: 'gpt-4o-mini', 
         messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }], 
         response_format: { type: "json_object" },
-        temperature: 0.6 // Reduzido para respostas mais técnicas e menos "criativas/alucinadas"
+        temperature: 0.6
       })
     });
 
     const data = await response.json();
-
-    // Verificação Robusta para evitar o Erro 500 silencioso
+    
     if (data.error) {
-      console.error("OpenAI API Error:", data.error);
       return res.status(500).json({ error: `Erro na OpenAI: ${data.error.message}` });
     }
 
     if (!data.choices || !data.choices[0] || !data.choices[0].message) {
-      console.error("Resposta Inesperada da OpenAI:", data);
-      return res.status(500).json({ error: "A IA retornou uma resposta vazia ou em formato inesperado." });
+      return res.status(500).json({ error: "Resposta inesperada da IA." });
     }
 
     let conteudoIA;
     try {
       conteudoIA = JSON.parse(data.choices[0].message.content);
     } catch (parseErr) {
-      console.error("Erro ao fazer parse do JSON da IA:", data.choices[0].message.content);
-      return res.status(500).json({ error: "A IA não conseguiu formatar o treino corretamente. Tente gerar novamente." });
+      return res.status(500).json({ error: "A IA não retornou um formato de dados válido (JSON)." });
     }
 
     const fichas = conteudoIA.fichas;
     if (!fichas || !Array.isArray(fichas) || fichas.length === 0) {
-       return res.status(500).json({ error: "A IA não conseguiu criar nenhuma ficha de treino. Verifique os dados do aluno." });
+       return res.status(500).json({ error: "A IA não conseguiu criar nenhuma ficha de treino." });
     }
 
     const dias = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
 
-    // Gravação no Banco de Dados
     for (let i = 0; i < parseInt(frequencia); i++) {
       const treinoData = fichas[i % fichas.length];
       
@@ -286,18 +285,15 @@ FORMATO DE SAÍDA ESTRITO (DEVE SER UM JSON VÁLIDO E NADA MAIS):
         let youtubeId = null;
         try {
           if (YOUTUBE_API_KEY) {
-            // Busca mais inteligente no YT, juntando o nome do exercício com "musculação execução"
             const termoBusca = encodeURIComponent(`${ex.name} execução correta musculação`);
             const ytResponse = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&q=${termoBusca}&maxResults=1&type=video&key=${YOUTUBE_API_KEY}`);
             const ytData = await ytResponse.json();
             if (ytData.items && ytData.items.length > 0) youtubeId = ytData.items[0].id.videoId;
           }
-        } catch (err) {
-          console.error("Falha ao buscar vídeo no YouTube:", err);
-        }
+        } catch (err) {}
         
         return { 
-          name: ex.name || "Exercício não definido", 
+          name: ex.name || "Exercício", 
           sets: ex.sets || "3x10", 
           weight: ex.weight || "Moderada", 
           youtubeId, 
@@ -309,7 +305,7 @@ FORMATO DE SAÍDA ESTRITO (DEVE SER UM JSON VÁLIDO E NADA MAIS):
       await prisma.workoutTemplate.create({ 
         data: { 
           title: treinoData.title || `Treino ${i+1}`, 
-          duration: treinoData.duration || "50 min", 
+          duration: treinoData.duration || "60 min", 
           userId: aluno.id, 
           dayOfWeek: dias[i], 
           exercises: { create: exercisesWithVideo } 
@@ -318,15 +314,14 @@ FORMATO DE SAÍDA ESTRITO (DEVE SER UM JSON VÁLIDO E NADA MAIS):
     }
 
     await prisma.user.update({ where: { id: req.user.id }, data: { iaUsadaMes: trainer.iaUsadaMes + 1 } });
-    res.json({ message: "Treino de Alta Performance gerado com sucesso!" });
+    res.json({ message: "Treino gerado com sucesso!" });
   } catch (error) { 
-    console.error("ERRO FATAL NA IA:", error);
     res.status(500).json({ error: "Falha interna no servidor ao processar a Inteligência Artificial." }); 
   }
 });
 
 // ==========================================
-// ROTAS DE ALUNOS
+// ROTAS DE ALUNOS E TREINOS
 // ==========================================
 app.get('/api/alunos', authenticateToken, isAdmin, async (req, res) => {
   try {
@@ -396,9 +391,6 @@ app.put('/api/alunos/:id/senha', authenticateToken, async (req, res) => {
   } catch (error) { res.status(500).json({ error: "Erro." }); }
 });
 
-// ==========================================
-// ROTAS DE TREINOS
-// ==========================================
 app.post('/api/treinos', authenticateToken, isAdmin, async (req, res) => {
   try {
     const novoTreino = await prisma.workoutTemplate.create({ data: { title: req.body.title, duration: req.body.duration, userId: req.body.userId, dayOfWeek: req.body.dayOfWeek, exercises: { create: req.body.exercises } } });
