@@ -50,19 +50,62 @@ function getGroupedExercises(exercisesArray: any[]) {
 }
 
 const InstallBanner = ({ showInstallBanner, setShowInstallBanner, handleInstallClick, brandColor }: any) => {
-  if (!showInstallBanner) return null;
-  return (
-    <div className="fixed bottom-24 left-4 right-4 z-[110] p-4 rounded-2xl shadow-2xl flex items-center justify-between border animate-fade-in sm:max-w-sm sm:mx-auto" style={{ backgroundColor: brandColor || '#2563eb', borderColor: brandColor || '#3b82f6' }}>
-      <div className="flex items-center gap-3">
-        <div className="bg-white/20 p-2 rounded-xl text-white"><Download size={24} /></div>
-        <div><p className="text-white font-black text-sm">Instalar App</p><p className="text-white/80 text-[10px]">Acesso rápido!</p></div>
+  const [isIOS, setIsIOS] = useState(false);
+  const [isStandalone, setIsStandalone] = useState(true);
+  const [isDismissed, setIsDismissed] = useState(false);
+
+  useEffect(() => {
+    const checkStandalone = window.matchMedia('(display-mode: standalone)').matches || ('standalone' in navigator && (navigator as any).standalone === true);
+    setIsStandalone(checkStandalone);
+
+    const checkIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+    setIsIOS(checkIOS);
+    
+    const dismissed = localStorage.getItem('evotrainer_install_dismissed') === 'true';
+    setIsDismissed(dismissed);
+  }, []);
+
+  if (isStandalone || isDismissed) return null;
+
+  const dismissBanner = () => {
+    setIsDismissed(true);
+    setShowInstallBanner(false);
+    localStorage.setItem('evotrainer_install_dismissed', 'true');
+  };
+
+  if (showInstallBanner && !isIOS) {
+    return (
+      <div className="fixed bottom-24 left-4 right-4 z-[110] p-4 rounded-2xl shadow-2xl flex items-center justify-between border animate-fade-in sm:max-w-sm sm:mx-auto bg-slate-900 border-slate-700">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-xl text-white shadow-lg" style={{ backgroundColor: brandColor || '#2563eb' }}><Download size={24} /></div>
+          <div><p className="text-white font-black text-sm">Instalar App</p><p className="text-slate-400 text-[10px]">Acesso rápido na tela inicial!</p></div>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={dismissBanner} className="text-slate-500 p-2 hover:text-white transition-colors"><X size={18}/></button>
+          <button onClick={handleInstallClick} className="text-white font-black px-4 py-2 rounded-xl text-xs shadow-lg active:scale-95 transition-transform uppercase" style={{ backgroundColor: brandColor || '#2563eb' }}>Instalar</button>
+        </div>
       </div>
-      <div className="flex gap-2">
-        <button onClick={() => setShowInstallBanner(false)} className="text-white/70 p-2"><X size={18}/></button>
-        <button onClick={handleInstallClick} className="bg-white font-bold px-4 py-2 rounded-xl text-xs shadow-lg active:scale-95 transition-transform uppercase" style={{ color: brandColor || '#2563eb' }}>Instalar</button>
+    );
+  }
+
+  if (isIOS && !showInstallBanner) {
+    return (
+      <div className="fixed bottom-10 left-4 right-4 z-[110] p-5 rounded-3xl shadow-2xl border animate-bounce sm:max-w-sm sm:mx-auto" style={{ backgroundColor: brandColor || '#2563eb', borderColor: 'rgba(255,255,255,0.2)' }}>
+        <button onClick={dismissBanner} className="absolute top-2 right-2 text-white/50 hover:text-white p-1"><X size={16}/></button>
+        <div className="flex flex-col items-center text-center gap-2">
+          <div className="bg-white/20 p-2 rounded-xl text-white"><Download size={24} /></div>
+          <h3 className="text-white font-black text-sm">Instale o App no iPhone</h3>
+          <p className="text-white/90 text-xs font-medium leading-relaxed">
+            1. Toque no ícone <strong>Compartilhar</strong> (quadrado com seta) abaixo.<br/>
+            2. Role e selecione <strong>"Adicionar à Tela de Início"</strong>.
+          </p>
+          <div className="mt-2 text-white/50 animate-pulse">▼</div>
+        </div>
       </div>
-    </div>
-  );
+    );
+  }
+
+  return null;
 };
 
 const YoutubeModal = ({ videoAtivo, setVideoAtivo, brandColor }: any) => {
@@ -89,10 +132,10 @@ const TourModal = ({ showTour, setShowTour, tourStep, setTourStep }: any) => {
   if (!showTour) return null;
 
   const tourSteps = [
-    { title: "Bem-vindo ao EvoTrainer! 🚀", text: "Vamos fazer um tour rápido para você entender como nossa plataforma vai escalar a sua consultoria e economizar horas de trabalho.", icon: <Sparkles size={60} className="text-blue-500 mx-auto" /> },
-    { title: "1. Gestão de Alunos 👥", text: "Na aba 'Alunos' você cadastra seus clientes. Cada aluno que você adicionar ganhará acesso a um App Exclusivo para visualizar os treinos.", icon: <Users size={60} className="text-emerald-500 mx-auto" /> },
-    { title: "2. Treino Inteligente 🧠", text: "Vá na aba 'Inteligência' e deixe a nossa IA gerar as fichas para você. Ela entende de periodização, biomecânica e patologias.", icon: <Activity size={60} className="text-indigo-500 mx-auto" /> },
-    { title: "3. Vídeos Automáticos 📺", text: "Adeus planilhas manuais! Para cada exercício gerado, nós buscamos e anexamos o vídeo correto de execução diretamente do YouTube.", icon: <Youtube size={60} className="text-red-500 mx-auto" /> },
+    { title: "Bem-vindo ao EvoTrainer! 🚀", text: "Vamos fazer um tour rápido para entender como escalar a sua consultoria e economizar horas.", icon: <Sparkles size={60} className="text-blue-500 mx-auto" /> },
+    { title: "1. Gestão de Alunos 👥", text: "Na aba 'Alunos' cadastre seus clientes. Eles ganham acesso a um App Exclusivo para visualizar os treinos.", icon: <Users size={60} className="text-emerald-500 mx-auto" /> },
+    { title: "2. Treino Inteligente 🧠", text: "Vá na aba 'Inteligência' e deixe a nossa IA gerar as fichas para você com periodização.", icon: <Activity size={60} className="text-indigo-500 mx-auto" /> },
+    { title: "3. Vídeos Automáticos 📺", text: "Para cada exercício gerado, buscamos e anexamos o vídeo correto de execução diretamente do YouTube.", icon: <Youtube size={60} className="text-red-500 mx-auto" /> },
     { title: "Tudo Pronto! 🎉", text: "O sistema agora é seu. Comece adicionando o seu primeiro aluno ou testando a Inteligência Artificial.", icon: <CheckCircle2 size={60} className="text-blue-500 mx-auto" /> }
   ];
 
@@ -125,18 +168,15 @@ export default function App() {
   const [loginBrand, setLoginBrand] = useState<any>(null); 
   
   const [authMode, setAuthMode] = useState<'LOGIN'|'SIGNUP'|'MASTER'|'FORGOT'|'RESET'>('LOGIN');
-
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
-
   const [signupName, setSignupName] = useState('');
   const [signupEmail, setSignupEmail] = useState('');
   const [signupPassword, setSignupPassword] = useState('');
   const [signupConfirmPassword, setSignupConfirmPassword] = useState('');
   const [masterSecret, setMasterSecret] = useState(''); 
   const [isSigningUp, setIsSigningUp] = useState(false);
-
   const [resetTokenUrl, setResetTokenUrl] = useState('');
   const [resetNewPassword, setResetNewPassword] = useState('');
 
@@ -144,7 +184,6 @@ export default function App() {
   const [toastMsg, setToastMsg] = useState('');
   const [showInstallBanner, setShowInstallBanner] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
-
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [showTour, setShowTour] = useState(false);
   const [tourStep, setTourStep] = useState(0);
@@ -1173,16 +1212,16 @@ export default function App() {
                   {/* NOVOS CAMPOS: VOLUME E METODOLOGIA */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="flex flex-col gap-1.5">
-                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Volume por Ficha</label>
-                      <select value={iaVolume} onChange={e => setIaVolume(e.target.value)} className="bg-slate-950 border border-slate-700 rounded-2xl p-4 text-white outline-none focus:border-indigo-500 font-bold appearance-none cursor-pointer">
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 text-cyan-400">Volume por Ficha</label>
+                      <select value={iaVolume} onChange={e => setIaVolume(e.target.value)} className="bg-slate-950 border border-cyan-500/30 rounded-2xl p-4 text-cyan-100 outline-none focus:border-cyan-500 font-bold appearance-none cursor-pointer">
                         {[4, 5, 6, 7, 8, 9, 10, 11, 12].map(num => (
                           <option key={num} value={num}>{num} Exercícios</option>
                         ))}
                       </select>
                     </div>
                     <div className="flex flex-col gap-1.5">
-                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Metodologia Principal</label>
-                      <select value={iaMethodology} onChange={e => setIaMethodology(e.target.value)} className="bg-slate-950 border border-slate-700 rounded-2xl p-4 text-white outline-none focus:border-indigo-500 font-bold appearance-none cursor-pointer text-[12px] sm:text-sm">
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 text-amber-400">Metodologia</label>
+                      <select value={iaMethodology} onChange={e => setIaMethodology(e.target.value)} className="bg-slate-950 border border-amber-500/30 rounded-2xl p-4 text-amber-100 outline-none focus:border-amber-500 font-bold appearance-none cursor-pointer text-sm">
                         <option value="Tradicional, Progressão de Carga Constante">Tradicional</option>
                         <option value="FST-7 (Fascial Stretch Training no último exercício)">FST-7</option>
                         <option value="Drop-set (aplicado nos últimos exercícios)">Drop-Set</option>
@@ -1201,7 +1240,7 @@ export default function App() {
                       value={iaPrompt} 
                       onChange={e => setIaPrompt(e.target.value)} 
                       placeholder="Ex: Treino para hipertrofia. Aluno tem condromalácia patelar e hipertensão. Evitar salto e impacto extremo." 
-                      rows={4} 
+                      rows={3} 
                       className="bg-slate-950 border border-slate-700 rounded-2xl p-4 text-white outline-none focus:border-indigo-500 resize-none font-medium text-sm custom-scrollbar"
                     ></textarea>
                   </div>
@@ -1762,8 +1801,11 @@ export default function App() {
                             } else {
                               showToast("A procurar vídeo...");
                               const id = await buscarVideoNoYouTube(group.main.name);
-                              if (id) setVideoAtivo(id);
-                              else setVideoAtivo(`SEARCH:como fazer ${group.main.name} musculação execução`);
+                              if (id) {
+                                setVideoAtivo(id);
+                              } else {
+                                setVideoAtivo(`SEARCH:como fazer ${group.main.name} musculação execução`);
+                              }
                             }
                           }} 
                           className={`p-3.5 rounded-2xl active:scale-90 transition-all ${group.main.youtubeId ? 'bg-red-600/10 text-red-500 border border-red-500/10' : 'bg-slate-800 text-slate-400 border border-slate-700 hover:text-red-400'}`}
@@ -1789,8 +1831,11 @@ export default function App() {
                                     } else {
                                       showToast("A procurar vídeo...");
                                       const id = await buscarVideoNoYouTube(p.name);
-                                      if (id) setVideoAtivo(id);
-                                      else setVideoAtivo(`SEARCH:como fazer ${p.name} musculação execução`);
+                                      if (id) {
+                                        setVideoAtivo(id);
+                                      } else {
+                                        setVideoAtivo(`SEARCH:como fazer ${p.name} musculação execução`);
+                                      }
                                     }
                                   }} 
                                   className={`p-2 rounded-xl active:scale-90 transition-all ${p.youtubeId ? 'text-red-500/80 bg-red-500/10' : 'text-slate-500 bg-slate-800/50 hover:text-red-400'}`}
