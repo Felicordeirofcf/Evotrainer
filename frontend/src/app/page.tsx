@@ -98,7 +98,6 @@ const InstallBanner = ({ showInstallBanner, setShowInstallBanner, handleInstallC
   return null;
 };
 
-// MODAL OTIMIZADO: Só abre se houver ID válido. Caso contrário a UI abre o YouTube diretamente.
 const YoutubeModal = ({ videoAtivo, setVideoAtivo, brandColor }: any) => {
   if (!videoAtivo) return null;
   const iframeSrc = `https://www.youtube.com/embed/${videoAtivo}?autoplay=1&rel=0`;
@@ -166,10 +165,13 @@ export default function App() {
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  
   const [signupName, setSignupName] = useState('');
   const [signupEmail, setSignupEmail] = useState('');
+  const [signupPhone, setSignupPhone] = useState(''); // O NOVO CAMPO DE TELEFONE
   const [signupPassword, setSignupPassword] = useState('');
   const [signupConfirmPassword, setSignupConfirmPassword] = useState('');
+  
   const [masterSecret, setMasterSecret] = useState(''); 
   const [isSigningUp, setIsSigningUp] = useState(false);
   const [resetTokenUrl, setResetTokenUrl] = useState('');
@@ -239,12 +241,11 @@ export default function App() {
     setTimeout(() => setToastMsg(''), 3500);
   };
 
-  // FUNÇÃO ANTI-FALHA DE VÍDEO: Abre o modal se tiver ID, se não tiver abre a pesquisa nativa do YT
   const openVideo = (youtubeId: string, name: string) => {
     if (youtubeId && youtubeId.trim() !== '') {
       setVideoAtivo(youtubeId);
     } else {
-      showToast("Buscando no YouTube...");
+      showToast("A procurar no YouTube...");
       const query = `como fazer ${name} musculação execução correta`;
       window.open(`https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`, '_blank');
     }
@@ -520,7 +521,8 @@ export default function App() {
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!signupName || !signupEmail || !signupPassword) return showToast("Preencha todos os campos.");
+    // Validar se o telefone foi preenchido
+    if (!signupName || !signupEmail || !signupPassword || (!signupPhone && authMode !== 'MASTER')) return showToast("Preencha todos os campos, incluindo o WhatsApp.");
     if (signupPassword !== signupConfirmPassword) return showToast("As senhas não coincidem!");
     setIsSigningUp(true);
 
@@ -528,12 +530,12 @@ export default function App() {
       if (masterSecret !== "evotrainer2026") { showToast("Chave mestra inválida!"); setIsSigningUp(false); return; }
       try {
         const res = await fetch(`${API_URL}/setup-master`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: signupName, email: signupEmail, password: signupPassword, secret_key: masterSecret })
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: signupName, email: signupEmail, password: signupPassword, phone: signupPhone, secret_key: masterSecret })
         });
         const data = await res.json();
         if (res.ok) {
           showToast("Conta Master criada! Faça login.");
-          setAuthMode('LOGIN'); setSignupName(''); setSignupEmail(''); setSignupPassword(''); setSignupConfirmPassword('');
+          setAuthMode('LOGIN'); setSignupName(''); setSignupEmail(''); setSignupPhone(''); setSignupPassword(''); setSignupConfirmPassword('');
         } else { showToast(data.error || "Erro ao criar conta."); }
       } catch (error) { showToast(`Erro ao ligar com o servidor.`); } finally { setIsSigningUp(false); }
       return;
@@ -541,7 +543,7 @@ export default function App() {
 
     try {
       const res = await fetch(`${API_URL}/register`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: signupName, email: signupEmail, password: signupPassword, role: 'ADMIN', plano: 'GRATIS' })
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: signupName, email: signupEmail, password: signupPassword, phone: signupPhone, role: 'ADMIN', plano: 'GRATIS' })
       });
       const data = await res.json();
       if (res.ok) {
@@ -549,7 +551,7 @@ export default function App() {
         localStorage.setItem('treino_ai_token', data.token);
         localStorage.setItem('treino_ai_user', JSON.stringify(data.user));
         localStorage.setItem('evotrainer_tour_pending', 'true');
-        setSignupName(''); setSignupEmail(''); setSignupPassword(''); setSignupConfirmPassword('');
+        setSignupName(''); setSignupEmail(''); setSignupPhone(''); setSignupPassword(''); setSignupConfirmPassword('');
         showToast("Bem-vindo ao EvoTrainer!");
       } else { showToast(data.error || "Erro ao criar conta."); }
     } catch (error) { showToast(`Erro ao ligar com o servidor.`); } finally { setIsSigningUp(false); }
@@ -661,7 +663,6 @@ export default function App() {
     if (!alunoSelecionado) return;
     setIsCriandoTreino(true); showToast("Guardando ficha...");
     try {
-      // Já NÃO tentamos buscar vídeos novos aqui para não gastar a cota. O front trata do fallback no clique!
       const exercisesComVideos = novoTreino.exercises.map(ex => ({
           ...ex,
           youtubeId: ex.youtubeId ? extractYouTubeId(ex.youtubeId) : ''
@@ -884,6 +885,13 @@ export default function App() {
                 <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 w-5 h-5" />
                 <input type="email" required placeholder="Seu E-mail" value={signupEmail} onChange={(e) => setSignupEmail(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 pl-12 text-white focus:outline-none focus:border-blue-500 transition-colors" />
               </div>
+              
+              {/* NOVO CAMPO: TELEFONE/WHATSAPP NO REGISTO */}
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-black text-xs px-1">📞</span>
+                <input type="tel" required placeholder="WhatsApp (DDD + Número)" value={signupPhone} onChange={(e) => setSignupPhone(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 pl-12 text-white focus:outline-none focus:border-blue-500 transition-colors" />
+              </div>
+
               <div className="relative">
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 w-5 h-5" />
                 <input type="password" required placeholder="Crie uma Senha" value={signupPassword} onChange={(e) => setSignupPassword(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 pl-12 text-white focus:outline-none focus:border-blue-500 transition-colors" />
@@ -908,6 +916,13 @@ export default function App() {
                 <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 w-5 h-5" />
                 <input type="email" required placeholder="E-mail Administrativo" value={signupEmail} onChange={(e) => setSignupEmail(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 pl-12 text-white focus:outline-none focus:border-red-500 transition-colors" />
               </div>
+
+              {/* NOVO CAMPO: TELEFONE/WHATSAPP NO MASTER */}
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-black text-xs px-1">📞</span>
+                <input type="tel" required placeholder="Telefone de Recuperação" value={signupPhone} onChange={(e) => setSignupPhone(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 pl-12 text-white focus:outline-none focus:border-red-500 transition-colors" />
+              </div>
+
               <div className="relative">
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 w-5 h-5" />
                 <input type="password" required placeholder="Crie uma Senha Forte" value={signupPassword} onChange={(e) => setSignupPassword(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 pl-12 text-white focus:outline-none focus:border-red-500 transition-colors" />

@@ -16,15 +16,54 @@ const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY; 
 const JWT_SECRET = process.env.JWT_SECRET || "fallback-secreto-apenas-para-desenvolvimento";
 
+// ==========================================
+// CONFIGURAÇÃO DE E-MAIL (GMAIL)
+// ==========================================
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || "smtp.gmail.com",
   port: process.env.SMTP_PORT || 587,
-  secure: false,
+  secure: false, // true para 465, false para outras portas
   auth: {
-    user: process.env.SMTP_USER || "seuemail@gmail.com",
-    pass: process.env.SMTP_PASS || "suasenha",
+    user: process.env.SMTP_USER, // Coloque o seu e-mail Gmail no .env do Render
+    pass: process.env.SMTP_PASS, // Coloque a Senha de App de 16 dígitos no .env do Render
   },
 });
+
+// ==========================================
+// INTEGRAÇÃO EVOLUTION API (WHATSAPP)
+// ==========================================
+const enviarWhatsAppBoasVindas = async (telefone, nomePersonal) => {
+  try {
+    const evolutionUrl = process.env.EVOLUTION_API_URL; // ex: https://sua-api-evolution.com
+    const instanceName = process.env.EVOLUTION_INSTANCE_NAME; // ex: EvoBot
+    const apiKey = process.env.EVOLUTION_API_KEY; // Chave global da Evolution
+
+    // Se as variáveis não estiverem configuradas, não faz nada (evita dar erro se ainda não tiver a Evolution ativa)
+    if (!evolutionUrl || !instanceName || !apiKey || !telefone) return;
+
+    // Limpar o número (manter só os dígitos)
+    let number = telefone.replace(/\D/g, '');
+    if (!number.startsWith('55')) number = '55' + number; // Assume Brasil se não tiver DDI
+
+    const mensagem = `Olá, *${nomePersonal.split(' ')[0]}*! 🚀\n\nBem-vindo(a) ao *EvoTrainer*! Sou o assistente virtual do CEO e vi que acabou de criar a sua conta.\n\nPara começar a escalar a sua consultoria, o seu primeiro passo é aceder ao painel e adicionar o seu primeiro aluno na aba 'Alunos'.\nDepois, use a Inteligência Artificial para gerar o treino em 10 segundos.\n\nQualquer dúvida, é só responder a esta mensagem. Bora esmagar! 🔥`;
+
+    await fetch(`${evolutionUrl}/message/sendText/${instanceName}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': apiKey
+      },
+      body: JSON.stringify({
+        number: number,
+        options: { delay: 2500, presence: 'composing' }, // Fica "a escrever..." por 2.5s para parecer humano
+        textMessage: { text: mensagem }
+      })
+    });
+    console.log(`[EVOLUTION] Mensagem de boas-vindas enviada para ${telefone}`);
+  } catch (error) {
+    console.error("[EVOLUTION] Erro ao enviar WhatsApp:", error.message);
+  }
+};
 
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
@@ -70,7 +109,7 @@ app.get('/api/brand/:trainerId', async (req, res) => {
 });
 
 // ==========================================
-// LOGIN (COM INJEÇÃO DE WHITE LABEL)
+// LOGIN E AUTENTICAÇÃO
 // ==========================================
 app.post('/api/login', async (req, res) => {
   const { email, password } = req.body;
@@ -97,12 +136,11 @@ app.post('/api/login', async (req, res) => {
     
     res.json({ token, user: userWithoutPassword, brand: userBrand });
   } catch (error) { 
-    console.error("ERRO NO LOGIN:", error); 
     res.status(500).json({ error: "Erro ao fazer login." }); 
   }
 });
 
-// ROTAS DE RECUPERAÇÃO DE SENHA
+// ROTAS DE RECUPERAÇÃO DE SENHA (COM GMAIL)
 app.post('/api/forgot-password', async (req, res) => {
   const { email } = req.body;
   try {
@@ -114,18 +152,29 @@ app.post('/api/forgot-password', async (req, res) => {
 
     await prisma.user.update({ where: { id: user.id }, data: { resetToken, resetExpires } });
 
-    const resetLink = `http://localhost:3000?token=${resetToken}`; 
-    console.log("=== LINK DE RECUPERAÇÃO GERADO ===");
-    console.log(resetLink); 
+    // Troque pelo domínio real do seu App em produção
+    const resetLink = process.env.NODE_ENV === 'production' 
+      ? `https://app.evotrainer.com?token=${resetToken}` 
+      : `http://localhost:3000?token=${resetToken}`;
     
     try {
       await transporter.sendMail({
-        from: '"EvoTrainer" <no-reply@evotrainer.com>',
+        from: `"EvoTrainer Suporte" <${process.env.SMTP_USER}>`,
         to: user.email,
-        subject: "Recuperação de Palavra-Passe",
-        html: `<p>Clique no link para redefinir: <a href="${resetLink}">${resetLink}</a></p>`
+        subject: "EvoTrainer - Recuperação de Palavra-Passe",
+        html: `
+          <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto; background: #020617; color: white; border-radius: 10px;">
+            <h2 style="color: #3b82f6;">EvoTrainer</h2>
+            <p>Recebemos um pedido para recuperar a palavra-passe da sua conta.</p>
+            <p>Clique no botão abaixo para definir uma nova palavra-passe:</p>
+            <a href="${resetLink}" style="display: inline-block; padding: 12px 24px; background: #2563eb; color: white; text-decoration: none; font-weight: bold; border-radius: 6px; margin: 20px 0;">Recuperar Acesso</a>
+            <p style="color: #94a3b8; font-size: 12px;">Se não fez este pedido, ignore este e-mail.</p>
+          </div>
+        `
       });
-    } catch (e) {}
+    } catch (emailError) {
+      console.error("Erro ao enviar e-mail. Verifique SMTP_USER e SMTP_PASS.", emailError);
+    }
 
     res.json({ message: "Se o e-mail existir, receberá um link de recuperação." });
   } catch (error) { res.status(500).json({ error: "Erro interno." }); }
@@ -144,30 +193,45 @@ app.post('/api/reset-password', async (req, res) => {
   } catch (error) { res.status(500).json({ error: "Erro interno." }); }
 });
 
+// REGISTO DE PERSONAL TRAINER
 app.post('/api/register', async (req, res) => {
-  const { name, email, password, role, plano } = req.body;
+  const { name, email, password, phone, role, plano } = req.body;
   try {
     const userExists = await prisma.user.findUnique({ where: { email } });
     if (userExists) return res.status(400).json({ error: "Este e-mail já está registado." });
+    
     const hashedPassword = await bcrypt.hash(password, 10);
-    const user = await prisma.user.create({ data: { name, email, password: hashedPassword, role, plano, status: 'Ativo' } });
+    const user = await prisma.user.create({ 
+      data: { name, email, password: hashedPassword, phone, role, plano, status: 'Ativo' } 
+    });
+    
+    // Dispara o Gatilho do WhatsApp de forma assíncrona
+    if (role === 'ADMIN' && phone) {
+       enviarWhatsAppBoasVindas(phone, name);
+    }
+
     const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '30d' });
     const { password: _, ...userWithoutPassword } = user;
     res.status(201).json({ message: "Conta criada com sucesso!", token, user: userWithoutPassword });
   } catch (error) { res.status(500).json({ error: "Erro ao criar conta." }); }
 });
 
+// CRIAR CONTA MASTER
 app.post('/api/setup-master', async (req, res) => {
-  const { name, email, password, secret_key } = req.body;
+  const { name, email, password, phone, secret_key } = req.body;
   if (secret_key !== "evotrainer2026") return res.status(403).json({ error: "Chave secreta inválida." });
   try {
     const userExists = await prisma.user.findUnique({ where: { email } });
     if (userExists) return res.status(400).json({ error: "E-mail já em uso." });
     const hashedPassword = await bcrypt.hash(password, 10);
-    const master = await prisma.user.create({ data: { name, email, password: hashedPassword, role: 'SUPERADMIN', plano: 'DONO', status: 'Ativo' } });
+    const master = await prisma.user.create({ data: { name, email, password: hashedPassword, phone, role: 'SUPERADMIN', plano: 'DONO', status: 'Ativo' } });
     res.json({ message: "Conta do Dono (SuperAdmin) criada com sucesso!", master });
   } catch (error) { res.status(400).json({ error: "Erro ao criar Master." }); }
 });
+
+// ==========================================
+// RESTO DAS ROTAS (MANUTENÇÃO, IA, TREINOS)
+// ==========================================
 
 app.get('/api/superadmin/trainers', authenticateToken, isSuperAdmin, async (req, res) => {
   try {
@@ -202,9 +266,7 @@ app.delete('/api/superadmin/trainers/:id', authenticateToken, isSuperAdmin, asyn
   } catch (error) { res.status(500).json({ error: "Erro" }); }
 });
 
-// ==========================================
-// TREINO INTELIGENTE - IA COM VOLUME E METODOLOGIA
-// ==========================================
+// TREINO INTELIGENTE IA
 app.post('/api/ai/gerar-treino', authenticateToken, isAdmin, async (req, res) => {
   const { alunoId, split, frequencia, prompt, volume, metodologia } = req.body;
   try {
@@ -341,9 +403,6 @@ Crie o JSON rigorosamente dentro destes parâmetros e respeitando o volume exato
   }
 });
 
-// ==========================================
-// ROTAS DE ALUNOS (ATUALIZADA COM HISTÓRICO DE FEEDBACK)
-// ==========================================
 app.get('/api/alunos', authenticateToken, isAdmin, async (req, res) => {
   try {
     const alunos = await prisma.user.findMany({ 
@@ -420,9 +479,6 @@ app.put('/api/alunos/:id/senha', authenticateToken, async (req, res) => {
   } catch (error) { res.status(500).json({ error: "Erro." }); }
 });
 
-// ==========================================
-// ROTAS DE TREINOS E FEEDBACK
-// ==========================================
 app.post('/api/treinos', authenticateToken, isAdmin, async (req, res) => {
   try {
     const novoTreino = await prisma.workoutTemplate.create({ data: { title: req.body.title, duration: req.body.duration, userId: req.body.userId, dayOfWeek: req.body.dayOfWeek, exercises: { create: req.body.exercises } } });
@@ -441,24 +497,16 @@ app.put('/api/treinos/:workoutId', authenticateToken, isAdmin, async (req, res) 
 app.delete('/api/treinos/:workoutId', authenticateToken, isAdmin, async (req, res) => {
   try {
     const workoutId = parseInt(req.params.workoutId);
-    
-    // 1. Busca os dados da ficha antes de a excluir para saber o título e a quem pertence
     const treino = await prisma.workoutTemplate.findUnique({ where: { id: workoutId } });
     
     if (treino && treino.userId) {
-      // 2. Apaga todo o histórico (feedback/notas) associado a esta ficha específica deste aluno
       await prisma.workoutHistory.deleteMany({ 
-        where: { 
-          userId: treino.userId,
-          workoutName: treino.title 
-        } 
+        where: { userId: treino.userId, workoutName: treino.title } 
       });
     }
 
-    // 3. Exclui os exercícios e depois a ficha
     await prisma.exercise.deleteMany({ where: { workoutId: workoutId } });
     await prisma.workoutTemplate.delete({ where: { id: workoutId } });
-    
     res.json({ message: "Ficha e feedbacks apagados!" });
   } catch (error) { res.status(500).json({ error: "Erro" }); }
 });
@@ -472,7 +520,6 @@ app.get('/api/treinos/aluno/:id', authenticateToken, async (req, res) => {
 
 app.post('/api/treinos/finalizar', authenticateToken, async (req, res) => {
   try {
-    // Agora retornamos o historyId para que o frontend o utilize no envio do feedback!
     const history = await prisma.workoutHistory.create({ data: { userId: req.body.userId, workoutName: req.body.workoutName } });
     const user = await prisma.user.update({ where: { id: req.body.userId }, data: { streak: { increment: 1 }, status: 'Ativo' } });
     res.json({ message: "Sucesso!", novaOfensiva: user.streak, historyId: history.id });
@@ -490,9 +537,7 @@ app.post('/api/treinos/feedback', authenticateToken, async (req, res) => {
   } catch (error) { res.status(500).json({ error: "Erro ao salvar feedback" }); }
 });
 
-// ==========================================
 // WEBHOOKS (PAGAMENTOS ASAAS)
-// ==========================================
 app.post('/api/webhooks/asaas', async (req, res) => {
   const { event, payment } = req.body;
   if (event === 'PAYMENT_RECEIVED' || event === 'PAYMENT_CONFIRMED') {
