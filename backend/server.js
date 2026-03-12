@@ -193,7 +193,7 @@ app.post('/api/reset-password', async (req, res) => {
   } catch (error) { res.status(500).json({ error: "Erro interno." }); }
 });
 
-// REGISTO DE PERSONAL TRAINER
+// REGISTO DE PERSONAL TRAINER (AGORA COM AVISO POR E-MAIL PARA O DONO)
 app.post('/api/register', async (req, res) => {
   const { name, email, password, phone, role, plano } = req.body;
   try {
@@ -205,9 +205,34 @@ app.post('/api/register', async (req, res) => {
       data: { name, email, password: hashedPassword, phone, role, plano, status: 'Ativo' } 
     });
     
-    // Dispara o Gatilho do WhatsApp de forma assíncrona
-    if (role === 'ADMIN' && phone) {
-       enviarWhatsAppBoasVindas(phone, name);
+    // ENVIAR E-MAIL DE ALERTA PARA O DONO DO SISTEMA
+    if (role === 'ADMIN') {
+      try {
+        await transporter.sendMail({
+          from: `"EvoTrainer Alertas" <${process.env.SMTP_USER}>`,
+          to: process.env.SMTP_USER, // Envia para o próprio e-mail configurado (o seu)
+          subject: "🎉 NOVO CLIENTE REGISTADO - EvoTrainer!",
+          html: `
+            <div style="font-family: Arial, sans-serif; padding: 20px; background: #f8fafc; color: #0f172a; border-radius: 8px;">
+              <h2 style="color: #2563eb; margin-top: 0;">Temos um novo Personal Trainer!</h2>
+              <p style="font-size: 16px;">Acabou de ser criada uma nova conta no sistema. Entre em contacto para fazer o onboarding!</p>
+              <div style="background: #ffffff; padding: 15px; border-radius: 8px; border-left: 4px solid #2563eb; margin: 20px 0;">
+                <p><strong>👤 Nome:</strong> ${name}</p>
+                <p><strong>📧 E-mail:</strong> ${email}</p>
+                <p><strong>📱 WhatsApp:</strong> ${phone || 'Não fornecido'}</p>
+              </div>
+              <p style="margin-top: 20px;">
+                <a href="https://wa.me/${phone ? phone.replace(/\D/g, '') : ''}" style="background: #22c55e; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
+                  Chamar no WhatsApp
+                </a>
+              </p>
+            </div>
+          `
+        });
+        console.log(`[ALERTA] Email de novo registo enviado para ${process.env.SMTP_USER}`);
+      } catch (emailError) {
+        console.error("[ERRO] Falha ao enviar aviso de novo registo:", emailError);
+      }
     }
 
     const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '30d' });
