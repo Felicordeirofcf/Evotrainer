@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Dumbbell, 
   Sparkles, 
@@ -8,19 +8,19 @@ import {
   CheckCircle2, 
   ArrowRight, 
   Youtube, 
-  MessageSquare, 
-  Play,
-  Menu,
-  X,
-  ShieldCheck,
-  Zap,
+  Menu, 
+  X, 
+  ShieldCheck, 
+  Zap, 
   HelpCircle,
-  Smartphone
+  Play // Ícone adicionado para corrigir o ReferenceError
 } from 'lucide-react';
 
-// ==========================================
-// 🚀 COMPONENTES DA LANDING PAGE
-// ==========================================
+const getBaseUrl = () => {
+  if (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
+  return 'https://evotrainer.onrender.com';
+};
+const API_URL = getBaseUrl().endsWith('/') ? `${getBaseUrl()}api` : `${getBaseUrl()}/api`;
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -35,8 +35,6 @@ const Navbar = () => {
           </div>
           <span className="text-xl font-black tracking-tighter text-white">EVO<span className="text-blue-500">TRAINER</span></span>
         </div>
-
-        {/* Menu Desktop */}
         <div className="hidden md:flex items-center gap-8">
           <a href="#funcionalidades" className="text-sm font-bold text-slate-400 hover:text-white transition-colors">Funcionalidades</a>
           <a href="#como-funciona" className="text-sm font-bold text-slate-400 hover:text-white transition-colors">Como Funciona</a>
@@ -44,14 +42,9 @@ const Navbar = () => {
           <a href={appUrl} className="bg-slate-800 text-white px-6 py-2.5 rounded-xl font-bold text-sm hover:bg-slate-700 transition-all">Acessar o App</a>
           <a href={appUrl} className="bg-blue-600 text-white px-6 py-2.5 rounded-xl font-bold text-sm shadow-lg shadow-blue-600/20 hover:scale-105 active:scale-95 transition-all">Começar Agora</a>
         </div>
-
-        {/* Menu Mobile Trigger */}
-        <button className="md:hidden text-slate-400" onClick={() => setIsOpen(!isOpen)}>
-          {isOpen ? <X /> : <Menu />}
-        </button>
+        <button className="md:hidden text-slate-400" onClick={() => setIsOpen(!isOpen)}>{isOpen ? <X /> : <Menu />}</button>
       </div>
 
-      {/* Menu Mobile */}
       {isOpen && (
         <div className="md:hidden bg-slate-900 border-b border-slate-800 p-6 flex flex-col gap-4 animate-fade-in">
           <a href="#funcionalidades" className="text-lg font-bold text-slate-300">Funcionalidades</a>
@@ -66,9 +59,7 @@ const Navbar = () => {
   );
 };
 
-const PlanCard = ({ title, price, students, iaCalls, features, highlighted = false }: any) => {
-  const appUrl = "https://evotrainer.vercel.app";
-
+const PlanCard = ({ title, price, students, iaCalls, features, highlighted = false, linkUrl }: any) => {
   return (
     <div className={`relative p-8 rounded-[2.5rem] border transition-all duration-500 hover:translate-y-[-10px] flex flex-col h-full ${highlighted ? 'bg-slate-900 border-blue-500 shadow-2xl shadow-blue-500/10' : 'bg-slate-950 border-slate-800 hover:border-slate-700'}`}>
       {highlighted && (
@@ -83,43 +74,95 @@ const PlanCard = ({ title, price, students, iaCalls, features, highlighted = fal
       </div>
       
       <div className="space-y-4 mb-8 flex-1">
-        <div className="flex items-center gap-3">
-          <Users size={18} className="text-blue-500" />
-          <span className="text-slate-300 font-medium text-sm">{students}</span>
-        </div>
-        <div className="flex items-center gap-3">
-          <Sparkles size={18} className="text-indigo-400" />
-          <span className="text-slate-300 font-medium text-sm">{iaCalls}</span>
-        </div>
+        <div className="flex items-center gap-3"><Users size={18} className="text-blue-500" /><span className="text-slate-300 font-medium text-sm">{students}</span></div>
+        <div className="flex items-center gap-3"><Sparkles size={18} className="text-indigo-400" /><span className="text-slate-300 font-medium text-sm">{iaCalls}</span></div>
         {features.map((f: string, i: number) => (
-          <div key={i} className="flex items-center gap-3">
-            <CheckCircle2 size={18} className="text-emerald-500" />
-            <span className="text-slate-400 text-sm">{f}</span>
-          </div>
+          <div key={i} className="flex items-center gap-3"><CheckCircle2 size={18} className="text-emerald-500" /><span className="text-slate-400 text-sm">{f}</span></div>
         ))}
       </div>
 
-      <a href={appUrl} className={`w-full py-4 rounded-2xl font-black text-center text-sm uppercase tracking-widest transition-all ${highlighted ? 'bg-blue-600 text-white hover:bg-blue-500 shadow-lg shadow-blue-600/20' : 'bg-slate-800 text-white hover:bg-slate-700'}`}>
-        {price === "0" ? "Começar Grátis" : "Assinar Plano"}
+      <a href={linkUrl} className={`w-full py-4 rounded-2xl font-black text-center text-sm uppercase tracking-widest transition-all ${highlighted ? 'bg-blue-600 text-white hover:bg-blue-500 shadow-lg shadow-blue-600/20' : 'bg-slate-800 text-white hover:bg-slate-700'}`}>
+        {price === "0" ? "Criar Conta Grátis" : "Criar Conta"}
       </a>
+      {price !== "0" && <p className="text-center text-[10px] text-slate-500 mt-4 font-medium flex items-center justify-center gap-1"><ShieldCheck size={12}/> Upgrade feito de forma segura no App</p>}
     </div>
   );
 };
 
 export default function LandingPage() {
+  const appUrl = "https://evotrainer.vercel.app";
+  const [sysConfig, setSysConfig] = useState<any>(null);
+
+  useEffect(() => {
+    fetch(`${API_URL}/config`)
+      .then(res => res.json())
+      .then(data => setSysConfig(data))
+      .catch(() => {});
+  }, []);
+
   const irParaWhatsApp = () => {
-    const msg = encodeURIComponent("Olá! Vim pelo site EvoTrainer e gostaria de saber mais sobre sua consultoria de treino personalizada.");
+    const msg = encodeURIComponent("Olá! Vim pelo site EvoTrainer e gostaria de saber mais sobre a plataforma.");
     window.open(`https://wa.me/5521987708652?text=${msg}`, '_blank');
   };
 
-  const appUrl = "https://evotrainer.vercel.app";
+  // ==============================================================
+  // 🚀 INJEÇÃO MANUAL DE PIXELS (PRONTO PARA ANÚNCIOS) 🚀
+  // ==============================================================
+  useEffect(() => {
+    // 1. Injetar Facebook (Meta) Pixel - COM PROTEÇÃO ANTI-DUPLICAÇÃO
+    if (!document.getElementById('meta-pixel-script')) {
+      const fbScript = document.createElement('script');
+      fbScript.id = 'meta-pixel-script';
+      fbScript.innerHTML = `
+        !function(f,b,e,v,n,t,s)
+        {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+        n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+        if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+        n.queue=[];t=b.createElement(e);t.async=!0;
+        t.src=v;s=b.getElementsByTagName(e)[0];
+        s.parentNode.insertBefore(t,s)}(window, document,'script',
+        'https://connect.facebook.net/en_US/fbevents.js');
+        
+        fbq('init', 'SEU_PIXEL_ID_AQUI'); 
+        fbq('track', 'PageView');
+      `;
+      document.head.appendChild(fbScript);
+    }
+
+    // 2. Injetar Google Analytics (GTAG) - COM PROTEÇÃO ANTI-DUPLICAÇÃO
+    if (!document.getElementById('ga-script-1')) {
+      const gaScript1 = document.createElement('script');
+      gaScript1.id = 'ga-script-1';
+      gaScript1.async = true;
+      gaScript1.src = "https://www.googletagmanager.com/gtag/js?id=G-SEU_ID_AQUI";
+      document.head.appendChild(gaScript1);
+
+      const gaScript2 = document.createElement('script');
+      gaScript2.id = 'ga-script-2';
+      gaScript2.innerHTML = `
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-SEU_ID_AQUI');
+      `;
+      document.head.appendChild(gaScript2);
+    }
+  }, []); 
+  // ==============================================================
 
   return (
     <div className="min-h-screen bg-slate-950 font-sans selection:bg-blue-500/30">
       <Navbar />
 
+      {/* BANNER DINÂMICO DE PROMOÇÃO */}
+      {sysConfig?.promoActive && (
+         <div className="fixed top-20 left-0 w-full bg-gradient-to-r from-red-600 to-orange-500 text-white text-center py-2 font-black text-xs uppercase tracking-[0.2em] z-50 animate-pulse shadow-lg">
+           {sysConfig.promoTitle}
+         </div>
+      )}
+
       {/* SEÇÃO HERO */}
-      <section className="pt-40 pb-20 px-6 overflow-hidden relative">
+      <section className={`pt-40 pb-20 px-6 overflow-hidden relative ${sysConfig?.promoActive ? 'mt-8' : ''}`}>
         <div className="absolute top-20 right-[-10%] w-[500px] h-[500px] bg-blue-600/10 blur-[120px] rounded-full"></div>
         <div className="absolute bottom-0 left-[-10%] w-[500px] h-[500px] bg-indigo-600/10 blur-[120px] rounded-full"></div>
         
@@ -137,20 +180,9 @@ export default function LandingPage() {
           <p className="max-w-2xl mx-auto text-slate-400 text-lg md:text-xl font-medium mb-12 leading-relaxed">
             Esqueça as planilhas manuais. Use Inteligência Artificial Master para criar fichas perfeitas e vídeos de execução em segundos.
           </p>
-
           <div className="flex flex-col md:flex-row items-center justify-center gap-4">
-            <a 
-              href={appUrl}
-              className="w-full md:w-auto bg-blue-600 text-white px-10 py-5 rounded-2xl font-black text-lg flex items-center justify-center gap-3 shadow-2xl shadow-blue-600/30 hover:scale-105 active:scale-95 transition-all"
-            >
-              CRIAR MINHA CONTA <ArrowRight size={20}/>
-            </a>
-            <button 
-              onClick={irParaWhatsApp}
-              className="w-full md:w-auto bg-slate-900 border border-slate-800 text-white px-10 py-5 rounded-2xl font-black text-lg flex items-center justify-center gap-3 hover:bg-slate-800 transition-all"
-            >
-              FALAR COM ESPECIALISTA
-            </button>
+            <a href={appUrl} className="w-full md:w-auto bg-blue-600 text-white px-10 py-5 rounded-2xl font-black text-lg flex items-center justify-center gap-3 shadow-2xl shadow-blue-600/30 hover:scale-105 active:scale-95 transition-all">CRIAR MINHA CONTA <ArrowRight size={20}/></a>
+            <button onClick={irParaWhatsApp} className="w-full md:w-auto bg-slate-900 border border-slate-800 text-white px-10 py-5 rounded-2xl font-black text-lg flex items-center justify-center gap-3 hover:bg-slate-800 transition-all">FALAR COM ESPECIALISTA</button>
           </div>
         </div>
 
@@ -232,44 +264,17 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* SEÇÃO PREÇOS */}
+      {/* SEÇÃO PREÇOS (DINÂMICA) */}
       <section id="precos" className="py-24 px-6 relative">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-20">
-            <h2 className="text-3xl md:text-5xl font-black text-white mb-4">Planos para todos os níveis</h2>
-            <p className="text-slate-500 font-bold uppercase text-xs tracking-[0.3em]">Ideal para consultoria online e presencial</p>
+            <h2 className="text-3xl md:text-5xl font-black text-white mb-4">Planos e Preços</h2>
           </div>
-
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <PlanCard 
-              title="Grátis" 
-              price="0" 
-              students="Até 5 Alunos" 
-              iaCalls="IA Manual" 
-              features={["App Completo para o Aluno", "Busca de Vídeos", "Treinos Ilimitados"]} 
-            />
-            <PlanCard 
-              title="Start (Bronze)" 
-              price="30" 
-              students="Até 20 Alunos" 
-              iaCalls="10 Treinos Inteligentes/mês" 
-              features={["Exportar para PDF", "Suporte Prioritário", "Gestão Rápida"]} 
-            />
-            <PlanCard 
-              title="Pro (Silver)" 
-              price="60" 
-              students="Alunos Ilimitados" 
-              iaCalls="40 Treinos Inteligentes/mês" 
-              features={["Periodização com IA", "Análise de Alunos", "Envio via WhatsApp"]} 
-              highlighted={true}
-            />
-            <PlanCard 
-              title="Elite (Ouro)" 
-              price="100" 
-              students="Tudo Ilimitado" 
-              iaCalls="IA Ilimitada" 
-              features={["White Label (Sua Logo)", "Cores Customizadas", "Botão WhatsApp Próprio"]} 
-            />
+            <PlanCard title="Grátis" price="0" students="Até 5 Alunos" iaCalls="IA Manual" features={["App Aluno", "Busca de Vídeos"]} linkUrl={appUrl}/>
+            <PlanCard title="Start (Bronze)" price={sysConfig?.startPrice || "30"} students="Até 20 Alunos" iaCalls="10 Treinos IA/mês" features={["PDF", "Suporte"]} linkUrl={appUrl}/>
+            <PlanCard title="Pro (Silver)" price={sysConfig?.proPrice || "60"} students="Ilimitado" iaCalls="40 Treinos IA/mês" features={["IA+", "Envio WhatsApp"]} highlighted={true} linkUrl={appUrl}/>
+            <PlanCard title="Elite (Ouro)" price={sysConfig?.elitePrice || "100"} students="Tudo Ilimitado" iaCalls="IA Ilimitada" features={["White Label"]} linkUrl={appUrl}/>
           </div>
         </div>
       </section>

@@ -88,3 +88,18 @@ model WorkoutHistory {
   comment     String?
   completedAt DateTime @default(now()) 
 }
+
+// ==========================================
+// NOVO: CONFIGURAÇÕES GERAIS DO SISTEMA (PROMOÇÕES)
+// ==========================================
+model SystemConfig {
+  id          Int      @id @default(1)
+  promoActive Boolean  @default(false)
+  promoTitle  String   @default("🔥 OFERTA DE LANÇAMENTO 🔥")
+  startPrice  String   @default("30")
+  startLink   String   @default("")
+  proPrice    String   @default("60")
+  proLink     String   @default("")
+  elitePrice  String   @default("100")
+  eliteLink   String   @default("")
+}

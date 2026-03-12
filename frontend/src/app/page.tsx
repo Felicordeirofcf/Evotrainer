@@ -5,7 +5,7 @@ import {
   Users, LogOut, CheckCircle2, Flame, Play, 
   X, User as UserIcon, Plus, Activity, Dumbbell,
   Trash2, Ban, Unlock, Home, Calendar, List, AlertTriangle, Pencil, Link as LinkIcon, Lock, Camera, Save, Search,
-  Download, Sparkles, Youtube, ChevronRight, ChevronLeft, MessageCircle, Crown, Check, ShieldAlert, Palette, Star, MessageSquare
+  Download, Sparkles, Youtube, ChevronRight, ChevronLeft, MessageCircle, Crown, Check, ShieldAlert, Palette, Star, MessageSquare, Zap
 } from 'lucide-react';
 
 const getBaseUrl = () => {
@@ -47,10 +47,8 @@ const InstallBanner = ({ showInstallBanner, setShowInstallBanner, handleInstallC
   useEffect(() => {
     const checkStandalone = window.matchMedia('(display-mode: standalone)').matches || ('standalone' in navigator && (navigator as any).standalone === true);
     setIsStandalone(checkStandalone);
-
     const checkIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
     setIsIOS(checkIOS);
-    
     const dismissed = localStorage.getItem('evotrainer_install_dismissed') === 'true';
     setIsDismissed(dismissed);
   }, []);
@@ -161,6 +159,9 @@ export default function App() {
   const [currentBrand, setCurrentBrand] = useState<any>(null); 
   const [loginBrand, setLoginBrand] = useState<any>(null); 
   
+  const [sysConfig, setSysConfig] = useState<any>(null);
+  const [isSavingConfig, setIsSavingConfig] = useState(false);
+
   const [authMode, setAuthMode] = useState<'LOGIN'|'SIGNUP'|'MASTER'|'FORGOT'|'RESET'>('LOGIN');
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
@@ -168,7 +169,7 @@ export default function App() {
   
   const [signupName, setSignupName] = useState('');
   const [signupEmail, setSignupEmail] = useState('');
-  const [signupPhone, setSignupPhone] = useState(''); // O NOVO CAMPO DE TELEFONE
+  const [signupPhone, setSignupPhone] = useState(''); 
   const [signupPassword, setSignupPassword] = useState('');
   const [signupConfirmPassword, setSignupConfirmPassword] = useState('');
   
@@ -206,7 +207,6 @@ export default function App() {
   const [buscaTrainer, setBuscaTrainer] = useState('');
   const [filtroPlano, setFiltroPlano] = useState('TODOS');
 
-  // --- ESTADOS DA IA 2.0 ---
   const [iaPrompt, setIaPrompt] = useState('');
   const [iaAlunoId, setIaAlunoId] = useState('');
   const [iaSplit, setIaSplit] = useState('ABC');
@@ -229,7 +229,6 @@ export default function App() {
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm: '' });
 
-  // --- ESTADOS DE FEEDBACK ---
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [feedbackRating, setFeedbackRating] = useState(5);
   const [feedbackComment, setFeedbackComment] = useState('');
@@ -241,6 +240,12 @@ export default function App() {
     setTimeout(() => setToastMsg(''), 3500);
   };
 
+  const getAuthHeaders = () => {
+    const headers: any = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    return headers;
+  };
+
   const openVideo = (youtubeId: string, name: string) => {
     if (youtubeId && youtubeId.trim() !== '') {
       setVideoAtivo(youtubeId);
@@ -250,6 +255,13 @@ export default function App() {
       window.open(`https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`, '_blank');
     }
   };
+
+  useEffect(() => {
+    fetch(`${API_URL}/config`)
+      .then(res => res.json())
+      .then(data => setSysConfig(data))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -310,12 +322,6 @@ export default function App() {
       }
     }
   }, [currentUser]);
-
-  const getAuthHeaders = () => {
-    const headers: any = { 'Content-Type': 'application/json' };
-    if (token) headers['Authorization'] = `Bearer ${token}`;
-    return headers;
-  };
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>, isBrandLogo = false) => {
     const file = e.target.files?.[0];
@@ -495,6 +501,17 @@ export default function App() {
     window.open(url, '_blank');
   };
 
+  const salvarConfiguracoesGlobais = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingConfig(true);
+    try {
+      const res = await fetch(`${API_URL}/config`, { method: 'PUT', headers: getAuthHeaders(), body: JSON.stringify(sysConfig) });
+      if (res.ok) {
+        showToast("Ofertas e preços atualizados no sistema todo!");
+      }
+    } catch (e) { showToast("Erro ao guardar ofertas."); } finally { setIsSavingConfig(false); }
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!loginEmail || !loginPassword) return showToast("Preencha todos os campos.");
@@ -521,7 +538,6 @@ export default function App() {
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Validar se o telefone foi preenchido
     if (!signupName || !signupEmail || !signupPassword || (!signupPhone && authMode !== 'MASTER')) return showToast("Preencha todos os campos, incluindo o WhatsApp.");
     if (signupPassword !== signupConfirmPassword) return showToast("As senhas não coincidem!");
     setIsSigningUp(true);
@@ -885,13 +901,10 @@ export default function App() {
                 <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 w-5 h-5" />
                 <input type="email" required placeholder="Seu E-mail" value={signupEmail} onChange={(e) => setSignupEmail(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 pl-12 text-white focus:outline-none focus:border-blue-500 transition-colors" />
               </div>
-              
-              {/* NOVO CAMPO: TELEFONE/WHATSAPP NO REGISTO */}
               <div className="relative">
                 <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-black text-xs px-1">📞</span>
                 <input type="tel" required placeholder="WhatsApp (DDD + Número)" value={signupPhone} onChange={(e) => setSignupPhone(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 pl-12 text-white focus:outline-none focus:border-blue-500 transition-colors" />
               </div>
-
               <div className="relative">
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 w-5 h-5" />
                 <input type="password" required placeholder="Crie uma Senha" value={signupPassword} onChange={(e) => setSignupPassword(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 pl-12 text-white focus:outline-none focus:border-blue-500 transition-colors" />
@@ -916,13 +929,10 @@ export default function App() {
                 <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 w-5 h-5" />
                 <input type="email" required placeholder="E-mail Administrativo" value={signupEmail} onChange={(e) => setSignupEmail(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 pl-12 text-white focus:outline-none focus:border-red-500 transition-colors" />
               </div>
-
-              {/* NOVO CAMPO: TELEFONE/WHATSAPP NO MASTER */}
               <div className="relative">
                 <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-black text-xs px-1">📞</span>
                 <input type="tel" required placeholder="Telefone de Recuperação" value={signupPhone} onChange={(e) => setSignupPhone(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 pl-12 text-white focus:outline-none focus:border-red-500 transition-colors" />
               </div>
-
               <div className="relative">
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 w-5 h-5" />
                 <input type="password" required placeholder="Crie uma Senha Forte" value={signupPassword} onChange={(e) => setSignupPassword(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 pl-12 text-white focus:outline-none focus:border-red-500 transition-colors" />
@@ -999,81 +1009,140 @@ export default function App() {
             <button onClick={handleLogout} className="text-slate-400 hover:text-white bg-slate-800 p-2.5 rounded-xl transition-colors"><LogOut size={18} /></button>
           </header>
 
-          <div className="flex-1 overflow-y-auto p-4 sm:p-6 custom-scrollbar">
-            <div className="flex flex-col gap-4 mb-6">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-slate-950 border border-slate-800 p-4 rounded-2xl text-center shadow-inner">
-                  <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest mb-1">Total de Personais</p>
-                  <p className="text-2xl font-black text-blue-400">{trainers.length}</p>
-                </div>
-                <div className="bg-slate-950 border border-slate-800 p-4 rounded-2xl text-center shadow-inner">
-                  <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest mb-1">Clientes Pagantes</p>
-                  <p className="text-2xl font-black text-emerald-400">{trainers.filter(t => t.plano !== 'GRATIS').length}</p>
-                </div>
-              </div>
-
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 w-4 h-4" />
-                  <input type="text" placeholder="Procurar personal..." value={buscaTrainer} onChange={(e) => setBuscaTrainer(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded-xl py-3 pl-9 pr-3 text-white text-xs outline-none focus:border-blue-500 transition-colors" />
-                </div>
-                <select value={filtroPlano} onChange={e => setFiltroPlano(e.target.value)} className="bg-slate-950 border border-slate-700 rounded-xl px-3 text-white text-xs outline-none focus:border-blue-500 font-bold">
-                  <option value="TODOS">Todos</option>
-                  <option value="GRATIS">Grátis</option>
-                  <option value="START">Start</option>
-                  <option value="PRO">Pro</option>
-                  <option value="ELITE">Elite</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-4">
-              {isLoading ? <div className="text-center py-8"><Activity className="animate-spin w-8 h-8 text-red-500 mx-auto"/></div> : 
-               trainersFiltrados.length === 0 ? <p className="text-center text-slate-500 py-8 font-bold text-xs border-2 border-dashed border-slate-800 rounded-2xl">Nenhum Personal encontrado.</p> : (
-                trainersFiltrados.map(t => (
-                  <div key={t.id} className="bg-slate-950 p-5 rounded-2xl border border-slate-800 shadow-lg flex flex-col gap-4">
-                    <div className="flex justify-between items-start">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-slate-900 border border-slate-700 text-blue-500 font-black rounded-lg flex items-center justify-center shadow-inner">{t.name.charAt(0).toUpperCase()}</div>
-                        <div>
-                          <p className="font-black text-white text-sm leading-tight">{t.name}</p>
-                          <p className="text-[9px] text-slate-500 mt-0.5">{t.email}</p>
-                        </div>
-                      </div>
-                      <span className={`px-2 py-1 rounded-md text-[8px] font-black uppercase tracking-widest ${t.plano === 'GRATIS' ? 'bg-slate-800 text-slate-400' : 'bg-amber-500/20 text-amber-500 border border-amber-500/20'}`}>{t.plano}</span>
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6 custom-scrollbar pb-32">
+            
+            {adminTabAtiva === 'alunos' && (
+              <div className="animate-fade-in">
+                <div className="flex flex-col gap-4 mb-6">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-slate-950 border border-slate-800 p-4 rounded-2xl text-center shadow-inner">
+                      <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest mb-1">Total de Personais</p>
+                      <p className="text-2xl font-black text-blue-400">{trainers.length}</p>
                     </div>
-
-                    <div className="flex items-center justify-between bg-slate-900 p-3 rounded-xl border border-slate-800/50">
-                      <p className="text-[10px] text-slate-400 font-bold">Alunos Registados:</p>
-                      <p className="text-sm font-black text-cyan-400">{t._count?.alunos || 0}</p>
-                    </div>
-
-                    <div className="flex gap-2">
-                      <select 
-                        value={t.plano} 
-                        onChange={(e) => alterarPlanoTrainer(t.id, e.target.value)}
-                        className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-[10px] font-bold outline-none"
-                      >
-                        <option value="GRATIS">GRÁTIS</option>
-                        <option value="START">START</option>
-                        <option value="PRO">PRO</option>
-                        <option value="ELITE">ELITE</option>
-                      </select>
-                      <button onClick={() => excluirTrainer(t.id, t.name)} className="p-2.5 bg-red-600/10 text-red-500 rounded-xl hover:bg-red-600 hover:text-white transition-colors">
-                        <Trash2 size={16} />
-                      </button>
+                    <div className="bg-slate-950 border border-slate-800 p-4 rounded-2xl text-center shadow-inner">
+                      <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest mb-1">Clientes Pagantes</p>
+                      <p className="text-2xl font-black text-emerald-400">{trainers.filter(t => t.plano !== 'GRATIS').length}</p>
                     </div>
                   </div>
-                ))
-              )}
-            </div>
+
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 w-4 h-4" />
+                      <input type="text" placeholder="Procurar personal..." value={buscaTrainer} onChange={(e) => setBuscaTrainer(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded-xl py-3 pl-9 pr-3 text-white text-xs outline-none focus:border-blue-500 transition-colors" />
+                    </div>
+                    <select value={filtroPlano} onChange={e => setFiltroPlano(e.target.value)} className="bg-slate-950 border border-slate-700 rounded-xl px-3 text-white text-xs outline-none focus:border-blue-500 font-bold">
+                      <option value="TODOS">Todos</option><option value="GRATIS">Grátis</option><option value="START">Start</option><option value="PRO">Pro</option><option value="ELITE">Elite</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-4">
+                  {trainersFiltrados.map(t => (
+                    <div key={t.id} className="bg-slate-950 p-5 rounded-2xl border border-slate-800 shadow-lg flex flex-col gap-4">
+                      <div className="flex justify-between items-start">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-slate-900 border border-slate-700 text-blue-500 font-black rounded-lg flex items-center justify-center shadow-inner">{t.name.charAt(0).toUpperCase()}</div>
+                          <div>
+                            <p className="font-black text-white text-sm leading-tight">{t.name}</p>
+                            <p className="text-[9px] text-slate-500 mt-0.5">{t.email}</p>
+                          </div>
+                        </div>
+                        <span className={`px-2 py-1 rounded-md text-[8px] font-black uppercase tracking-widest ${t.plano === 'GRATIS' ? 'bg-slate-800 text-slate-400' : 'bg-amber-500/20 text-amber-500 border border-amber-500/20'}`}>{t.plano}</span>
+                      </div>
+
+                      <div className="flex items-center justify-between bg-slate-900 p-3 rounded-xl border border-slate-800/50">
+                        <p className="text-[10px] text-slate-400 font-bold">Alunos Registados:</p>
+                        <p className="text-sm font-black text-cyan-400">{t._count?.alunos || 0}</p>
+                      </div>
+
+                      <div className="flex gap-2">
+                        <select 
+                          value={t.plano} 
+                          onChange={(e) => alterarPlanoTrainer(t.id, e.target.value)}
+                          className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-[10px] font-bold outline-none"
+                        >
+                          <option value="GRATIS">GRÁTIS</option>
+                          <option value="START">START</option>
+                          <option value="PRO">PRO</option>
+                          <option value="ELITE">ELITE</option>
+                        </select>
+                        <button onClick={() => excluirTrainer(t.id, t.name)} className="p-2.5 bg-red-600/10 text-red-500 rounded-xl hover:bg-red-600 hover:text-white transition-colors">
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* NOVA ABA: OFERTAS E PREÇOS */}
+            {adminTabAtiva === 'ofertas' && sysConfig && (
+              <div className="animate-fade-in flex flex-col gap-6">
+                 <div className="bg-gradient-to-r from-orange-500 to-red-600 p-6 rounded-[2rem] shadow-lg relative overflow-hidden">
+                   <h2 className="text-xl font-black text-white relative z-10 flex items-center gap-2"><Zap /> Central de Promoções</h2>
+                   <p className="text-xs text-white/80 mt-2 relative z-10">Ao alterar aqui, os preços da Landing Page e do App são atualizados na hora.</p>
+                   <Flame size={100} className="absolute -bottom-4 -right-4 opacity-20"/>
+                 </div>
+
+                 <form onSubmit={salvarConfiguracoesGlobais} className="space-y-6">
+                    <div className="bg-slate-950 border border-slate-800 p-6 rounded-3xl space-y-4">
+                       <label className="flex items-center gap-3 cursor-pointer bg-slate-900 p-4 rounded-xl border border-slate-700">
+                         <input type="checkbox" checked={sysConfig.promoActive} onChange={e=>setSysConfig({...sysConfig, promoActive: e.target.checked})} className="w-5 h-5 accent-red-500" />
+                         <span className="font-black text-sm text-white">Ligar Banner de Oferta na Landing Page</span>
+                       </label>
+                       
+                       <div className="space-y-1.5">
+                         <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Título do Banner</label>
+                         <input type="text" value={sysConfig.promoTitle} onChange={e=>setSysConfig({...sysConfig, promoTitle: e.target.value})} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-4 text-sm outline-none focus:border-red-500 text-white font-bold" />
+                       </div>
+                    </div>
+
+                    <div className="bg-slate-950 border border-slate-800 p-6 rounded-3xl space-y-4">
+                       <h3 className="text-sm font-black text-amber-500 uppercase tracking-widest mb-4">Plano Start</h3>
+                       <div className="grid grid-cols-3 gap-2">
+                         <input type="text" placeholder="Preço (ex: 30)" value={sysConfig.startPrice} onChange={e=>setSysConfig({...sysConfig, startPrice: e.target.value})} className="col-span-1 bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs outline-none focus:border-amber-500 text-white" />
+                         <input type="text" placeholder="Link de Pagamento Asaas" value={sysConfig.startLink} onChange={e=>setSysConfig({...sysConfig, startLink: e.target.value})} className="col-span-2 bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs outline-none focus:border-amber-500 text-white" />
+                       </div>
+                       
+                       <h3 className="text-sm font-black text-blue-500 uppercase tracking-widest mt-6 mb-4">Plano Pro</h3>
+                       <div className="grid grid-cols-3 gap-2">
+                         <input type="text" placeholder="Preço (ex: 60)" value={sysConfig.proPrice} onChange={e=>setSysConfig({...sysConfig, proPrice: e.target.value})} className="col-span-1 bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs outline-none focus:border-blue-500 text-white" />
+                         <input type="text" placeholder="Link de Pagamento Asaas" value={sysConfig.proLink} onChange={e=>setSysConfig({...sysConfig, proLink: e.target.value})} className="col-span-2 bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs outline-none focus:border-blue-500 text-white" />
+                       </div>
+
+                       <h3 className="text-sm font-black text-yellow-500 uppercase tracking-widest mt-6 mb-4">Plano Elite</h3>
+                       <div className="grid grid-cols-3 gap-2">
+                         <input type="text" placeholder="Preço (ex: 100)" value={sysConfig.elitePrice} onChange={e=>setSysConfig({...sysConfig, elitePrice: e.target.value})} className="col-span-1 bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs outline-none focus:border-yellow-500 text-white" />
+                         <input type="text" placeholder="Link de Pagamento Asaas" value={sysConfig.eliteLink} onChange={e=>setSysConfig({...sysConfig, eliteLink: e.target.value})} className="col-span-2 bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs outline-none focus:border-yellow-500 text-white" />
+                       </div>
+                    </div>
+
+                    <button type="submit" disabled={isSavingConfig} className="w-full bg-red-600 hover:bg-red-500 text-white font-black py-5 rounded-2xl shadow-xl shadow-red-600/30 active:scale-95 transition-all uppercase tracking-widest text-xs">
+                      {isSavingConfig ? <Activity className="animate-spin mx-auto"/> : 'Gravar Ofertas na Plataforma'}
+                    </button>
+                 </form>
+              </div>
+            )}
+          </div>
+
+          <div className="absolute bottom-0 left-0 w-full bg-slate-900/95 backdrop-blur-xl border-t border-slate-800/50 flex justify-around items-center p-4 pb-10 z-50">
+            {[
+              { id: 'alunos', icon: Users, label: 'Personais' },
+              { id: 'ofertas', icon: Zap, label: 'Promoções' }
+            ].map(tab => (
+              <button key={tab.id} onClick={() => setAdminTabAtiva(tab.id)} className={`flex flex-col items-center gap-1.5 transition-all duration-300 ${adminTabAtiva === tab.id ? 'text-red-500 scale-110' : 'text-slate-600 hover:text-slate-400'}`}>
+                <tab.icon size={24} strokeWidth={adminTabAtiva === tab.id ? 2.5 : 2} />
+                <span className="text-[9px] font-black uppercase tracking-[0.1em]">{tab.label}</span>
+              </button>
+            ))}
           </div>
         </div>
       </div>
     );
   }
 
-  // ==================== RENDERIZAÇÃO: ADMIN ====================
+  // ==================== RENDERIZAÇÃO: ADMIN (PERSONAL TRAINER) ====================
   if (currentUser.role === 'ADMIN') {
     const ativosCount = alunos.filter(a => a.status !== 'Bloqueado').length;
     const bloqueadosCount = alunos.filter(a => a.status === 'Bloqueado').length;
@@ -1239,7 +1308,7 @@ export default function App() {
                   {/* NOVOS CAMPOS: VOLUME E METODOLOGIA */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="flex flex-col gap-1.5">
-                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Volume por Ficha</label>
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 text-cyan-400">Volume por Ficha</label>
                       <select value={iaVolume} onChange={e => setIaVolume(e.target.value)} className="bg-slate-950 border border-slate-700 rounded-2xl p-4 text-white outline-none focus:border-indigo-500 font-bold appearance-none cursor-pointer">
                         {[4, 5, 6, 7, 8, 9, 10, 11, 12].map(num => (
                           <option key={num} value={num}>{num} Exercícios</option>
@@ -1247,7 +1316,7 @@ export default function App() {
                       </select>
                     </div>
                     <div className="flex flex-col gap-1.5">
-                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Metodologia Principal</label>
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 text-amber-400">Metodologia Principal</label>
                       <select value={iaMethodology} onChange={e => setIaMethodology(e.target.value)} className="bg-slate-950 border border-slate-700 rounded-2xl p-4 text-white outline-none focus:border-indigo-500 font-bold appearance-none cursor-pointer text-[12px] sm:text-sm">
                         <option value="Tradicional, Progressão de Carga Constante">Tradicional</option>
                         <option value="FST-7 (Fascial Stretch Training no último exercício)">FST-7</option>
@@ -1421,7 +1490,7 @@ export default function App() {
             </div>
           )}
 
-          {/* MODAL ESCOLHER PLANO (UPGRADE) */}
+          {/* MODAL ESCOLHER PLANO (UPGRADE DINÂMICO) */}
           {showUpgradeModal && (
             <div className="fixed inset-0 bg-black/90 flex items-center justify-center p-4 z-[400] backdrop-blur-md">
               <div className="bg-slate-900 border border-slate-800 p-6 rounded-[2.5rem] w-full max-w-sm max-h-[85vh] overflow-y-auto shadow-2xl animate-fade-in custom-scrollbar">
@@ -1433,52 +1502,36 @@ export default function App() {
                 <div className="flex flex-col gap-4">
                   {/* START BRONZE */}
                   <div className="bg-slate-950 border border-amber-700/30 p-5 rounded-3xl flex flex-col gap-4 relative overflow-hidden">
-                    <div className="absolute top-0 right-0 bg-amber-700/20 text-amber-500 text-[8px] font-black px-3 py-1 rounded-bl-xl uppercase tracking-widest">R$ 30/mês</div>
-                    <div>
-                      <h4 className="text-amber-500 font-black text-lg">START Bronze</h4>
-                      <p className="text-slate-400 text-xs mt-1">Ideal para quem está a começar.</p>
-                    </div>
+                    <div className="absolute top-0 right-0 bg-amber-700/20 text-amber-500 text-[8px] font-black px-3 py-1 rounded-bl-xl uppercase tracking-widest">R$ {sysConfig?.startPrice || 30}/mês</div>
+                    <div><h4 className="text-amber-500 font-black text-lg">START Bronze</h4></div>
                     <ul className="text-[10px] text-slate-300 space-y-2 mb-2">
                       <li className="flex gap-2 items-center"><Check size={12} className="text-emerald-500"/> Até 20 Alunos</li>
                       <li className="flex gap-2 items-center"><Check size={12} className="text-emerald-500"/> 10 Treinos com IA/mês</li>
                     </ul>
-                    <button onClick={() => window.open(`https://www.asaas.com/c/gppqjpyhag2jw0c9?externalReference=${currentUser.id}`, '_blank')} className="w-full bg-amber-600 hover:bg-amber-500 text-white font-black py-3 rounded-xl text-xs uppercase tracking-widest transition-colors">
-                      Assinar Start
-                    </button>
+                    <button onClick={() => window.open(`${sysConfig?.startLink || 'https://www.asaas.com/c/gppqjpyhag2jw0c9'}?externalReference=${currentUser.id}`, '_blank')} className="w-full bg-amber-600 hover:bg-amber-500 text-white font-black py-3 rounded-xl text-xs uppercase tracking-widest transition-colors">Assinar Start</button>
                   </div>
 
                   {/* PRO SILVER */}
                   <div className="bg-slate-950 border border-blue-500 p-5 rounded-3xl flex flex-col gap-4 relative overflow-hidden shadow-[0_0_15px_rgba(59,130,246,0.15)]">
-                    <div className="absolute top-0 right-0 bg-blue-600 text-white text-[8px] font-black px-3 py-1 rounded-bl-xl uppercase tracking-widest">R$ 60/mês</div>
-                    <div>
-                      <h4 className="text-blue-400 font-black text-lg">PRO Silver</h4>
-                      <p className="text-slate-400 text-xs mt-1">O plano mais popular.</p>
-                    </div>
+                    <div className="absolute top-0 right-0 bg-blue-600 text-white text-[8px] font-black px-3 py-1 rounded-bl-xl uppercase tracking-widest">R$ {sysConfig?.proPrice || 60}/mês</div>
+                    <div><h4 className="text-blue-400 font-black text-lg">PRO Silver</h4></div>
                     <ul className="text-[10px] text-slate-300 space-y-2 mb-2">
                       <li className="flex gap-2 items-center"><Check size={12} className="text-emerald-500"/> Alunos Ilimitados</li>
                       <li className="flex gap-2 items-center"><Check size={12} className="text-emerald-500"/> 40 Treinos com IA/mês</li>
-                      <li className="flex gap-2 items-center"><Check size={12} className="text-emerald-500"/> Suporte Prioritário</li>
                     </ul>
-                    <button onClick={() => window.open(`https://www.asaas.com/c/6np0bp37c91vfla6?externalReference=${currentUser.id}`, '_blank')} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-3 rounded-xl text-xs uppercase tracking-widest transition-colors">
-                      Assinar Pro
-                    </button>
+                    <button onClick={() => window.open(`${sysConfig?.proLink || 'https://www.asaas.com/c/6np0bp37c91vfla6'}?externalReference=${currentUser.id}`, '_blank')} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-3 rounded-xl text-xs uppercase tracking-widest transition-colors">Assinar Pro</button>
                   </div>
 
                   {/* ELITE OURO */}
                   <div className="bg-slate-950 border border-yellow-500 p-5 rounded-3xl flex flex-col gap-4 relative overflow-hidden shadow-[0_0_15px_rgba(234,179,8,0.15)]">
-                    <div className="absolute top-0 right-0 bg-yellow-500 text-slate-900 text-[8px] font-black px-3 py-1 rounded-bl-xl uppercase tracking-widest">R$ 100/mês</div>
-                    <div>
-                      <h4 className="text-yellow-500 font-black text-lg">ELITE Ouro</h4>
-                      <p className="text-slate-400 text-xs mt-1">Poder absoluto na plataforma.</p>
-                    </div>
+                    <div className="absolute top-0 right-0 bg-yellow-500 text-slate-900 text-[8px] font-black px-3 py-1 rounded-bl-xl uppercase tracking-widest">R$ {sysConfig?.elitePrice || 100}/mês</div>
+                    <div><h4 className="text-yellow-500 font-black text-lg">ELITE Ouro</h4></div>
                     <ul className="text-[10px] text-slate-300 space-y-2 mb-2">
                       <li className="flex gap-2 items-center"><Check size={12} className="text-emerald-500"/> Alunos Ilimitados</li>
                       <li className="flex gap-2 items-center"><Check size={12} className="text-emerald-500"/> Treinos IA Ilimitados</li>
-                      <li className="flex gap-2 items-center"><Check size={12} className="text-emerald-500"/> App Com Suas Cores (White Label)</li>
+                      <li className="flex gap-2 items-center"><Check size={12} className="text-emerald-500"/> White Label (Sua Marca)</li>
                     </ul>
-                    <button onClick={() => window.open(`https://www.asaas.com/c/sql5glydf5g3gvxs?externalReference=${currentUser.id}`, '_blank')} className="w-full bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-black py-3 rounded-xl text-xs uppercase tracking-widest transition-colors">
-                      Assinar Elite
-                    </button>
+                    <button onClick={() => window.open(`${sysConfig?.eliteLink || 'https://www.asaas.com/c/sql5glydf5g3gvxs'}?externalReference=${currentUser.id}`, '_blank')} className="w-full bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-black py-3 rounded-xl text-xs uppercase tracking-widest transition-colors">Assinar Elite</button>
                   </div>
                 </div>
               </div>

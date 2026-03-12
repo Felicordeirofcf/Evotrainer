@@ -566,23 +566,25 @@ app.post('/api/treinos/feedback', authenticateToken, async (req, res) => {
   } catch (error) { res.status(500).json({ error: "Erro ao salvar feedback" }); }
 });
 
-// WEBHOOKS (PAGAMENTOS ASAAS)
 app.post('/api/webhooks/asaas', async (req, res) => {
   const { event, payment } = req.body;
   if (event === 'PAYMENT_RECEIVED' || event === 'PAYMENT_CONFIRMED') {
     const userId = payment.externalReference; 
     const valorPago = Number(payment.value); 
     
-    let novoPlano = 'PRO'; 
-    if (valorPago === 30) novoPlano = 'START';
-    else if (valorPago === 60) novoPlano = 'PRO';
-    else if (valorPago === 100) novoPlano = 'ELITE';
-    
-    if (userId) { 
-      try { 
+    try {
+      // O Webhook agora lê o preço que o Dono configurou no painel!
+      const config = await prisma.systemConfig.findUnique({ where: { id: 1 } });
+      
+      let novoPlano = 'PRO'; 
+      if (valorPago === Number(config?.startPrice || 30)) novoPlano = 'START';
+      else if (valorPago === Number(config?.proPrice || 60)) novoPlano = 'PRO';
+      else if (valorPago === Number(config?.elitePrice || 100)) novoPlano = 'ELITE';
+      
+      if (userId) { 
         await prisma.user.update({ where: { id: parseInt(userId) }, data: { plano: novoPlano } }); 
-      } catch (error) {} 
-    }
+      }
+    } catch (e) { console.error("Erro no Webhook", e); }
   }
   res.status(200).json({ received: true });
 });
