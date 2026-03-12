@@ -85,6 +85,106 @@ const YoutubeModal = ({ videoAtivo, setVideoAtivo, brandColor }: any) => {
   );
 };
 
+const TourModal = ({ showTour, setShowTour, tourStep, setTourStep }: any) => {
+  if (!showTour) return null;
+
+  const tourSteps = [
+    { 
+      title: "Bem-vindo ao EvoTrainer! 🚀", 
+      text: "Vamos fazer um tour rápido para você entender como nossa plataforma vai escalar a sua consultoria e economizar horas de trabalho.", 
+      icon: <Sparkles size={60} className="text-blue-500 mx-auto" /> 
+    },
+    { 
+      title: "1. Gestão de Alunos 👥", 
+      text: "Na aba 'Alunos' você cadastra seus clientes. Cada aluno que você adicionar ganhará acesso a um App Exclusivo para visualizar os treinos.", 
+      icon: <Users size={60} className="text-emerald-500 mx-auto" /> 
+    },
+    { 
+      title: "2. Treino Inteligente 🧠", 
+      text: "Vá na aba 'Inteligência' e deixe a nossa IA gerar as fichas para você. Ela entende de periodização, biomecânica e patologias.", 
+      icon: <Activity size={60} className="text-indigo-500 mx-auto" /> 
+    },
+    { 
+      title: "3. Vídeos Automáticos 📺", 
+      text: "Adeus planilhas manuais! Para cada exercício gerado, nós buscamos e anexamos o vídeo correto de execução diretamente do YouTube.", 
+      icon: <Youtube size={60} className="text-red-500 mx-auto" /> 
+    },
+    { 
+      title: "4. A Visão do seu Aluno 📱", 
+      text: "O seu aluno entra no aplicativo, clica no 'Modo Foco' e consegue marcar os exercícios que já fez. Eles também ganham 'foguinhos' de ofensiva a cada treino para gamificar a rotina!", 
+      icon: (
+        <div className="w-32 h-56 bg-slate-950 border-[6px] border-slate-800 rounded-[2rem] mx-auto overflow-hidden relative shadow-lg">
+          <div className="absolute top-0 w-full h-4 bg-slate-800 rounded-b-xl flex justify-center"><div className="w-8 h-1 bg-slate-950 rounded-full mt-1"></div></div>
+          <div className="mt-8 px-3 space-y-2">
+            <div className="h-4 bg-blue-600/30 rounded w-1/2 mb-4"></div>
+            <div className="h-10 bg-slate-900 rounded-xl border border-slate-800 flex items-center px-2 gap-2">
+               <div className="w-4 h-4 bg-blue-600 rounded-full"></div><div className="h-2 bg-slate-700 rounded w-1/2"></div>
+            </div>
+            <div className="h-10 bg-slate-900 rounded-xl border border-slate-800 flex items-center px-2 gap-2">
+               <div className="w-4 h-4 bg-slate-700 rounded-full"></div><div className="h-2 bg-slate-700 rounded w-1/2"></div>
+            </div>
+            <div className="h-10 bg-blue-600 rounded-xl mt-6"></div>
+          </div>
+        </div>
+      )
+    },
+    { 
+      title: "Tudo Pronto! 🎉", 
+      text: "O sistema agora é seu. Comece adicionando o seu primeiro aluno ou testando a Inteligência Artificial.", 
+      icon: <CheckCircle2 size={60} className="text-blue-500 mx-auto" /> 
+    }
+  ];
+
+  const current = tourSteps[tourStep];
+
+  return (
+    <div className="fixed inset-0 bg-black/95 backdrop-blur-md z-[500] flex items-center justify-center p-6 animate-fade-in">
+      <div className="bg-slate-900 border border-slate-800 rounded-[3rem] w-full max-w-sm text-center p-8 shadow-2xl relative overflow-hidden">
+        <div className="absolute -top-10 -right-10 opacity-5">
+          <Sparkles size={200} />
+        </div>
+        
+        <div className="relative z-10">
+          <div className="mb-6 h-24 flex items-center justify-center">
+            {current.icon}
+          </div>
+          <h3 className="text-xl font-black text-white mb-4 leading-tight">{current.title}</h3>
+          <p className="text-slate-400 text-sm font-medium leading-relaxed min-h-[5rem]">
+            {current.text}
+          </p>
+          
+          <div className="flex justify-center gap-2 mt-8 mb-6">
+            {tourSteps.map((_, i) => (
+              <div key={i} className={`h-2 rounded-full transition-all ${i === tourStep ? 'w-8 bg-blue-600' : 'w-2 bg-slate-800'}`}></div>
+            ))}
+          </div>
+
+          <div className="flex gap-3">
+            {tourStep > 0 && (
+              <button onClick={() => setTourStep((prev: number) => prev - 1)} className="p-4 bg-slate-800 text-white rounded-2xl active:scale-95 transition-all">
+                <ChevronLeft size={20}/>
+              </button>
+            )}
+            {tourStep < tourSteps.length - 1 ? (
+              <button onClick={() => setTourStep((prev: number) => prev + 1)} className="flex-1 bg-blue-600 text-white font-black py-4 rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-blue-600/30 active:scale-95 transition-all uppercase tracking-widest text-xs">
+                Próximo <ChevronRight size={18}/>
+              </button>
+            ) : (
+              <button onClick={() => setShowTour(false)} className="flex-1 bg-emerald-600 text-white font-black py-4 rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/30 active:scale-95 transition-all uppercase tracking-widest text-xs">
+                VAMOS LÁ! <Flame size={18}/>
+              </button>
+            )}
+          </div>
+          
+          <button onClick={() => setShowTour(false)} className="mt-6 text-[10px] text-slate-500 font-bold uppercase tracking-widest hover:text-slate-300">
+            Pular Tour
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default function App() {
   const [currentUser, setCurrentUser] = useState<any>(null); 
   const [token, setToken] = useState<string | null>(null);
@@ -110,11 +210,12 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [toastMsg, setToastMsg] = useState('');
   
-  // PWA Install State
   const [showInstallBanner, setShowInstallBanner] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
 
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [showTour, setShowTour] = useState(false);
+  const [tourStep, setTourStep] = useState(0);
 
   const [alunos, setAlunos] = useState<any[]>([]);
   const [buscaAluno, setBuscaAluno] = useState(''); 
@@ -157,13 +258,16 @@ export default function App() {
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm: '' });
 
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [feedbackRating, setFeedbackRating] = useState(5);
+  const [feedbackComment, setFeedbackComment] = useState('');
+
   const showToast = (msg: any) => {
     let textMessage = typeof msg === 'string' ? msg : (msg?.error || msg?.message || "Erro inesperado.");
     setToastMsg(textMessage);
     setTimeout(() => setToastMsg(''), 3500);
   };
 
-  // --- EFEITOS E EVENTOS INICIAIS ---
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
@@ -217,6 +321,10 @@ export default function App() {
         goal: currentUser.goal || 'Hipertrofia', notes: currentUser.notes || '', avatar: currentUser.avatar || '',
         brandName: currentUser.brandName || '', brandColor: currentUser.brandColor || '#2563eb', brandLogo: currentUser.brandLogo || ''
       });
+      if (currentUser.role === 'ADMIN' && localStorage.getItem('evotrainer_tour_pending') === 'true') {
+        setShowTour(true);
+        localStorage.removeItem('evotrainer_tour_pending');
+      }
     }
   }, [currentUser]);
 
@@ -226,7 +334,6 @@ export default function App() {
     return headers;
   };
 
-  // --- FUNÇÕES DE COMPORTAMENTO ---
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>, isBrandLogo = false) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -450,6 +557,7 @@ export default function App() {
         setToken(data.token); setCurrentUser(data.user);
         localStorage.setItem('treino_ai_token', data.token);
         localStorage.setItem('treino_ai_user', JSON.stringify(data.user));
+        localStorage.setItem('evotrainer_tour_pending', 'true');
         setSignupName(''); setSignupEmail(''); setSignupPassword(''); setSignupConfirmPassword('');
         showToast("Bem-vindo ao EvoTrainer!");
       } else { showToast(data.error || "Erro ao criar conta."); }
@@ -504,7 +612,7 @@ export default function App() {
   };
 
   const excluirTrainer = async (trainerId: number, name: string) => {
-    if (!window.confirm(`Apagar o Personal "${name}" e todos os alunos/fichas?`)) return;
+    if (!window.confirm(`ATENÇÃO: Apagar o Personal "${name}" e todos os alunos/fichas?`)) return;
     try {
       const res = await fetch(`${API_URL}/superadmin/trainers/${trainerId}`, { method: 'DELETE', headers: getAuthHeaders() });
       if (res.ok) { showToast("Personal apagado."); fetchTrainers(); }
@@ -1034,7 +1142,7 @@ export default function App() {
                 <div className="bg-gradient-to-br from-indigo-600 to-purple-800 p-6 rounded-[2.5rem] shadow-2xl relative overflow-hidden">
                   <div className="relative z-10">
                     <h2 className="text-2xl font-black text-white flex items-center gap-2 leading-none"><Sparkles fill="currentColor"/> Mágico de IA</h2>
-                    <p className="text-indigo-200 text-xs mt-3 leading-relaxed font-medium">Nossa IA Ph.D. em Biomecânica organiza uma periodização com base na divisão escolhida, RPE e limitações.</p>
+                    <p className="text-indigo-200 text-xs mt-3 leading-relaxed font-medium">A IA organiza uma proposta inicial de treino com base na divisão escolhida, otimizando o processo. Recomendamos a revisão do personal antes de aplicar ao aluno.</p>
                   </div>
                   <Sparkles size={120} className="absolute -bottom-6 -right-6 text-white opacity-10 transform -rotate-12" />
                 </div>
@@ -1074,7 +1182,7 @@ export default function App() {
                     <textarea 
                       value={iaPrompt} 
                       onChange={e => setIaPrompt(e.target.value)} 
-                      placeholder="Ex: Treino para hipertrofia com ênfase em pernas. Aluno possui condromalácia patelar grau 1. Evitar cadeira extensora." 
+                      placeholder="Ex: Treino para hipertrofia. Aluno tem condromalácia patelar e hipertensão. Evitar salto e impacto extremo." 
                       rows={4} 
                       className="bg-slate-950 border border-slate-700 rounded-2xl p-4 text-white outline-none focus:border-indigo-500 resize-none font-medium text-sm custom-scrollbar"
                     ></textarea>
@@ -1082,7 +1190,7 @@ export default function App() {
 
                   <button onClick={gerarTreinoInteligente} disabled={isGeneratingIA || !iaAlunoId || !iaPrompt} className="w-full mt-2 bg-indigo-600 hover:bg-indigo-500 text-white font-black text-sm py-5 rounded-[1.5rem] flex items-center justify-center gap-2 shadow-[0_10px_30px_rgba(79,70,229,0.4)] active:scale-95 transition-all disabled:opacity-50 uppercase tracking-widest">
                     {isGeneratingIA ? <Activity className="animate-spin" /> : <Sparkles size={20} />} 
-                    {isGeneratingIA ? 'Analisando Biomecânica...' : 'Gerar Treino de Elite'}
+                    {isGeneratingIA ? 'Criando Estrutura...' : 'Gerar Treino Inteligente'}
                   </button>
                 </div>
               </div>
