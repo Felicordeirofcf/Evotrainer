@@ -16,16 +16,6 @@ const getBaseUrl = () => {
 
 const API_URL = getBaseUrl().endsWith('/') ? `${getBaseUrl()}api` : `${getBaseUrl()}/api`;
 
-const buscarVideoNoYouTube = async (nomeExercicio: string) => {
-  try {
-    const query = `como fazer ${nomeExercicio} execução correta musculação`;
-    const response = await fetch(`/api/youtube?q=${encodeURIComponent(query)}`);
-    if (!response.ok) return ''; 
-    const data = await response.json();
-    return data.items?.[0]?.id?.videoId || '';
-  } catch (error) { return ''; }
-};
-
 const extractYouTubeId = (url: string) => {
   if (!url) return '';
   if (url.length === 11 && !url.includes('http')) return url;
@@ -50,26 +40,68 @@ function getGroupedExercises(exercisesArray: any[]) {
 }
 
 const InstallBanner = ({ showInstallBanner, setShowInstallBanner, handleInstallClick, brandColor }: any) => {
-  if (!showInstallBanner) return null;
-  return (
-    <div className="fixed bottom-24 left-4 right-4 z-[110] p-4 rounded-2xl shadow-2xl flex items-center justify-between border animate-fade-in sm:max-w-sm sm:mx-auto" style={{ backgroundColor: brandColor || '#2563eb', borderColor: brandColor || '#3b82f6' }}>
-      <div className="flex items-center gap-3">
-        <div className="bg-white/20 p-2 rounded-xl text-white"><Download size={24} /></div>
-        <div><p className="text-white font-black text-sm">Instalar App</p><p className="text-white/80 text-[10px]">Acesso rápido!</p></div>
+  const [isIOS, setIsIOS] = useState(false);
+  const [isStandalone, setIsStandalone] = useState(true);
+  const [isDismissed, setIsDismissed] = useState(false);
+
+  useEffect(() => {
+    const checkStandalone = window.matchMedia('(display-mode: standalone)').matches || ('standalone' in navigator && (navigator as any).standalone === true);
+    setIsStandalone(checkStandalone);
+
+    const checkIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+    setIsIOS(checkIOS);
+    
+    const dismissed = localStorage.getItem('evotrainer_install_dismissed') === 'true';
+    setIsDismissed(dismissed);
+  }, []);
+
+  if (isStandalone || isDismissed) return null;
+
+  const dismissBanner = () => {
+    setIsDismissed(true);
+    setShowInstallBanner(false);
+    localStorage.setItem('evotrainer_install_dismissed', 'true');
+  };
+
+  if (showInstallBanner && !isIOS) {
+    return (
+      <div className="fixed bottom-24 left-4 right-4 z-[110] p-4 rounded-2xl shadow-2xl flex items-center justify-between border animate-fade-in sm:max-w-sm sm:mx-auto bg-slate-900 border-slate-700">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-xl text-white shadow-lg" style={{ backgroundColor: brandColor || '#2563eb' }}><Download size={24} /></div>
+          <div><p className="text-white font-black text-sm">Instalar App</p><p className="text-slate-400 text-[10px]">Acesso rápido na tela inicial!</p></div>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={dismissBanner} className="text-slate-500 p-2 hover:text-white transition-colors"><X size={18}/></button>
+          <button onClick={handleInstallClick} className="text-white font-black px-4 py-2 rounded-xl text-xs shadow-lg active:scale-95 transition-transform uppercase" style={{ backgroundColor: brandColor || '#2563eb' }}>Instalar</button>
+        </div>
       </div>
-      <div className="flex gap-2">
-        <button onClick={() => setShowInstallBanner(false)} className="text-white/70 p-2"><X size={18}/></button>
-        <button onClick={handleInstallClick} className="bg-white font-bold px-4 py-2 rounded-xl text-xs shadow-lg active:scale-95 transition-transform uppercase" style={{ color: brandColor || '#2563eb' }}>Instalar</button>
+    );
+  }
+
+  if (isIOS && !showInstallBanner) {
+    return (
+      <div className="fixed bottom-10 left-4 right-4 z-[110] p-5 rounded-3xl shadow-2xl border animate-bounce sm:max-w-sm sm:mx-auto" style={{ backgroundColor: brandColor || '#2563eb', borderColor: 'rgba(255,255,255,0.2)' }}>
+        <button onClick={dismissBanner} className="absolute top-2 right-2 text-white/50 hover:text-white p-1"><X size={16}/></button>
+        <div className="flex flex-col items-center text-center gap-2">
+          <div className="bg-white/20 p-2 rounded-xl text-white"><Download size={24} /></div>
+          <h3 className="text-white font-black text-sm">Instale o App no iPhone</h3>
+          <p className="text-white/90 text-xs font-medium leading-relaxed">
+            1. Toque no ícone <strong>Compartilhar</strong> (quadrado com seta) abaixo.<br/>
+            2. Role e selecione <strong>"Adicionar à Tela de Início"</strong>.
+          </p>
+          <div className="mt-2 text-white/50 animate-pulse">▼</div>
+        </div>
       </div>
-    </div>
-  );
+    );
+  }
+
+  return null;
 };
 
+// MODAL OTIMIZADO: Só abre se houver ID válido. Caso contrário a UI abre o YouTube diretamente.
 const YoutubeModal = ({ videoAtivo, setVideoAtivo, brandColor }: any) => {
   if (!videoAtivo) return null;
-  const iframeSrc = videoAtivo.startsWith('SEARCH:') 
-    ? `https://www.youtube.com/embed?listType=search&list=${encodeURIComponent(videoAtivo.replace('SEARCH:', ''))}&autoplay=1`
-    : `https://www.youtube.com/embed/${videoAtivo}?autoplay=1&rel=0`;
+  const iframeSrc = `https://www.youtube.com/embed/${videoAtivo}?autoplay=1&rel=0`;
 
   return (
     <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-[400] flex items-center justify-center p-4 animate-fade-in">
@@ -78,8 +110,14 @@ const YoutubeModal = ({ videoAtivo, setVideoAtivo, brandColor }: any) => {
           <h3 className="text-white font-black text-xs uppercase tracking-[0.2em] flex items-center gap-2"><Youtube size={18} className="text-red-500"/> Execução Correta</h3>
           <button onClick={() => setVideoAtivo(null)} className="bg-slate-800 hover:bg-red-500 text-slate-400 hover:text-white p-2 rounded-xl transition-colors"><X size={20} /></button>
         </div>
-        <div className="w-full aspect-video bg-black relative"><iframe className="w-full h-full absolute inset-0" src={iframeSrc} allowFullScreen></iframe></div>
-        <div className="p-4 bg-slate-950"><button onClick={() => setVideoAtivo(null)} className="w-full py-4 text-white font-black rounded-2xl uppercase tracking-widest text-[10px] transition-colors" style={{ backgroundColor: brandColor || '#1e293b' }}>Fechar Vídeo</button></div>
+        <div className="w-full aspect-video bg-black relative">
+          <iframe className="w-full h-full absolute inset-0" src={iframeSrc} allowFullScreen allow="autoplay; fullscreen" loading="lazy"></iframe>
+        </div>
+        <div className="p-4 bg-slate-950">
+          <button onClick={() => setVideoAtivo(null)} className="w-full py-4 text-slate-900 font-black rounded-2xl uppercase tracking-widest text-[10px] transition-colors shadow-lg active:scale-95" style={{ backgroundColor: brandColor || '#34d399' }}>
+             Fechar Vídeo
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -89,10 +127,10 @@ const TourModal = ({ showTour, setShowTour, tourStep, setTourStep }: any) => {
   if (!showTour) return null;
 
   const tourSteps = [
-    { title: "Bem-vindo ao EvoTrainer! 🚀", text: "Vamos fazer um tour rápido para você entender como nossa plataforma vai escalar a sua consultoria e economizar horas de trabalho.", icon: <Sparkles size={60} className="text-blue-500 mx-auto" /> },
-    { title: "1. Gestão de Alunos 👥", text: "Na aba 'Alunos' você cadastra seus clientes. Cada aluno que você adicionar ganhará acesso a um App Exclusivo para visualizar os treinos.", icon: <Users size={60} className="text-emerald-500 mx-auto" /> },
-    { title: "2. Treino Inteligente 🧠", text: "Vá na aba 'Inteligência' e deixe a nossa IA gerar as fichas para você. Ela entende de periodização, biomecânica e patologias.", icon: <Activity size={60} className="text-indigo-500 mx-auto" /> },
-    { title: "3. Vídeos Automáticos 📺", text: "Adeus planilhas manuais! Para cada exercício gerado, nós buscamos e anexamos o vídeo correto de execução diretamente do YouTube.", icon: <Youtube size={60} className="text-red-500 mx-auto" /> },
+    { title: "Bem-vindo ao EvoTrainer! 🚀", text: "Vamos fazer um tour rápido para entender como escalar a sua consultoria e economizar horas.", icon: <Sparkles size={60} className="text-blue-500 mx-auto" /> },
+    { title: "1. Gestão de Alunos 👥", text: "Na aba 'Alunos' cadastre seus clientes. Eles ganham acesso a um App Exclusivo para visualizar os treinos.", icon: <Users size={60} className="text-emerald-500 mx-auto" /> },
+    { title: "2. Treino Inteligente 🧠", text: "Vá na aba 'Inteligência' e deixe a nossa IA gerar as fichas para você com periodização.", icon: <Activity size={60} className="text-indigo-500 mx-auto" /> },
+    { title: "3. Vídeos Automáticos 📺", text: "Para cada exercício gerado, buscamos e anexamos o vídeo correto de execução diretamente do YouTube.", icon: <Youtube size={60} className="text-red-500 mx-auto" /> },
     { title: "Tudo Pronto! 🎉", text: "O sistema agora é seu. Comece adicionando o seu primeiro aluno ou testando a Inteligência Artificial.", icon: <CheckCircle2 size={60} className="text-blue-500 mx-auto" /> }
   ];
 
@@ -125,18 +163,15 @@ export default function App() {
   const [loginBrand, setLoginBrand] = useState<any>(null); 
   
   const [authMode, setAuthMode] = useState<'LOGIN'|'SIGNUP'|'MASTER'|'FORGOT'|'RESET'>('LOGIN');
-
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
-
   const [signupName, setSignupName] = useState('');
   const [signupEmail, setSignupEmail] = useState('');
   const [signupPassword, setSignupPassword] = useState('');
   const [signupConfirmPassword, setSignupConfirmPassword] = useState('');
   const [masterSecret, setMasterSecret] = useState(''); 
   const [isSigningUp, setIsSigningUp] = useState(false);
-
   const [resetTokenUrl, setResetTokenUrl] = useState('');
   const [resetNewPassword, setResetNewPassword] = useState('');
 
@@ -144,7 +179,6 @@ export default function App() {
   const [toastMsg, setToastMsg] = useState('');
   const [showInstallBanner, setShowInstallBanner] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
-
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [showTour, setShowTour] = useState(false);
   const [tourStep, setTourStep] = useState(0);
@@ -203,6 +237,17 @@ export default function App() {
     let textMessage = typeof msg === 'string' ? msg : (msg?.error || msg?.message || "Erro inesperado.");
     setToastMsg(textMessage);
     setTimeout(() => setToastMsg(''), 3500);
+  };
+
+  // FUNÇÃO ANTI-FALHA DE VÍDEO: Abre o modal se tiver ID, se não tiver abre a pesquisa nativa do YT
+  const openVideo = (youtubeId: string, name: string) => {
+    if (youtubeId && youtubeId.trim() !== '') {
+      setVideoAtivo(youtubeId);
+    } else {
+      showToast("Buscando no YouTube...");
+      const query = `como fazer ${name} musculação execução correta`;
+      window.open(`https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`, '_blank');
+    }
   };
 
   useEffect(() => {
@@ -614,15 +659,13 @@ export default function App() {
   const salvarTreino = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!alunoSelecionado) return;
-    setIsCriandoTreino(true); showToast("Sincronizando vídeos...");
+    setIsCriandoTreino(true); showToast("Guardando ficha...");
     try {
-      const exercisesComVideos = [];
-      for (const ex of novoTreino.exercises) {
-        if (!ex.youtubeId || ex.youtubeId.trim() === '') {
-          const idEncontrado = await buscarVideoNoYouTube(ex.name);
-          exercisesComVideos.push({ ...ex, youtubeId: idEncontrado });
-        } else { exercisesComVideos.push(ex); }
-      }
+      // Já NÃO tentamos buscar vídeos novos aqui para não gastar a cota. O front trata do fallback no clique!
+      const exercisesComVideos = novoTreino.exercises.map(ex => ({
+          ...ex,
+          youtubeId: ex.youtubeId ? extractYouTubeId(ex.youtubeId) : ''
+      }));
       const payload = { ...novoTreino, exercises: exercisesComVideos, userId: alunoSelecionado.id };
       const url = isEditingTreino ? `${API_URL}/treinos/${treinoEditId}` : `${API_URL}/treinos`;
       const metodo = isEditingTreino ? 'PUT' : 'POST';
@@ -651,7 +694,6 @@ export default function App() {
     if (!iaAlunoId) { showToast("Selecione um aluno primeiro."); setIsGeneratingIA(false); return; }
     try {
       showToast("A IA Master está a analisar a biomecânica...");
-      
       const payload = {
         alunoId: iaAlunoId,
         split: iaSplit,
@@ -1765,16 +1807,7 @@ export default function App() {
                         </div>
                         
                         <button 
-                          onClick={async () => {
-                            if (group.main.youtubeId) {
-                              setVideoAtivo(group.main.youtubeId);
-                            } else {
-                              showToast("A procurar vídeo...");
-                              const id = await buscarVideoNoYouTube(group.main.name);
-                              if (id) setVideoAtivo(id);
-                              else setVideoAtivo(`SEARCH:como fazer ${group.main.name} musculação execução`);
-                            }
-                          }} 
+                          onClick={() => openVideo(group.main.youtubeId, group.main.name)} 
                           className={`p-3.5 rounded-2xl active:scale-90 transition-all ${group.main.youtubeId ? 'bg-red-600/10 text-red-500 border border-red-500/10' : 'bg-slate-800 text-slate-400 border border-slate-700 hover:text-red-400'}`}
                         >
                           <Youtube size={22} />
@@ -1792,16 +1825,7 @@ export default function App() {
                                 </div>
                                 
                                 <button 
-                                  onClick={async () => {
-                                    if (p.youtubeId) {
-                                      setVideoAtivo(p.youtubeId);
-                                    } else {
-                                      showToast("A procurar vídeo...");
-                                      const id = await buscarVideoNoYouTube(p.name);
-                                      if (id) setVideoAtivo(id);
-                                      else setVideoAtivo(`SEARCH:como fazer ${p.name} musculação execução`);
-                                    }
-                                  }} 
+                                  onClick={() => openVideo(p.youtubeId, p.name)} 
                                   className={`p-2 rounded-xl active:scale-90 transition-all ${p.youtubeId ? 'text-red-500/80 bg-red-500/10' : 'text-slate-500 bg-slate-800/50 hover:text-red-400'}`}
                                 >
                                   <Youtube size={18} />
