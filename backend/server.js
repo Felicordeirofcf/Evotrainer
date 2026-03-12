@@ -155,7 +155,6 @@ app.post('/api/register', async (req, res) => {
     });
     
     if (role === 'ADMIN') {
-      // 1. Enviar aviso ao DONO
       const pNome = name.split(' ')[0];
       const waLink = `https://wa.me/${phone ? phone.replace(/\D/g, '') : ''}?text=Olá, ${pNome}! Vi que criou conta no EvoTrainer.`;
       try {
@@ -167,7 +166,6 @@ app.post('/api/register', async (req, res) => {
         });
       } catch (e) {}
 
-      // 2. Enviar Email de Boas-Vindas para o PERSONAL
       try {
         await transporter.sendMail({
           from: `"EvoTrainer" <${process.env.SMTP_USER}>`,
@@ -179,7 +177,6 @@ app.post('/api/register', async (req, res) => {
               <p style="color: #cbd5e1;">A sua conta de Personal Trainer foi criada com sucesso.</p>
               <p style="color: #cbd5e1;">O seu próximo passo é aceder ao sistema, cadastrar o seu primeiro aluno e testar o nosso Mágico de IA.</p>
               <a href="https://evotrainer.com.br" style="display:inline-block; padding: 15px 25px; background: #2563eb; color: #fff; text-decoration: none; border-radius: 8px; font-weight: bold; margin-top: 15px;">Acessar Meu Painel</a>
-              <p style="color: #64748b; font-size: 12px; margin-top: 30px;">Bora esmagar! Equipa EvoTrainer.</p>
             </div>
           `
         });
@@ -205,7 +202,7 @@ app.post('/api/setup-master', async (req, res) => {
 });
 
 // ==========================================
-// ⚠️ CORREÇÃO: E-MAIL DE RECUPERAÇÃO DE SENHA
+// ⚠️ E-MAIL DE RECUPERAÇÃO DE SENHA (CORRIGIDO E LOGADO)
 // ==========================================
 app.post('/api/forgot-password', async (req, res) => {
   const { email } = req.body;
@@ -217,7 +214,6 @@ app.post('/api/forgot-password', async (req, res) => {
     const resetExpires = new Date(Date.now() + 3600000); 
     await prisma.user.update({ where: { id: user.id }, data: { resetToken, resetExpires } });
 
-    // Correção do Domínio
     const resetLink = `https://evotrainer.com.br?token=${resetToken}`;
     
     try {
@@ -226,7 +222,7 @@ app.post('/api/forgot-password', async (req, res) => {
         to: user.email,
         subject: "Recuperação de Palavra-Passe - EvoTrainer",
         html: `
-          <div style="font-family: Arial; padding: 20px; background: #f8fafc; color: #0f172a; border-radius: 12px; max-width: 600px; margin: 0 auto;">
+          <div style="font-family: Arial; padding: 20px; background: #f8fafc; color: #0f172a; border-radius: 12px; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0;">
             <h2 style="color: #2563eb;">EvoTrainer</h2>
             <p>Recebemos um pedido para recuperar a palavra-passe da sua conta.</p>
             <p>Clique no botão abaixo para criar uma nova senha de acesso seguro:</p>
@@ -235,13 +231,16 @@ app.post('/api/forgot-password', async (req, res) => {
           </div>
         `
       });
-      console.log(`[SMTP] E-mail de recuperação enviado para: ${user.email}`);
+      console.log(`[SMTP] E-mail de recuperação enviado com sucesso para: ${user.email}`);
     } catch (e) {
-      console.error("[SMTP] Falha ao enviar e-mail de recuperação:", e);
+      console.error("[ERRO SMTP] Falha gravíssima ao enviar e-mail de recuperação:", e);
     }
 
     res.json({ message: "Se o e-mail existir, receberá um link de recuperação." });
-  } catch (error) { res.status(500).json({ error: "Erro interno." }); }
+  } catch (error) { 
+    console.error("[ERRO ROTA] Falha na rota forgot-password:", error);
+    res.status(500).json({ error: "Erro interno no servidor." }); 
+  }
 });
 
 app.post('/api/reset-password', async (req, res) => {
@@ -260,6 +259,38 @@ app.post('/api/reset-password', async (req, res) => {
 // ==========================================
 // GESTÃO DE ALUNOS E TREINOS
 // ==========================================
+app.get('/api/superadmin/trainers', authenticateToken, isSuperAdmin, async (req, res) => {
+  try {
+    const trainers = await prisma.user.findMany({ where: { role: 'ADMIN' }, orderBy: { createdAt: 'desc' }, include: { _count: { select: { alunos: true } } } });
+    res.json(trainers);
+  } catch (error) { res.status(500).json({ error: "Erro" }); }
+});
+
+app.put('/api/superadmin/trainers/:id/plano', authenticateToken, isSuperAdmin, async (req, res) => {
+  try {
+    const updated = await prisma.user.update({ where: { id: parseInt(req.params.id) }, data: { plano: req.body.plano } });
+    res.json({ message: `Plano atualizado!`, user: updated });
+  } catch (error) { res.status(500).json({ error: "Erro" }); }
+});
+
+app.delete('/api/superadmin/trainers/:id', authenticateToken, isSuperAdmin, async (req, res) => {
+  const trainerId = parseInt(req.params.id);
+  try {
+    const students = await prisma.user.findMany({ where: { trainerId } });
+    const studentIds = students.map(s => s.id);
+    if (studentIds.length > 0) {
+       await prisma.workoutHistory.deleteMany({ where: { userId: { in: studentIds } } });
+       const treinos = await prisma.workoutTemplate.findMany({ where: { userId: { in: studentIds } } });
+       const treinoIds = treinos.map(t => t.id);
+       if(treinoIds.length > 0) await prisma.exercise.deleteMany({ where: { workoutId: { in: treinoIds } } });
+       await prisma.workoutTemplate.deleteMany({ where: { userId: { in: studentIds } } });
+       await prisma.user.deleteMany({ where: { id: { in: studentIds } } }); 
+    }
+    await prisma.user.delete({ where: { id: trainerId } });
+    res.json({ message: "Apagado!" });
+  } catch (error) { res.status(500).json({ error: "Erro" }); }
+});
+
 app.get('/api/alunos', authenticateToken, isAdmin, async (req, res) => {
   try {
     const alunos = await prisma.user.findMany({ 
@@ -283,7 +314,6 @@ app.post('/api/alunos', authenticateToken, isAdmin, async (req, res) => {
     const hashedPassword = await bcrypt.hash(plainPassword, 10);
     const novo = await prisma.user.create({ data: { name, email, password: hashedPassword, phone, role: 'STUDENT', status: 'Novo', streak: 0, trainerId: req.user.id } });
     
-    // ENVIAR E-MAIL COM INSTRUÇÕES PARA O ALUNO
     try {
       const nomeApp = trainerInfo.plano === 'ELITE' && trainerInfo.brandName ? trainerInfo.brandName : 'EvoTrainer';
       const linkApp = trainerInfo.plano === 'ELITE' ? `https://evotrainer.com.br/?t=${trainerInfo.id}` : `https://evotrainer.com.br`;
