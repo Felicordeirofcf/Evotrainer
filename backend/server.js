@@ -202,7 +202,7 @@ app.post('/api/setup-master', async (req, res) => {
 });
 
 // ==========================================
-// ⚠️ E-MAIL DE RECUPERAÇÃO DE SENHA (CORRIGIDO E LOGADO)
+// ⚠️ CORREÇÃO: E-MAIL DE RECUPERAÇÃO DE SENHA
 // ==========================================
 app.post('/api/forgot-password', async (req, res) => {
   const { email } = req.body;
@@ -212,7 +212,11 @@ app.post('/api/forgot-password', async (req, res) => {
 
     const resetToken = crypto.randomBytes(32).toString('hex');
     const resetExpires = new Date(Date.now() + 3600000); 
-    await prisma.user.update({ where: { id: user.id }, data: { resetToken, resetExpires } });
+    
+    await prisma.user.update({ 
+      where: { id: user.id }, 
+      data: { resetToken, resetExpires } 
+    });
 
     const resetLink = `https://evotrainer.com.br?token=${resetToken}`;
     
@@ -222,7 +226,7 @@ app.post('/api/forgot-password', async (req, res) => {
         to: user.email,
         subject: "Recuperação de Palavra-Passe - EvoTrainer",
         html: `
-          <div style="font-family: Arial; padding: 20px; background: #f8fafc; color: #0f172a; border-radius: 12px; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0;">
+          <div style="font-family: Arial, sans-serif; padding: 20px; background: #f8fafc; color: #0f172a; border-radius: 12px; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0;">
             <h2 style="color: #2563eb;">EvoTrainer</h2>
             <p>Recebemos um pedido para recuperar a palavra-passe da sua conta.</p>
             <p>Clique no botão abaixo para criar uma nova senha de acesso seguro:</p>
@@ -388,32 +392,93 @@ app.post('/api/ai/gerar-treino', authenticateToken, isAdmin, async (req, res) =>
   try {
     const trainer = await prisma.user.findUnique({ where: { id: req.user.id } });
     const IA_LIMITS = { 'GRATIS': 0, 'START': 10, 'PRO': 40, 'ELITE': 9999 };
+    
     if (trainer.iaUsadaMes >= (IA_LIMITS[trainer.plano || 'GRATIS'] || 0)) {
       return res.status(403).json({ error: `Atingiu o limite de IA do seu plano.` });
     }
+    
     const aluno = await prisma.user.findUnique({ where: { id: parseInt(alunoId) } });
     if (!aluno || aluno.trainerId !== req.user.id) return res.status(404).json({ error: "Aluno não encontrado." });
+
+    if (!OPENAI_API_KEY) return res.status(500).json({ error: "Chave da OpenAI não configurada." });
+
+    const systemPrompt = `Você é um Personal Trainer de Elite.
+Sua missão é criar fichas de treino periodizadas.
+RETORNE APENAS UM JSON VÁLIDO COM A SEGUINTE ESTRUTURA E NADA MAIS:
+{
+  "fichas": [
+    {
+      "title": "Treino A - [Foco]",
+      "duration": "60 min",
+      "exercises": [
+        {
+          "name": "Nome do Exercício",
+          "sets": "3x10",
+          "weight": "Moderado",
+          "isConjugado": false,
+          "conjugadoCom": ""
+        }
+      ]
+    }
+  ]
+}`;
+
+    const userPrompt = `Aluno: ${aluno.name}. Divisão: ${split}. Frequência: ${frequencia} dias. Volume: ${volume} exercícios por ficha. Metodologia: ${metodologia}. Contexto/Foco: ${prompt}. Lembre-se de retornar EXATAMENTE a quantidade de fichas da divisão (ex: ABC = 3 fichas).`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${OPENAI_API_KEY}` },
       body: JSON.stringify({ 
         model: 'gpt-4o-mini', 
-        messages: [{ role: 'system', content: 'Crie treinos JSON estruturados...' }, { role: 'user', content: `Treino para ${aluno.name}...` }], 
-        response_format: { type: "json_object" }
+        messages: [
+          { role: 'system', content: systemPrompt }, 
+          { role: 'user', content: userPrompt }
+        ], 
+        response_format: { type: "json_object" },
+        temperature: 0.6
       })
     });
-    const data = await response.json();
-    const content = JSON.parse(data.choices[0].message.content);
     
-    for (const ficha of content.fichas) {
+    const data = await response.json();
+    
+    if (data.error) {
+        console.error("OpenAI API Error:", data.error);
+        return res.status(500).json({ error: "Erro na API da OpenAI." });
+    }
+
+    const content = JSON.parse(data.choices[0].message.content);
+    const dias = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
+    
+    for (let i = 0; i < parseInt(frequencia); i++) {
+      const ficha = content.fichas[i % content.fichas.length];
+      
+      // Mapeia os exercícios para garantir que não falta nada e evitar erro no Prisma
+      const mappedExercises = ficha.exercises.map(ex => ({
+        name: ex.name || "Exercício sem nome",
+        sets: String(ex.sets || "3x10"),
+        weight: String(ex.weight || "Moderado"),
+        youtubeId: null,
+        isConjugado: Boolean(ex.isConjugado),
+        conjugadoCom: ex.conjugadoCom || null
+      }));
+
       await prisma.workoutTemplate.create({ 
-        data: { title: ficha.title, duration: ficha.duration, userId: aluno.id, exercises: { create: ficha.exercises } } 
+        data: { 
+          title: ficha.title || `Treino ${i+1}`, 
+          duration: ficha.duration || "60 min", 
+          userId: aluno.id, 
+          dayOfWeek: dias[i],
+          exercises: { create: mappedExercises } 
+        } 
       });
     }
+    
     await prisma.user.update({ where: { id: req.user.id }, data: { iaUsadaMes: trainer.iaUsadaMes + 1 } });
     res.json({ message: "Sucesso!" });
-  } catch (error) { res.status(500).json({ error: "Erro na IA." }); }
+  } catch (error) { 
+    console.error("ERRO NA GERAÇÃO DE TREINO IA:", error);
+    res.status(500).json({ error: "Erro interno ao gerar treino com IA." }); 
+  }
 });
 
 app.post('/api/treinos', authenticateToken, isAdmin, async (req, res) => {
@@ -431,6 +496,7 @@ app.put('/api/treinos/:workoutId', authenticateToken, isAdmin, async (req, res) 
   } catch (error) { res.status(500).json({ error: "Erro" }); }
 });
 
+// AQUI ESTAVA O SEU ERRO 404 AO EXCLUIR TREINOS (FALTAVA A ROTA!)
 app.delete('/api/treinos/:workoutId', authenticateToken, isAdmin, async (req, res) => {
   try {
     const workoutId = parseInt(req.params.workoutId);
