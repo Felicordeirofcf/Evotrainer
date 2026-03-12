@@ -84,5 +84,7 @@ model WorkoutHistory {
   userId      Int
   user        User     @relation(fields: [userId], references: [id])
   workoutName String
+  rating      Int?
+  comment     String?
   completedAt DateTime @default(now()) 
 }

@@ -5,7 +5,7 @@ import {
   Users, LogOut, CheckCircle2, Flame, Play, 
   X, User as UserIcon, Plus, Activity, Dumbbell,
   Trash2, Ban, Unlock, Home, Calendar, List, AlertTriangle, Pencil, Link as LinkIcon, Lock, Camera, Save, Search,
-  Download, Sparkles, Youtube, ChevronRight, ChevronLeft, MessageCircle, Crown, Check, ShieldAlert, Palette
+  Download, Sparkles, Youtube, ChevronRight, ChevronLeft, MessageCircle, Crown, Check, ShieldAlert, Palette, Star, MessageSquare
 } from 'lucide-react';
 
 const getBaseUrl = () => {
@@ -89,50 +89,11 @@ const TourModal = ({ showTour, setShowTour, tourStep, setTourStep }: any) => {
   if (!showTour) return null;
 
   const tourSteps = [
-    { 
-      title: "Bem-vindo ao EvoTrainer! 🚀", 
-      text: "Vamos fazer um tour rápido para você entender como nossa plataforma vai escalar a sua consultoria e economizar horas de trabalho.", 
-      icon: <Sparkles size={60} className="text-blue-500 mx-auto" /> 
-    },
-    { 
-      title: "1. Gestão de Alunos 👥", 
-      text: "Na aba 'Alunos' você cadastra seus clientes. Cada aluno que você adicionar ganhará acesso a um App Exclusivo para visualizar os treinos.", 
-      icon: <Users size={60} className="text-emerald-500 mx-auto" /> 
-    },
-    { 
-      title: "2. Treino Inteligente 🧠", 
-      text: "Vá na aba 'Inteligência' e deixe a nossa IA gerar as fichas para você. Ela entende de periodização, biomecânica e patologias.", 
-      icon: <Activity size={60} className="text-indigo-500 mx-auto" /> 
-    },
-    { 
-      title: "3. Vídeos Automáticos 📺", 
-      text: "Adeus planilhas manuais! Para cada exercício gerado, nós buscamos e anexamos o vídeo correto de execução diretamente do YouTube.", 
-      icon: <Youtube size={60} className="text-red-500 mx-auto" /> 
-    },
-    { 
-      title: "4. A Visão do seu Aluno 📱", 
-      text: "O seu aluno entra no aplicativo, clica no 'Modo Foco' e consegue marcar os exercícios que já fez. Eles também ganham 'foguinhos' de ofensiva a cada treino para gamificar a rotina!", 
-      icon: (
-        <div className="w-32 h-56 bg-slate-950 border-[6px] border-slate-800 rounded-[2rem] mx-auto overflow-hidden relative shadow-lg">
-          <div className="absolute top-0 w-full h-4 bg-slate-800 rounded-b-xl flex justify-center"><div className="w-8 h-1 bg-slate-950 rounded-full mt-1"></div></div>
-          <div className="mt-8 px-3 space-y-2">
-            <div className="h-4 bg-blue-600/30 rounded w-1/2 mb-4"></div>
-            <div className="h-10 bg-slate-900 rounded-xl border border-slate-800 flex items-center px-2 gap-2">
-               <div className="w-4 h-4 bg-blue-600 rounded-full"></div><div className="h-2 bg-slate-700 rounded w-1/2"></div>
-            </div>
-            <div className="h-10 bg-slate-900 rounded-xl border border-slate-800 flex items-center px-2 gap-2">
-               <div className="w-4 h-4 bg-slate-700 rounded-full"></div><div className="h-2 bg-slate-700 rounded w-1/2"></div>
-            </div>
-            <div className="h-10 bg-blue-600 rounded-xl mt-6"></div>
-          </div>
-        </div>
-      )
-    },
-    { 
-      title: "Tudo Pronto! 🎉", 
-      text: "O sistema agora é seu. Comece adicionando o seu primeiro aluno ou testando a Inteligência Artificial.", 
-      icon: <CheckCircle2 size={60} className="text-blue-500 mx-auto" /> 
-    }
+    { title: "Bem-vindo ao EvoTrainer! 🚀", text: "Vamos fazer um tour rápido para você entender como nossa plataforma vai escalar a sua consultoria e economizar horas de trabalho.", icon: <Sparkles size={60} className="text-blue-500 mx-auto" /> },
+    { title: "1. Gestão de Alunos 👥", text: "Na aba 'Alunos' você cadastra seus clientes. Cada aluno que você adicionar ganhará acesso a um App Exclusivo para visualizar os treinos.", icon: <Users size={60} className="text-emerald-500 mx-auto" /> },
+    { title: "2. Treino Inteligente 🧠", text: "Vá na aba 'Inteligência' e deixe a nossa IA gerar as fichas para você. Ela entende de periodização, biomecânica e patologias.", icon: <Activity size={60} className="text-indigo-500 mx-auto" /> },
+    { title: "3. Vídeos Automáticos 📺", text: "Adeus planilhas manuais! Para cada exercício gerado, nós buscamos e anexamos o vídeo correto de execução diretamente do YouTube.", icon: <Youtube size={60} className="text-red-500 mx-auto" /> },
+    { title: "Tudo Pronto! 🎉", text: "O sistema agora é seu. Comece adicionando o seu primeiro aluno ou testando a Inteligência Artificial.", icon: <CheckCircle2 size={60} className="text-blue-500 mx-auto" /> }
   ];
 
   const current = tourSteps[tourStep];
@@ -140,45 +101,17 @@ const TourModal = ({ showTour, setShowTour, tourStep, setTourStep }: any) => {
   return (
     <div className="fixed inset-0 bg-black/95 backdrop-blur-md z-[500] flex items-center justify-center p-6 animate-fade-in">
       <div className="bg-slate-900 border border-slate-800 rounded-[3rem] w-full max-w-sm text-center p-8 shadow-2xl relative overflow-hidden">
-        <div className="absolute -top-10 -right-10 opacity-5">
-          <Sparkles size={200} />
-        </div>
-        
+        <div className="absolute -top-10 -right-10 opacity-5"><Sparkles size={200} /></div>
         <div className="relative z-10">
-          <div className="mb-6 h-24 flex items-center justify-center">
-            {current.icon}
-          </div>
+          <div className="mb-6 h-24 flex items-center justify-center">{current.icon}</div>
           <h3 className="text-xl font-black text-white mb-4 leading-tight">{current.title}</h3>
-          <p className="text-slate-400 text-sm font-medium leading-relaxed min-h-[5rem]">
-            {current.text}
-          </p>
-          
-          <div className="flex justify-center gap-2 mt-8 mb-6">
-            {tourSteps.map((_, i) => (
-              <div key={i} className={`h-2 rounded-full transition-all ${i === tourStep ? 'w-8 bg-blue-600' : 'w-2 bg-slate-800'}`}></div>
-            ))}
-          </div>
-
+          <p className="text-slate-400 text-sm font-medium leading-relaxed min-h-[5rem]">{current.text}</p>
+          <div className="flex justify-center gap-2 mt-8 mb-6">{tourSteps.map((_, i) => (<div key={i} className={`h-2 rounded-full transition-all ${i === tourStep ? 'w-8 bg-blue-600' : 'w-2 bg-slate-800'}`}></div>))}</div>
           <div className="flex gap-3">
-            {tourStep > 0 && (
-              <button onClick={() => setTourStep((prev: number) => prev - 1)} className="p-4 bg-slate-800 text-white rounded-2xl active:scale-95 transition-all">
-                <ChevronLeft size={20}/>
-              </button>
-            )}
-            {tourStep < tourSteps.length - 1 ? (
-              <button onClick={() => setTourStep((prev: number) => prev + 1)} className="flex-1 bg-blue-600 text-white font-black py-4 rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-blue-600/30 active:scale-95 transition-all uppercase tracking-widest text-xs">
-                Próximo <ChevronRight size={18}/>
-              </button>
-            ) : (
-              <button onClick={() => setShowTour(false)} className="flex-1 bg-emerald-600 text-white font-black py-4 rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/30 active:scale-95 transition-all uppercase tracking-widest text-xs">
-                VAMOS LÁ! <Flame size={18}/>
-              </button>
-            )}
+            {tourStep > 0 && (<button onClick={() => setTourStep((prev: number) => prev - 1)} className="p-4 bg-slate-800 text-white rounded-2xl active:scale-95 transition-all"><ChevronLeft size={20}/></button>)}
+            {tourStep < tourSteps.length - 1 ? (<button onClick={() => setTourStep((prev: number) => prev + 1)} className="flex-1 bg-blue-600 text-white font-black py-4 rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-blue-600/30 active:scale-95 transition-all uppercase tracking-widest text-xs">Próximo <ChevronRight size={18}/></button>) : (<button onClick={() => setShowTour(false)} className="flex-1 bg-emerald-600 text-white font-black py-4 rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/30 active:scale-95 transition-all uppercase tracking-widest text-xs">VAMOS LÁ! <Flame size={18}/></button>)}
           </div>
-          
-          <button onClick={() => setShowTour(false)} className="mt-6 text-[10px] text-slate-500 font-bold uppercase tracking-widest hover:text-slate-300">
-            Pular Tour
-          </button>
+          <button onClick={() => setShowTour(false)} className="mt-6 text-[10px] text-slate-500 font-bold uppercase tracking-widest hover:text-slate-300">Pular Tour</button>
         </div>
       </div>
     </div>
@@ -209,7 +142,6 @@ export default function App() {
 
   const [isLoading, setIsLoading] = useState(false);
   const [toastMsg, setToastMsg] = useState('');
-  
   const [showInstallBanner, setShowInstallBanner] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
 
@@ -238,7 +170,7 @@ export default function App() {
   const [buscaTrainer, setBuscaTrainer] = useState('');
   const [filtroPlano, setFiltroPlano] = useState('TODOS');
 
-  // --- NOVOS ESTADOS DA IA ---
+  // --- ESTADOS DA IA 2.0 ---
   const [iaPrompt, setIaPrompt] = useState('');
   const [iaAlunoId, setIaAlunoId] = useState('');
   const [iaSplit, setIaSplit] = useState('ABC');
@@ -261,9 +193,11 @@ export default function App() {
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm: '' });
 
+  // --- ESTADOS DE FEEDBACK ---
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [feedbackRating, setFeedbackRating] = useState(5);
   const [feedbackComment, setFeedbackComment] = useState('');
+  const [currentHistoryId, setCurrentHistoryId] = useState<number | null>(null);
 
   const showToast = (msg: any) => {
     let textMessage = typeof msg === 'string' ? msg : (msg?.error || msg?.message || "Erro inesperado.");
@@ -709,7 +643,6 @@ export default function App() {
     try {
       showToast("A IA Master está a analisar a biomecânica...");
       
-      // Enviando todos os novos parâmetros para o Backend!
       const payload = {
         alunoId: iaAlunoId,
         split: iaSplit,
@@ -743,16 +676,39 @@ export default function App() {
         const result = await res.json();
         setCurrentUser({ ...currentUser, streak: result.novaOfensiva });
         localStorage.setItem('treino_ai_user', JSON.stringify({ ...currentUser, streak: result.novaOfensiva }));
+        setCurrentHistoryId(result.historyId);
         setShowFeedbackModal(true);
       }
     } catch (e) { showToast("Erro ao guardar o treino."); }
   };
 
+  const fecharTreino = () => {
+    setShowFeedbackModal(false);
+    setTreinoIniciado(false);
+    setExerciciosFeitos([]);
+    setAlunoTabAtiva('home');
+    setFeedbackComment('');
+    setFeedbackRating(5);
+    setCurrentHistoryId(null);
+  };
+
   const enviarFeedback = async () => {
+    if (!currentHistoryId) {
+      fecharTreino();
+      return;
+    }
     try {
+      await fetch(`${API_URL}/treinos/feedback`, {
+        method: 'POST', 
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ historyId: currentHistoryId, rating: feedbackRating, comment: feedbackComment })
+      });
       showToast("Feedback enviado com sucesso! 🔥");
-      setShowFeedbackModal(false); setTreinoIniciado(false); setExerciciosFeitos([]); setAlunoTabAtiva('home'); setFeedbackComment(''); setFeedbackRating(5);
-    } catch (e) { showToast("Erro ao enviar feedback."); }
+      fecharTreino();
+    } catch (e) { 
+      showToast("Erro ao enviar feedback."); 
+      fecharTreino();
+    }
   };
 
   const salvarPerfil = async (e: React.FormEvent) => {
@@ -1078,6 +1034,7 @@ export default function App() {
 
           <div className="flex-1 overflow-y-auto p-4 sm:p-6 pb-28 custom-scrollbar">
             
+            {/* ADMIN TAB: ALUNOS & DASHBOARD */}
             {adminTabAtiva === 'alunos' && (
               <div className="animate-fade-in flex flex-col gap-6">
                 <div className="grid grid-cols-3 gap-3">
@@ -1115,9 +1072,9 @@ export default function App() {
                         <div className="flex justify-between items-start">
                           <div className="flex items-center gap-3">
                             {aluno.avatar ? (
-                              <img src={aluno.avatar} alt="Avatar" className="w-full h-full object-cover rounded-xl shadow-inner" />
+                              <img src={aluno.avatar} alt="Avatar" className="w-12 h-12 rounded-xl object-cover shadow-inner shrink-0" />
                             ) : (
-                              <div className="w-11 h-11 bg-slate-900 border border-slate-700 text-blue-500 font-black rounded-xl flex items-center justify-center shadow-inner">{aluno.name.charAt(0).toUpperCase()}</div>
+                              <div className="w-12 h-12 bg-slate-900 border border-slate-700 text-blue-500 font-black rounded-xl flex items-center justify-center shadow-inner shrink-0">{aluno.name.charAt(0).toUpperCase()}</div>
                             )}
                             <div>
                               <p className="font-black text-white text-lg leading-tight">{aluno.name}</p>
@@ -1126,6 +1083,27 @@ export default function App() {
                           </div>
                           <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest ${aluno.status === 'Bloqueado' ? 'bg-red-500/10 text-red-500' : 'bg-green-500/10 text-green-500'}`}>{aluno.status}</span>
                         </div>
+
+                        {/* EXIBIÇÃO DO FEEDBACK NO PAINEL DO PERSONAL */}
+                        {aluno.history && aluno.history.length > 0 && (aluno.history[0].comment || aluno.history[0].rating) ? (
+                           <div className="bg-slate-900/50 p-3 rounded-xl border border-slate-800 flex items-start gap-2">
+                             <MessageSquare size={14} className="text-amber-500 shrink-0 mt-0.5" />
+                             <div>
+                                <div className="flex gap-0.5 mb-1">
+                                  {[...Array(5)].map((_, i) => (
+                                    <Star key={i} size={10} fill={i < (aluno.history[0].rating || 0) ? "#fbbf24" : "none"} color={i < (aluno.history[0].rating || 0) ? "#fbbf24" : "#475569"} />
+                                  ))}
+                                </div>
+                                {aluno.history[0].comment && <p className="text-[10px] text-slate-300 font-medium italic leading-relaxed">"{aluno.history[0].comment}"</p>}
+                                <p className="text-[8px] text-slate-500 mt-1 font-bold">Ref: {aluno.history[0].workoutName}</p>
+                             </div>
+                           </div>
+                        ) : (
+                           <div className="bg-slate-900/30 p-3 rounded-xl border border-slate-800/50 flex items-center gap-2 opacity-50">
+                             <MessageSquare size={14} className="text-slate-600 shrink-0" />
+                             <p className="text-[10px] text-slate-500 font-medium italic">Nenhum feedback recente.</p>
+                           </div>
+                        )}
 
                         <div className="grid grid-cols-2 gap-3">
                           <div className="bg-slate-900 p-3 rounded-2xl">
@@ -1151,7 +1129,7 @@ export default function App() {
               </div>
             )}
 
-            {/* SEÇÃO IA 2.0 (ATUALIZADA COM OS NOVOS CAMPOS) */}
+            {/* ADMIN TAB: GERADOR IA COM DIVISÃO AUTOMÁTICA E NOVOS PARÂMETROS */}
             {adminTabAtiva === 'ia' && (
               <div className="animate-fade-in flex flex-col gap-6">
                 <div className="bg-gradient-to-br from-indigo-600 to-purple-800 p-6 rounded-[2.5rem] shadow-2xl relative overflow-hidden">
@@ -1230,12 +1208,13 @@ export default function App() {
 
                   <button onClick={gerarTreinoInteligente} disabled={isGeneratingIA || !iaAlunoId || !iaPrompt} className="w-full mt-2 bg-indigo-600 hover:bg-indigo-500 text-white font-black text-sm py-5 rounded-[1.5rem] flex items-center justify-center gap-2 shadow-[0_10px_30px_rgba(79,70,229,0.4)] active:scale-95 transition-all disabled:opacity-50 uppercase tracking-widest">
                     {isGeneratingIA ? <Activity className="animate-spin" /> : <Sparkles size={20} />} 
-                    {isGeneratingIA ? 'Criando Estrutura...' : 'Gerar Treino Inteligente'}
+                    {isGeneratingIA ? 'Analisando Biomecânica...' : 'Gerar Treino de Elite'}
                   </button>
                 </div>
               </div>
             )}
 
+            {/* ADMIN TAB: PERFIL DO PERSONAL (COM OPÇÕES DE UPGRADE) */}
             {adminTabAtiva === 'perfil' && (
               <div className="flex flex-col gap-6 animate-fade-in pb-8">
                  
@@ -1563,6 +1542,30 @@ export default function App() {
         
         <InstallBanner showInstallBanner={showInstallBanner} setShowInstallBanner={setShowInstallBanner} handleInstallClick={handleInstallClick} brandColor={primaryColor} />
         <YoutubeModal videoAtivo={videoAtivo} setVideoAtivo={setVideoAtivo} brandColor={primaryColor} />
+
+        {/* FEEDBACK MODAL (ALUNO PÓS-TREINO) */}
+        {showFeedbackModal && (
+          <div className="fixed inset-0 bg-black/95 backdrop-blur-xl z-[400] flex items-center justify-center p-6 animate-fade-in">
+            <div className="bg-slate-900 border border-slate-800 p-8 rounded-[3rem] w-full max-w-sm text-center space-y-8 shadow-2xl">
+               <div className="w-20 h-20 bg-gradient-to-br from-orange-400 to-red-600 rounded-full flex items-center justify-center mx-auto shadow-lg shadow-red-500/30 animate-bounce"><Flame size={40} className="text-white"/></div>
+               <div>
+                 <h3 className="text-2xl font-black text-white">Treino Concluído!</h3>
+                 <p className="text-slate-400 text-xs mt-2 font-medium">Como classifica o esforço de hoje?</p>
+               </div>
+               <div className="flex justify-center gap-2">
+                 {[1,2,3,4,5].map(n => (
+                   <button key={n} onClick={()=>setFeedbackRating(n)} className={`p-2 transition-all transform hover:scale-110 ${feedbackRating >= n ? 'text-amber-400 scale-125 drop-shadow-[0_0_15px_rgba(251,191,36,0.5)]' : 'text-slate-800'}`}>
+                     <Star size={36} fill={feedbackRating >= n ? 'currentColor' : 'none'} strokeWidth={feedbackRating >= n ? 0 : 2}/>
+                   </button>
+                 ))}
+               </div>
+               <textarea value={feedbackComment} onChange={e=>setFeedbackComment(e.target.value)} placeholder="Alguma dor, dificuldade ou observação para o seu Personal? (Opcional)" rows={3} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-sm outline-none focus:border-blue-500 text-white resize-none" />
+               <button onClick={enviarFeedback} className="w-full bg-blue-600 text-white font-black py-5 rounded-2xl shadow-xl shadow-blue-600/30 active:scale-95 transition-all text-sm uppercase tracking-widest">
+                 Enviar Feedback
+               </button>
+            </div>
+          </div>
+        )}
 
         <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-900 z-10 shadow-md">
            <div className="flex items-center gap-3">

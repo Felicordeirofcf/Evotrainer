@@ -49,6 +49,27 @@ const isSuperAdmin = (req, res, next) => {
 };
 
 // ==========================================
+// ROTA WHITE LABEL (PÚBLICA PARA LOGIN)
+// ==========================================
+app.get('/api/brand/:trainerId', async (req, res) => {
+  const trainerId = parseInt(req.params.trainerId);
+  try {
+    const trainer = await prisma.user.findUnique({ where: { id: trainerId } });
+    if (!trainer) return res.status(404).json({ error: "Treinador não encontrado." });
+
+    if (trainer.plano !== 'ELITE') {
+      return res.json({ name: "EvoTrainer", color: "#2563eb", logo: null });
+    }
+
+    res.json({
+      name: trainer.brandName || trainer.name,
+      color: trainer.brandColor || "#2563eb",
+      logo: trainer.brandLogo || null
+    });
+  } catch (e) { res.status(500).json({ error: "Erro interno." }); }
+});
+
+// ==========================================
 // LOGIN (COM INJEÇÃO DE WHITE LABEL)
 // ==========================================
 app.post('/api/login', async (req, res) => {
@@ -321,11 +342,19 @@ Crie o JSON rigorosamente dentro destes parâmetros e respeitando o volume exato
 });
 
 // ==========================================
-// ROTAS DE ALUNOS E TREINOS
+// ROTAS DE ALUNOS (ATUALIZADA COM HISTÓRICO DE FEEDBACK)
 // ==========================================
 app.get('/api/alunos', authenticateToken, isAdmin, async (req, res) => {
   try {
-    const alunos = await prisma.user.findMany({ where: { role: 'STUDENT', trainerId: req.user.id }, orderBy: { createdAt: 'desc' }, include: { workouts: { orderBy: { id: 'asc' } }, _count: { select: { workouts: true } } } });
+    const alunos = await prisma.user.findMany({ 
+      where: { role: 'STUDENT', trainerId: req.user.id }, 
+      orderBy: { createdAt: 'desc' }, 
+      include: { 
+        workouts: { orderBy: { id: 'asc' } }, 
+        history: { orderBy: { completedAt: 'desc' }, take: 1 }, // Traz o último feedback
+        _count: { select: { workouts: true } } 
+      } 
+    });
     res.json(alunos);
   } catch (error) { res.status(500).json({ error: "Erro" }); }
 });
@@ -391,6 +420,9 @@ app.put('/api/alunos/:id/senha', authenticateToken, async (req, res) => {
   } catch (error) { res.status(500).json({ error: "Erro." }); }
 });
 
+// ==========================================
+// ROTAS DE TREINOS E FEEDBACK
+// ==========================================
 app.post('/api/treinos', authenticateToken, isAdmin, async (req, res) => {
   try {
     const novoTreino = await prisma.workoutTemplate.create({ data: { title: req.body.title, duration: req.body.duration, userId: req.body.userId, dayOfWeek: req.body.dayOfWeek, exercises: { create: req.body.exercises } } });
@@ -423,10 +455,22 @@ app.get('/api/treinos/aluno/:id', authenticateToken, async (req, res) => {
 
 app.post('/api/treinos/finalizar', authenticateToken, async (req, res) => {
   try {
-    await prisma.workoutHistory.create({ data: { userId: req.body.userId, workoutName: req.body.workoutName } });
+    // Agora retornamos o historyId para que o frontend o utilize no envio do feedback!
+    const history = await prisma.workoutHistory.create({ data: { userId: req.body.userId, workoutName: req.body.workoutName } });
     const user = await prisma.user.update({ where: { id: req.body.userId }, data: { streak: { increment: 1 }, status: 'Ativo' } });
-    res.json({ message: "Sucesso!", novaOfensiva: user.streak });
+    res.json({ message: "Sucesso!", novaOfensiva: user.streak, historyId: history.id });
   } catch (error) { res.status(500).json({ error: "Erro" }); }
+});
+
+app.post('/api/treinos/feedback', authenticateToken, async (req, res) => {
+  const { historyId, rating, comment } = req.body;
+  try {
+    await prisma.workoutHistory.update({
+      where: { id: historyId },
+      data: { rating, comment }
+    });
+    res.json({ message: "Feedback salvo com sucesso!" });
+  } catch (error) { res.status(500).json({ error: "Erro ao salvar feedback" }); }
 });
 
 // ==========================================
