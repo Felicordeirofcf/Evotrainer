@@ -1,5 +1,4 @@
-// Este é o ficheiro de configuração da sua Base de Dados configurado para PostgreSQL (Neon).
-
+// Configuração para PostgreSQL (Neon)
 generator client {
   provider = "prisma-client-js"
 }
@@ -18,8 +17,6 @@ model User {
   role      String   @default("STUDENT") 
   streak    Int      @default(0)         
   status    String   @default("Ativo")   
-  
-  // --- CAMPOS DO PERFIL DO ALUNO / PERSONAL ---
   phone     String?
   age       String?
   weight    String?
@@ -27,28 +24,18 @@ model User {
   goal      String?  @default("Hipertrofia")
   notes     String?
   avatar    String?  @db.Text
-
-  // --- RECUPERAÇÃO DE PALAVRA-PASSE ---
   resetToken   String?
   resetExpires DateTime?
-
-  // --- CAMPOS DO SAAS ---
   plano      String   @default("GRATIS")
   iaUsadaMes Int      @default(0)
-
-  // --- WHITE LABEL (Apenas para Plano Elite) ---
   brandName  String?
   brandColor String?
   brandLogo  String?  @db.Text
-
-  // --- RELACIONAMENTOS SAAS ---
   trainerId Int?
   trainer   User?    @relation("TrainerToStudent", fields: [trainerId], references: [id])
   alunos    User[]   @relation("TrainerToStudent")
-  
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
   history   WorkoutHistory[]
   workouts  WorkoutTemplate[] 
 }
@@ -58,10 +45,8 @@ model WorkoutTemplate {
   title       String
   duration    String
   dayOfWeek   String?    @default("Segunda") 
-  
   userId      Int?       
   user        User?      @relation(fields: [userId], references: [id])
-  
   exercises   Exercise[]
 }
 
@@ -71,10 +56,8 @@ model Exercise {
   sets        String   
   weight      String   
   youtubeId   String?  
-  
   isConjugado  Boolean  @default(false)
   conjugadoCom String? 
-  
   workoutId   Int
   workout     WorkoutTemplate @relation(fields: [workoutId], references: [id], onDelete: Cascade) 
 }
@@ -89,17 +72,15 @@ model WorkoutHistory {
   completedAt DateTime @default(now()) 
 }
 
-// ==========================================
-// NOVO: CONFIGURAÇÕES GERAIS DO SISTEMA (PROMOÇÕES)
-// ==========================================
+// NOVA TABELA PARA AS PROMOÇÕES E LINKS DO ASAAS
 model SystemConfig {
   id          Int      @id @default(1)
   promoActive Boolean  @default(false)
   promoTitle  String   @default("🔥 OFERTA DE LANÇAMENTO 🔥")
   startPrice  String   @default("30")
-  startLink   String   @default("")
+  startLink   String   @default("https://www.asaas.com/c/gppqjpyhag2jw0c9")
   proPrice    String   @default("60")
-  proLink     String   @default("")
+  proLink     String   @default("https://www.asaas.com/c/6np0bp37c91vfla6")
   elitePrice  String   @default("100")
-  eliteLink   String   @default("")
+  eliteLink   String   @default("https://www.asaas.com/c/sql5glydf5g3gvxs")
 }
