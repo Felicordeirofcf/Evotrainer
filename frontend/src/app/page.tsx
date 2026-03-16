@@ -215,10 +215,11 @@ export default function App() {
   const [iaObjetivo, setIaObjetivo] = useState('Hipertrofia');
   const [iaGenero, setIaGenero] = useState('Masculino');
   const [iaNivel, setIaNivel] = useState('Intermediário');
-  const [iaFrequencia, setIaFrequencia] = useState('4');
-  const [iaVolume, setIaVolume] = useState('7');
-  const [iaMethodology, setIaMethodology] = useState('Tradicional, Progressão de Carga Constante');
   const [iaLocalTreino, setIaLocalTreino] = useState('Qualquer Academia');
+  const [iaFrequencia, setIaFrequencia] = useState('4');
+  const [iaModalidade, setIaModalidade] = useState('Musculação');
+  const [iaPeriodizacao, setIaPeriodizacao] = useState('Linear');
+  const [iaDetalhesExtras, setIaDetalhesExtras] = useState('');
   const [isGeneratingIA, setIsGeneratingIA] = useState(false);
 
   const [treinosAluno, setTreinosAluno] = useState<any[]>([]);
@@ -756,8 +757,8 @@ export default function App() {
         split: autoSplit,
         frequencia: iaFrequencia,
         prompt: promptEnriquecido,
-        volume: iaVolume,
-        metodologia: iaMethodology,
+        volume: '7', 
+        metodologia: iaPeriodizacao,
         localTreino: iaLocalTreino
       };
 
@@ -772,7 +773,7 @@ export default function App() {
       setAdminTabAtiva('alunos');
       
       if (alunoBuscado) {
-        enviarAvisoWhatsAppPosTreino("Periodização Completa ", alunoBuscado);
+        enviarAvisoWhatsAppPosTreino("Periodização Completa via IA", alunoBuscado);
       }
       
       setIaDetalhesExtras('');
@@ -1319,11 +1320,11 @@ export default function App() {
 
             {/* ADMIN TAB: GERADOR IA (CLIQUE PARA SELECIONAR - ESTILO UX MODERNO) */}
             {adminTabAtiva === 'ia' && (
-              <div className="animate-fade-in flex flex-col gap-6 md:max-w-3xl mx-auto w-full">
+              <div className="animate-fade-in flex flex-col gap-6 md:max-w-3xl mx-auto w-full pb-8">
                 <div className="bg-gradient-to-br from-indigo-600 to-purple-800 p-6 rounded-[2.5rem] shadow-2xl relative overflow-hidden">
                   <div className="relative z-10">
                     <h2 className="text-2xl font-black text-white flex items-center gap-2 leading-none"><Sparkles fill="currentColor"/> Mágico de IA <span className="bg-white text-indigo-600 text-[10px] px-2 py-0.5 rounded-md ml-1">v2.0</span></h2>
-                    <p className="text-indigo-200 text-xs mt-3 leading-relaxed font-medium">Prescreva treinos de elite com base em variáveis biométricas em menos de 10 segundos.</p>
+                    <p className="text-indigo-200 text-xs mt-3 leading-relaxed font-medium">Prescreva treinos de elite com base em variáveis biométricas e de local de treino em menos de 10 segundos.</p>
                   </div>
                   <Sparkles size={120} className="absolute -bottom-6 -right-6 text-white opacity-10 transform -rotate-12" />
                 </div>
@@ -1376,7 +1377,7 @@ export default function App() {
                       ))}
                     </div>
                   </div>
-
+                  
                   {/* LOCAL DE TREINO / REDE DE ACADEMIA */}
                   <div className="flex flex-col gap-2">
                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Local de Treino (Filtro de Máquinas)</label>
@@ -1764,6 +1765,7 @@ export default function App() {
 
   return (
     <div className="min-h-[100dvh] bg-slate-950 flex flex-col text-slate-50 items-center md:justify-center relative md:py-10">
+      {/* O aluno mantém-se contido num formato de telemóvel mesmo no Desktop */}
       <div className="w-full h-full min-h-[100dvh] md:min-h-[850px] md:h-[850px] md:max-w-[420px] bg-slate-900 md:rounded-[40px] md:border-[8px] border-slate-800 flex flex-col relative overflow-hidden md:shadow-[0_0_50px_rgba(0,0,0,0.5)]">
         {toastMsg && <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[130] text-white font-bold px-4 py-2 rounded-full shadow-lg text-sm whitespace-nowrap animate-fade-in" style={getBrandStyle('bg')}>{toastMsg}</div>}
         
