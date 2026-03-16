@@ -384,34 +384,59 @@ app.put('/api/alunos/:id/senha', authenticateToken, async (req, res) => {
   } catch (error) { res.status(500).json({ error: "Erro." }); }
 });
 
-// ==========================================
-// MÁGICO DE IA (ATUALIZADO PARA O NOVO FORMATO DE BOTÕES)
-// ==========================================
 app.post('/api/ai/gerar-treino', authenticateToken, isAdmin, async (req, res) => {
-  const { alunoId, objetivo, genero, nivel, frequencia, periodizacao, modalidade, restricoes } = req.body;
-  
+  const { alunoId, split, frequencia, prompt, volume, metodologia, localTreino } = req.body;
   try {
     const trainer = await prisma.user.findUnique({ where: { id: req.user.id } });
     const IA_LIMITS = { 'GRATIS': 0, 'START': 10, 'PRO': 40, 'ELITE': 9999 };
+    
     if (trainer.iaUsadaMes >= (IA_LIMITS[trainer.plano || 'GRATIS'] || 0)) {
       return res.status(403).json({ error: `Atingiu o limite de IA do seu plano.` });
     }
+    
     const aluno = await prisma.user.findUnique({ where: { id: parseInt(alunoId) } });
     if (!aluno || aluno.trainerId !== req.user.id) return res.status(404).json({ error: "Aluno não encontrado." });
 
-    const systemPrompt = `Você é um Personal Trainer de Elite.
-Sua missão é criar fichas de treino altamente periodizadas e realistas.
-RETORNE APENAS UM JSON VÁLIDO COM A SEGUINTE ESTRUTURA E NADA MAIS:
+    if (!OPENAI_API_KEY) return res.status(500).json({ error: "Chave da OpenAI não configurada." });
+
+    // SUPER PROMPT DE ELITE BASEADO NAS SUAS REGRAS
+    const systemPrompt = `Você é um Personal Trainer de Elite, especialista em musculação, hipertrofia, emagrecimento, força, periodização e prescrição individualizada de treino.
+Sua função é criar fichas de treino periodizadas, tecnicamente coerentes, seguras, objetivas e aplicáveis na prática.
+
+REGRAS GERAIS DE PRESCRIÇÃO:
+1. Monte treinos com base nos dados recebidos do aluno (objetivo, nível, frequência, local, restrições).
+2. A ficha deve ser tecnicamente consistente: volume compatível, seleção adequada, equilíbrio de padrões de movimento, progressão coerente e controle de fadiga. Ordem lógica (multiarticulares antes de isoladores).
+3. Adapte RIGOROSAMENTE os exercícios ao Local de Treino informado. Use apenas máquinas e recursos coerentes com o ambiente:
+- "Smart Fit" ou "Skyfit": Máquinas modernas guiadas, polias duplas, smith, esteiras, halteres padrão, cadeiras abdutoras/adutoras, hack squat, leg press.
+- "Academia Sergio Amin" ou "Academia Alto Nível": Academia de altíssimo padrão, máquinas variadas, pesos livres abundantes, gaiolas de agachamento, equipamentos de musculação tradicional e hardcore.
+- "Casa": Peso do corpo, halteres (se informados), elásticos.
+- "Condomínio": Seleção limitada, priorizando halteres, banco, esteira e poucas máquinas básicas.
+Nunca invente equipamentos que não façam sentido para o local informado.
+4. A periodização deve ser implícita: Iniciantes (foco em aprendizado técnico, menor complexidade), Intermediários (volume/densidade moderados), Avançados (maior refinamento e intensidade).
+5. Regras de seleção de exercícios: Priorize segurança e eficiência. Evite redundância excessiva (múltiplos exercícios idênticos). Respeite limitações articulares.
+6. Exercícios conjugados: Use "isConjugado": true somente quando houver prescrição real (bi-set, superset). Priorize combinações não conflitantes ou agonista/antagonista. Se não, use "isConjugado": false e "conjugadoCom": "".
+7. Padronização dos campos:
+- "name": Use nomes claros, específicos e padronizados em português (ex: "Supino Reto com Halteres", "Cadeira Extensora").
+- "sets": Formato "3x10", "4x8", "3x12-15".
+- "weight": Descreva a intensidade de forma técnica (ex: "Moderado", "Alto", "RPE 8", "2 RIR", "Carga progressiva").
+- "duration": Formato "45 min", "60 min".
+8. A soma do treino deve ser realista. Se faltarem dados, assuma a opção mais segura e conservadora.
+
+REGRAS DE SAÍDA:
+- RETORNE APENAS UM JSON VÁLIDO.
+- NÃO use markdown ou blocos de código.
+- NÃO escreva explicações ou textos fora da estrutura.
+- ESTRUTURA OBRIGATÓRIA:
 {
   "fichas": [
     {
-      "title": "Treino A - [Foco Muscular]",
-      "duration": "Ex: 50 min",
+      "title": "Treino A - [Foco]",
+      "duration": "60 min",
       "exercises": [
         {
-          "name": "Nome Comercial do Exercício",
-          "sets": "Ex: 3x 8-12",
-          "weight": "Moderado/Pesado",
+          "name": "Nome do Exercício",
+          "sets": "3x10",
+          "weight": "Moderado",
           "isConjugado": false,
           "conjugadoCom": ""
         }
@@ -420,17 +445,7 @@ RETORNE APENAS UM JSON VÁLIDO COM A SEGUINTE ESTRUTURA E NADA MAIS:
   ]
 }`;
 
-    const userPrompt = `Gere uma rotina de treinos completa para o aluno ${aluno.name}.
-CARACTERÍSTICAS:
-- Gênero: ${genero}
-- Objetivo Principal: ${objetivo}
-- Nível de Treino: ${nivel}
-- Frequência: ${frequencia}
-- Tipo de Periodização: ${periodizacao}
-- Modalidade: ${modalidade}
-- Restrições/Lesões: ${restricoes || 'Nenhuma'}
-
-INSTRUÇÃO IMPORTANTE: Com base na Frequência e no Nível, ESCOLHA A MELHOR DIVISÃO (ex: AB, ABC, ABCD) e devolva as fichas únicas correspondentes. Lembre-se que um aluno avançado treinando ${frequencia} precisa de um estímulo adequado.`;
+    const userPrompt = `Aluno: ${aluno.name}. Divisão: ${split}. Frequência: ${frequencia} dias. Volume: ${volume} exercícios por ficha. Metodologia: ${metodologia}. Local de Treino/Equipamentos: ${localTreino || 'Qualquer Academia'}. Contexto/Foco: ${prompt}. Lembre-se de retornar EXATAMENTE a quantidade de fichas da divisão (ex: ABC = 3 fichas).`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -439,7 +454,7 @@ INSTRUÇÃO IMPORTANTE: Com base na Frequência e no Nível, ESCOLHA A MELHOR DI
         model: 'gpt-4o-mini', 
         messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }], 
         response_format: { type: "json_object" },
-        temperature: 0.6
+        temperature: 0.5 // Baixamos a temperatura ligeiramente para respostas mais estritas e consistentes
       })
     });
 
@@ -453,7 +468,6 @@ INSTRUÇÃO IMPORTANTE: Com base na Frequência e no Nível, ESCOLHA A MELHOR DI
     const content = JSON.parse(data.choices[0].message.content);
     const diasSemanaPadrao = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
     
-    // A IA devolve as fichas (A, B, C, etc.). Nós iteramos sobre elas para as salvar.
     for (let i = 0; i < content.fichas.length; i++) {
       const ficha = content.fichas[i];
       
@@ -471,7 +485,7 @@ INSTRUÇÃO IMPORTANTE: Com base na Frequência e no Nível, ESCOLHA A MELHOR DI
           title: ficha.title || `Treino ${i+1}`, 
           duration: ficha.duration || "60 min", 
           userId: aluno.id, 
-          dayOfWeek: diasSemanaPadrao[i % 7], // Associa um dia genérico inicialmente
+          dayOfWeek: diasSemanaPadrao[i % 7],
           exercises: { create: mappedExercises } 
         } 
       });

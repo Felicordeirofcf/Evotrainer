@@ -216,9 +216,9 @@ export default function App() {
   const [iaGenero, setIaGenero] = useState('Masculino');
   const [iaNivel, setIaNivel] = useState('Intermediário');
   const [iaFrequencia, setIaFrequencia] = useState('4');
-  const [iaPeriodizacao, setIaPeriodizacao] = useState('Linear');
-  const [iaModalidade, setIaModalidade] = useState('Musculação');
-  const [iaDetalhesExtras, setIaDetalhesExtras] = useState('');
+  const [iaVolume, setIaVolume] = useState('7');
+  const [iaMethodology, setIaMethodology] = useState('Tradicional, Progressão de Carga Constante');
+  const [iaLocalTreino, setIaLocalTreino] = useState('Qualquer Academia');
   const [isGeneratingIA, setIsGeneratingIA] = useState(false);
 
   const [treinosAluno, setTreinosAluno] = useState<any[]>([]);
@@ -756,8 +756,9 @@ export default function App() {
         split: autoSplit,
         frequencia: iaFrequencia,
         prompt: promptEnriquecido,
-        volume: '7', // Volume padrão focado em hipertrofia/emagrecimento seguro
-        metodologia: iaPeriodizacao
+        volume: iaVolume,
+        metodologia: iaMethodology,
+        localTreino: iaLocalTreino
       };
 
       const response = await fetch(`${API_URL}/ai/gerar-treino`, {
@@ -771,7 +772,7 @@ export default function App() {
       setAdminTabAtiva('alunos');
       
       if (alunoBuscado) {
-        enviarAvisoWhatsAppPosTreino("Periodização Completa via IA", alunoBuscado);
+        enviarAvisoWhatsAppPosTreino("Periodização Completa ", alunoBuscado);
       }
       
       setIaDetalhesExtras('');
@@ -1371,6 +1372,30 @@ export default function App() {
                       {['Iniciante', 'Intermediário', 'Avançado'].map(n => (
                         <button key={n} onClick={() => setIaNivel(n)} className={`flex-1 py-3 rounded-xl font-black text-[10px] sm:text-xs transition-all ${iaNivel === n ? 'bg-slate-800 text-white shadow-md' : 'text-slate-500 hover:text-slate-300'}`}>
                           {n}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* LOCAL DE TREINO / REDE DE ACADEMIA */}
+                  <div className="flex flex-col gap-2">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Local de Treino (Filtro de Máquinas)</label>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {[
+                        { id: 'Qualquer Academia', label: 'Padrão' },
+                        { id: 'Smart Fit', label: 'Smart Fit' },
+                        { id: 'Skyfit', label: 'Skyfit' },
+                        { id: 'Academia Sergio Amin', label: 'Sergio Amin' },
+                        { id: 'Academia Alto Nível', label: 'Alto Nível' },
+                        { id: 'Casa (Sem Máquinas)', label: 'Em Casa' }
+                      ].map(local => (
+                        <button 
+                          key={local.id} 
+                          type="button"
+                          onClick={() => setIaLocalTreino(local.id)} 
+                          className={`py-3 px-2 rounded-xl font-black text-[10px] sm:text-xs transition-all border ${iaLocalTreino === local.id ? 'bg-slate-800 text-white border-slate-600 shadow-md' : 'bg-slate-950 border-slate-800 text-slate-500 hover:text-slate-300'}`}
+                        >
+                          {local.label}
                         </button>
                       ))}
                     </div>
