@@ -748,6 +748,7 @@ export default function App() {
       if(iaFrequencia === '4') autoSplit = 'ABCD';
       if(iaFrequencia === '5') autoSplit = 'ABCDE';
       if(iaFrequencia === '6') autoSplit = 'ABCDEF';
+      if(iaFrequencia === '7') autoSplit = 'ABCDEFG';
 
       // Constrói um prompt massivo com as novas opções
       const promptEnriquecido = `Objetivo: ${iaObjetivo}. Gênero: ${iaGenero}. Nível: ${iaNivel}. Modalidade: ${iaModalidade}. Periodização: ${iaPeriodizacao}. Informações extra: ${iaDetalhesExtras}`;
@@ -773,7 +774,7 @@ export default function App() {
       setAdminTabAtiva('alunos');
       
       if (alunoBuscado) {
-        enviarAvisoWhatsAppPosTreino("Periodização Completa via IA", alunoBuscado);
+        enviarAvisoWhatsAppPosTreino("Periodização Completa", alunoBuscado);
       }
       
       setIaDetalhesExtras('');
@@ -1405,9 +1406,9 @@ export default function App() {
                   {/* FREQUÊNCIA SEMANAL */}
                   <div className="flex flex-col gap-2">
                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Frequência Semanal</label>
-                    <div className="flex justify-between gap-2">
-                      {['2', '3', '4', '5', '6'].map(num => (
-                        <button key={num} onClick={() => setIaFrequencia(num)} className={`w-12 h-12 rounded-full font-black text-sm flex items-center justify-center transition-all ${iaFrequencia === num ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30 scale-110' : 'bg-slate-950 border border-slate-800 text-slate-500 hover:text-slate-300 hover:border-slate-700'}`}>
+                    <div className="flex justify-between gap-1 sm:gap-2">
+                      {['2', '3', '4', '5', '6', '7'].map(num => (
+                        <button key={num} onClick={() => setIaFrequencia(num)} className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full font-black text-xs sm:text-sm flex items-center justify-center transition-all ${iaFrequencia === num ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30 scale-110' : 'bg-slate-950 border border-slate-800 text-slate-500 hover:text-slate-300 hover:border-slate-700'}`}>
                           {num}x
                         </button>
                       ))}
