@@ -201,9 +201,6 @@ app.post('/api/setup-master', async (req, res) => {
   } catch (error) { res.status(400).json({ error: "Erro." }); }
 });
 
-// ==========================================
-// ⚠️ CORREÇÃO: E-MAIL DE RECUPERAÇÃO DE SENHA
-// ==========================================
 app.post('/api/forgot-password', async (req, res) => {
   const { email } = req.body;
   try {
@@ -226,7 +223,7 @@ app.post('/api/forgot-password', async (req, res) => {
         to: user.email,
         subject: "Recuperação de Palavra-Passe - EvoTrainer",
         html: `
-          <div style="font-family: Arial, sans-serif; padding: 20px; background: #f8fafc; color: #0f172a; border-radius: 12px; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0;">
+          <div style="font-family: Arial; padding: 20px; background: #f8fafc; color: #0f172a; border-radius: 12px; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0;">
             <h2 style="color: #2563eb;">EvoTrainer</h2>
             <p>Recebemos um pedido para recuperar a palavra-passe da sua conta.</p>
             <p>Clique no botão abaixo para criar uma nova senha de acesso seguro:</p>
@@ -387,34 +384,34 @@ app.put('/api/alunos/:id/senha', authenticateToken, async (req, res) => {
   } catch (error) { res.status(500).json({ error: "Erro." }); }
 });
 
+// ==========================================
+// MÁGICO DE IA (ATUALIZADO PARA O NOVO FORMATO DE BOTÕES)
+// ==========================================
 app.post('/api/ai/gerar-treino', authenticateToken, isAdmin, async (req, res) => {
-  const { alunoId, split, frequencia, prompt, volume, metodologia } = req.body;
+  const { alunoId, objetivo, genero, nivel, frequencia, periodizacao, modalidade, restricoes } = req.body;
+  
   try {
     const trainer = await prisma.user.findUnique({ where: { id: req.user.id } });
     const IA_LIMITS = { 'GRATIS': 0, 'START': 10, 'PRO': 40, 'ELITE': 9999 };
-    
     if (trainer.iaUsadaMes >= (IA_LIMITS[trainer.plano || 'GRATIS'] || 0)) {
       return res.status(403).json({ error: `Atingiu o limite de IA do seu plano.` });
     }
-    
     const aluno = await prisma.user.findUnique({ where: { id: parseInt(alunoId) } });
     if (!aluno || aluno.trainerId !== req.user.id) return res.status(404).json({ error: "Aluno não encontrado." });
 
-    if (!OPENAI_API_KEY) return res.status(500).json({ error: "Chave da OpenAI não configurada." });
-
     const systemPrompt = `Você é um Personal Trainer de Elite.
-Sua missão é criar fichas de treino periodizadas.
+Sua missão é criar fichas de treino altamente periodizadas e realistas.
 RETORNE APENAS UM JSON VÁLIDO COM A SEGUINTE ESTRUTURA E NADA MAIS:
 {
   "fichas": [
     {
-      "title": "Treino A - [Foco]",
-      "duration": "60 min",
+      "title": "Treino A - [Foco Muscular]",
+      "duration": "Ex: 50 min",
       "exercises": [
         {
-          "name": "Nome do Exercício",
-          "sets": "3x10",
-          "weight": "Moderado",
+          "name": "Nome Comercial do Exercício",
+          "sets": "Ex: 3x 8-12",
+          "weight": "Moderado/Pesado",
           "isConjugado": false,
           "conjugadoCom": ""
         }
@@ -423,38 +420,45 @@ RETORNE APENAS UM JSON VÁLIDO COM A SEGUINTE ESTRUTURA E NADA MAIS:
   ]
 }`;
 
-    const userPrompt = `Aluno: ${aluno.name}. Divisão: ${split}. Frequência: ${frequencia} dias. Volume: ${volume} exercícios por ficha. Metodologia: ${metodologia}. Contexto/Foco: ${prompt}. Lembre-se de retornar EXATAMENTE a quantidade de fichas da divisão (ex: ABC = 3 fichas).`;
+    const userPrompt = `Gere uma rotina de treinos completa para o aluno ${aluno.name}.
+CARACTERÍSTICAS:
+- Gênero: ${genero}
+- Objetivo Principal: ${objetivo}
+- Nível de Treino: ${nivel}
+- Frequência: ${frequencia}
+- Tipo de Periodização: ${periodizacao}
+- Modalidade: ${modalidade}
+- Restrições/Lesões: ${restricoes || 'Nenhuma'}
+
+INSTRUÇÃO IMPORTANTE: Com base na Frequência e no Nível, ESCOLHA A MELHOR DIVISÃO (ex: AB, ABC, ABCD) e devolva as fichas únicas correspondentes. Lembre-se que um aluno avançado treinando ${frequencia} precisa de um estímulo adequado.`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${OPENAI_API_KEY}` },
       body: JSON.stringify({ 
         model: 'gpt-4o-mini', 
-        messages: [
-          { role: 'system', content: systemPrompt }, 
-          { role: 'user', content: userPrompt }
-        ], 
+        messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }], 
         response_format: { type: "json_object" },
         temperature: 0.6
       })
     });
-    
+
     const data = await response.json();
     
     if (data.error) {
-        console.error("OpenAI API Error:", data.error);
-        return res.status(500).json({ error: "Erro na API da OpenAI." });
+      console.error("OpenAI Error:", data.error);
+      return res.status(500).json({ error: "Falha na comunicação com a IA." });
     }
 
     const content = JSON.parse(data.choices[0].message.content);
-    const dias = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
+    const diasSemanaPadrao = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
     
-    for (let i = 0; i < parseInt(frequencia); i++) {
-      const ficha = content.fichas[i % content.fichas.length];
+    // A IA devolve as fichas (A, B, C, etc.). Nós iteramos sobre elas para as salvar.
+    for (let i = 0; i < content.fichas.length; i++) {
+      const ficha = content.fichas[i];
       
-      // Mapeia os exercícios para garantir que não falta nada e evitar erro no Prisma
       const mappedExercises = ficha.exercises.map(ex => ({
-        name: ex.name || "Exercício sem nome",
+        name: ex.name || "Exercício",
         sets: String(ex.sets || "3x10"),
         weight: String(ex.weight || "Moderado"),
         youtubeId: null,
@@ -467,7 +471,7 @@ RETORNE APENAS UM JSON VÁLIDO COM A SEGUINTE ESTRUTURA E NADA MAIS:
           title: ficha.title || `Treino ${i+1}`, 
           duration: ficha.duration || "60 min", 
           userId: aluno.id, 
-          dayOfWeek: dias[i],
+          dayOfWeek: diasSemanaPadrao[i % 7], // Associa um dia genérico inicialmente
           exercises: { create: mappedExercises } 
         } 
       });
@@ -476,8 +480,8 @@ RETORNE APENAS UM JSON VÁLIDO COM A SEGUINTE ESTRUTURA E NADA MAIS:
     await prisma.user.update({ where: { id: req.user.id }, data: { iaUsadaMes: trainer.iaUsadaMes + 1 } });
     res.json({ message: "Sucesso!" });
   } catch (error) { 
-    console.error("ERRO NA GERAÇÃO DE TREINO IA:", error);
-    res.status(500).json({ error: "Erro interno ao gerar treino com IA." }); 
+    console.error(error);
+    res.status(500).json({ error: "Erro interno na IA." }); 
   }
 });
 
@@ -496,7 +500,6 @@ app.put('/api/treinos/:workoutId', authenticateToken, isAdmin, async (req, res) 
   } catch (error) { res.status(500).json({ error: "Erro" }); }
 });
 
-// AQUI ESTAVA O SEU ERRO 404 AO EXCLUIR TREINOS (FALTAVA A ROTA!)
 app.delete('/api/treinos/:workoutId', authenticateToken, isAdmin, async (req, res) => {
   try {
     const workoutId = parseInt(req.params.workoutId);
