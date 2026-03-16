@@ -1001,7 +1001,7 @@ export default function App() {
 
           {authMode === 'FORGOT' && (
              <form onSubmit={handleForgotPassword} className="space-y-4">
-              <p className="text-sm text-slate-400 mb-4">Insira o seu e-mail para receber um link de recuperação mágico.</p>
+              <p className="text-sm text-slate-400 mb-4">Insira o seu e-mail para receber um link de recuperação.</p>
               <div className="relative">
                 <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 w-5 h-5" />
                 <input type="email" required placeholder="O seu E-mail" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-4 pl-12 pr-4 text-white focus:outline-none focus:border-blue-500 transition-colors" />
@@ -1324,8 +1324,8 @@ export default function App() {
               <div className="animate-fade-in flex flex-col gap-6 md:max-w-3xl mx-auto w-full pb-8">
                 <div className="bg-gradient-to-br from-indigo-600 to-purple-800 p-6 rounded-[2.5rem] shadow-2xl relative overflow-hidden">
                   <div className="relative z-10">
-                    <h2 className="text-2xl font-black text-white flex items-center gap-2 leading-none"><Sparkles fill="currentColor"/> Mágico de IA <span className="bg-white text-indigo-600 text-[10px] px-2 py-0.5 rounded-md ml-1">v2.0</span></h2>
-                    <p className="text-indigo-200 text-xs mt-3 leading-relaxed font-medium">Prescreva treinos de elite com base em variáveis biométricas e de local de treino em menos de 10 segundos.</p>
+                    <h2 className="text-2xl font-black text-white flex items-center gap-2 leading-none"><Sparkles fill="currentColor"/> Treino Inteligente  <span className="bg-white text-indigo-600 text-[10px] px-2 py-0.5 rounded-md ml-1">v2.0</span></h2>
+                    <p className="text-indigo-200 text-xs mt-3 leading-relaxed font-medium">Prescreva treinos de elite com base em variáveis biométricas e de local de treino em alguns segundos. Esta ferramenta nao isenta a revisão do treino.</p>
                   </div>
                   <Sparkles size={120} className="absolute -bottom-6 -right-6 text-white opacity-10 transform -rotate-12" />
                 </div>
