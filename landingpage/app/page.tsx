@@ -2,18 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { 
-  Dumbbell, 
-  Sparkles, 
-  Users, 
-  CheckCircle2, 
-  ArrowRight, 
-  Youtube, 
-  Menu, 
-  X, 
-  ShieldCheck, 
-  Zap, 
-  HelpCircle,
-  Play // Ícone adicionado para corrigir o ReferenceError
+  Dumbbell, Sparkles, Users, CheckCircle2, ArrowRight, Youtube, 
+  Menu, X, ShieldCheck, Zap, HelpCircle, Play, FileText, TrendingUp, MessageCircle
 } from 'lucide-react';
 
 const getBaseUrl = () => {
@@ -21,328 +11,357 @@ const getBaseUrl = () => {
   return 'https://evotrainer.onrender.com';
 };
 const API_URL = getBaseUrl().endsWith('/') ? `${getBaseUrl()}api` : `${getBaseUrl()}/api`;
+const APP_URL = "https://evotrainer.vercel.app";
 
-const Navbar = () => {
-  const [isOpen, setIsOpen] = useState(false);
-  const appUrl = "https://evotrainer.vercel.app";
+const FeatureCard = ({ icon: Icon, title, desc, color }: any) => (
+  <div className="bg-slate-900/50 p-10 rounded-[3rem] border border-slate-800 hover:border-slate-600 transition-all group relative overflow-hidden">
+    <div className={`absolute top-0 right-0 w-32 h-32 ${color} opacity-5 blur-[50px] rounded-full group-hover:opacity-20 transition-all duration-700`}></div>
+    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform ${color.replace('bg-', 'bg-opacity-20 text-').replace('500', '500 bg-opacity-20')}`} style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}>
+      <Icon size={28} className={color.replace('bg-', 'text-')} />
+    </div>
+    <h3 className="text-xl font-black text-white mb-4 leading-tight">{title}</h3>
+    <p className="text-slate-400 leading-relaxed text-sm font-medium">{desc}</p>
+  </div>
+);
 
+const PlanCard = ({ title, price, subPrice, features, highlighted = false, onSignupClick, badge }: any) => {
   return (
-    <nav className="fixed top-0 w-full z-[100] bg-slate-950/80 backdrop-blur-xl border-b border-slate-800">
-      <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="bg-blue-600 p-2 rounded-xl">
-            <Dumbbell className="text-white" size={24} />
-          </div>
-          <span className="text-xl font-black tracking-tighter text-white">EVO<span className="text-blue-500">TRAINER</span></span>
-        </div>
-        <div className="hidden md:flex items-center gap-8">
-          <a href="#funcionalidades" className="text-sm font-bold text-slate-400 hover:text-white transition-colors">Funcionalidades</a>
-          <a href="#como-funciona" className="text-sm font-bold text-slate-400 hover:text-white transition-colors">Como Funciona</a>
-          <a href="#precos" className="text-sm font-bold text-slate-400 hover:text-white transition-colors">Planos</a>
-          <a href={appUrl} className="bg-slate-800 text-white px-6 py-2.5 rounded-xl font-bold text-sm hover:bg-slate-700 transition-all">Acessar o App</a>
-          <a href={appUrl} className="bg-blue-600 text-white px-6 py-2.5 rounded-xl font-bold text-sm shadow-lg shadow-blue-600/20 hover:scale-105 active:scale-95 transition-all">Começar Agora</a>
-        </div>
-        <button className="md:hidden text-slate-400" onClick={() => setIsOpen(!isOpen)}>{isOpen ? <X /> : <Menu />}</button>
-      </div>
-
-      {isOpen && (
-        <div className="md:hidden bg-slate-900 border-b border-slate-800 p-6 flex flex-col gap-4 animate-fade-in">
-          <a href="#funcionalidades" className="text-lg font-bold text-slate-300">Funcionalidades</a>
-          <a href="#como-funciona" className="text-lg font-bold text-slate-300">Como Funciona</a>
-          <a href="#precos" className="text-lg font-bold text-slate-300">Planos</a>
-          <hr className="border-slate-800" />
-          <a href={appUrl} className="w-full bg-slate-800 text-white py-4 rounded-2xl font-black text-center">ACESSAR O APP</a>
-          <a href={appUrl} className="w-full bg-blue-600 text-white py-4 rounded-2xl font-black text-center block">COMEÇAR GRÁTIS</a>
+    <div className={`relative p-10 rounded-[3rem] border transition-all duration-500 hover:-translate-y-2 flex flex-col h-full ${highlighted ? 'bg-slate-900 border-blue-500 shadow-2xl shadow-blue-900/20' : 'bg-slate-950 border-slate-800 hover:border-slate-700'}`}>
+      {badge && (
+        <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-blue-600 text-white px-6 py-1.5 rounded-full text-[10px] font-black uppercase tracking-[0.2em] shadow-lg shadow-blue-600/30 whitespace-nowrap">
+          {badge}
         </div>
       )}
-    </nav>
-  );
-};
-
-const PlanCard = ({ title, price, students, iaCalls, features, highlighted = false, linkUrl }: any) => {
-  return (
-    <div className={`relative p-8 rounded-[2.5rem] border transition-all duration-500 hover:translate-y-[-10px] flex flex-col h-full ${highlighted ? 'bg-slate-900 border-blue-500 shadow-2xl shadow-blue-500/10' : 'bg-slate-950 border-slate-800 hover:border-slate-700'}`}>
-      {highlighted && (
-        <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-blue-600 text-white px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">Mais Popular</div>
-      )}
-      <div className="mb-8">
-        <h3 className="text-slate-400 font-black text-xs uppercase tracking-[0.2em]">{title}</h3>
-        <div className="mt-4 flex items-baseline gap-1">
-          <span className="text-4xl font-black text-white">R$ {price}</span>
-          <span className="text-slate-500 font-bold text-sm">/mês</span>
+      <div className="mb-8 text-center mt-4">
+        <h3 className="text-slate-400 font-black text-xs uppercase tracking-[0.3em] mb-4">{title}</h3>
+        <div className="flex items-baseline justify-center gap-1">
+          <span className="text-slate-500 font-bold text-xl mr-1">R$</span>
+          <span className="text-6xl font-black text-white tracking-tighter">{price}</span>
         </div>
+        <span className="text-slate-500 font-bold text-xs uppercase tracking-widest mt-2 block">{subPrice}</span>
       </div>
       
-      <div className="space-y-4 mb-8 flex-1">
-        <div className="flex items-center gap-3"><Users size={18} className="text-blue-500" /><span className="text-slate-300 font-medium text-sm">{students}</span></div>
-        <div className="flex items-center gap-3"><Sparkles size={18} className="text-indigo-400" /><span className="text-slate-300 font-medium text-sm">{iaCalls}</span></div>
+      <div className="space-y-5 mb-10 flex-1">
         {features.map((f: string, i: number) => (
-          <div key={i} className="flex items-center gap-3"><CheckCircle2 size={18} className="text-emerald-500" /><span className="text-slate-400 text-sm">{f}</span></div>
+          <div key={i} className="flex items-start gap-3">
+            <CheckCircle2 size={20} className="text-emerald-500 shrink-0 mt-0.5" />
+            <span className="text-slate-300 text-sm font-medium leading-relaxed">{f}</span>
+          </div>
         ))}
       </div>
 
-      <a href={linkUrl} className={`w-full py-4 rounded-2xl font-black text-center text-sm uppercase tracking-widest transition-all ${highlighted ? 'bg-blue-600 text-white hover:bg-blue-500 shadow-lg shadow-blue-600/20' : 'bg-slate-800 text-white hover:bg-slate-700'}`}>
-        {price === "0" ? "Criar Conta Grátis" : "Criar Conta"}
-      </a>
-      {price !== "0" && <p className="text-center text-[10px] text-slate-500 mt-4 font-medium flex items-center justify-center gap-1"><ShieldCheck size={12}/> Upgrade feito de forma segura no App</p>}
+      <button onClick={onSignupClick} className={`w-full py-5 rounded-2xl font-black text-center text-[11px] uppercase tracking-[0.2em] transition-all ${highlighted ? 'bg-blue-600 text-white hover:bg-blue-500 shadow-xl shadow-blue-600/20' : 'bg-slate-800 text-white hover:bg-slate-700'}`}>
+        {price === "0,00" ? "Iniciar Teste Grátis" : "Assinar Agora"}
+      </button>
+      {price !== "0,00" && <p className="text-center text-[10px] text-slate-500 mt-5 font-bold uppercase tracking-widest flex items-center justify-center gap-2"><ShieldCheck size={14} className="text-emerald-500"/> Pagamento Seguro</p>}
     </div>
   );
 };
 
 export default function LandingPage() {
-  const appUrl = "https://evotrainer.vercel.app";
-  const [sysConfig, setSysConfig] = useState<any>(null);
+  const [isOpen, setIsOpen] = useState(false);
+  const [showSignupModal, setShowSignupModal] = useState(false);
+  const [toastMsg, setToastMsg] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Estado do formulário de registro do Personal
+  const [formReg, setFormReg] = useState({ name: '', email: '', phone: '', password: '' });
 
-  useEffect(() => {
-    fetch(`${API_URL}/config`)
-      .then(res => res.json())
-      .then(data => setSysConfig(data))
-      .catch(() => {});
-  }, []);
+  const showToast = (msg: string) => { setToastMsg(msg); setTimeout(() => setToastMsg(''), 3000); };
 
   const irParaWhatsApp = () => {
-    const msg = encodeURIComponent("Olá! Vim pelo site EvoTrainer e gostaria de saber mais sobre a plataforma.");
+    const msg = encodeURIComponent("Fala equipe EvoTrainer! Quero escalar minha consultoria, como funciona a plataforma?");
     window.open(`https://wa.me/5521987708652?text=${msg}`, '_blank');
   };
 
-  // ==============================================================
-  // 🚀 INJEÇÃO MANUAL DE PIXELS (PRONTO PARA ANÚNCIOS) 🚀
-  // ==============================================================
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      const res = await fetch(`${API_URL}/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formReg)
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showToast("Conta criada com sucesso! Redirecionando...");
+        setTimeout(() => { window.location.href = APP_URL; }, 2000); // Manda pro App para fazer login
+      } else {
+        showToast(data.error || "Erro ao criar conta.");
+      }
+    } catch (err) {
+      showToast("Erro de conexão com o servidor.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   useEffect(() => {
-    // 1. Injetar Facebook (Meta) Pixel - COM PROTEÇÃO ANTI-DUPLICAÇÃO
     if (!document.getElementById('meta-pixel-script')) {
       const fbScript = document.createElement('script');
       fbScript.id = 'meta-pixel-script';
-      fbScript.innerHTML = `
-        !function(f,b,e,v,n,t,s)
-        {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
-        n.callMethod.apply(n,arguments):n.queue.push(arguments)};
-        if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
-        n.queue=[];t=b.createElement(e);t.async=!0;
-        t.src=v;s=b.getElementsByTagName(e)[0];
-        s.parentNode.insertBefore(t,s)}(window, document,'script',
-        'https://connect.facebook.net/en_US/fbevents.js');
-        
-        fbq('init', 'SEU_PIXEL_ID_AQUI'); 
-        fbq('track', 'PageView');
-      `;
+      fbScript.innerHTML = `!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window, document,'script','https://connect.facebook.net/en_US/fbevents.js'); fbq('init', 'SEU_PIXEL_ID_AQUI'); fbq('track', 'PageView');`;
       document.head.appendChild(fbScript);
     }
-
-    // 2. Injetar Google Analytics (GTAG) - COM PROTEÇÃO ANTI-DUPLICAÇÃO
-    if (!document.getElementById('ga-script-1')) {
-      const gaScript1 = document.createElement('script');
-      gaScript1.id = 'ga-script-1';
-      gaScript1.async = true;
-      gaScript1.src = "https://www.googletagmanager.com/gtag/js?id=G-SEU_ID_AQUI";
-      document.head.appendChild(gaScript1);
-
-      const gaScript2 = document.createElement('script');
-      gaScript2.id = 'ga-script-2';
-      gaScript2.innerHTML = `
-        window.dataLayer = window.dataLayer || [];
-        function gtag(){dataLayer.push(arguments);}
-        gtag('js', new Date());
-        gtag('config', 'G-SEU_ID_AQUI');
-      `;
-      document.head.appendChild(gaScript2);
-    }
   }, []); 
-  // ==============================================================
 
   return (
     <div className="min-h-screen bg-slate-950 font-sans selection:bg-blue-500/30">
-      <Navbar />
+      
+      {/* NAVBAR */}
+      <nav className="fixed top-0 w-full z-[100] bg-slate-950/80 backdrop-blur-xl border-b border-slate-800">
+        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="bg-blue-600 p-2 rounded-xl shadow-lg shadow-blue-600/20">
+              <Dumbbell className="text-white" size={24} />
+            </div>
+            <span className="text-xl font-black tracking-tighter text-white">EVO<span className="text-blue-500">TRAINER</span></span>
+          </div>
+          <div className="hidden md:flex items-center gap-8">
+            <a href="#funcionalidades" className="text-sm font-bold text-slate-400 hover:text-white transition-colors tracking-wide">Recursos</a>
+            <a href="#como-funciona" className="text-sm font-bold text-slate-400 hover:text-white transition-colors tracking-wide">Como Funciona</a>
+            <a href="#precos" className="text-sm font-bold text-slate-400 hover:text-white transition-colors tracking-wide">Planos</a>
+            <div className="flex gap-4 border-l border-slate-800 pl-8">
+              <a href={APP_URL} className="text-white font-bold text-sm hover:text-blue-400 transition-all flex items-center">Login</a>
+              <button onClick={() => setShowSignupModal(true)} className="bg-blue-600 text-white px-6 py-2.5 rounded-xl font-black text-xs uppercase tracking-widest shadow-lg shadow-blue-600/20 hover:scale-105 active:scale-95 transition-all">Testar Grátis</button>
+            </div>
+          </div>
+          <button className="md:hidden text-slate-400" onClick={() => setIsOpen(!isOpen)}>{isOpen ? <X /> : <Menu />}</button>
+        </div>
 
-      {/* BANNER DINÂMICO DE PROMOÇÃO */}
-      {sysConfig?.promoActive && (
-         <div className="fixed top-20 left-0 w-full bg-gradient-to-r from-red-600 to-orange-500 text-white text-center py-2 font-black text-xs uppercase tracking-[0.2em] z-50 animate-pulse shadow-lg">
-           {sysConfig.promoTitle}
-         </div>
-      )}
+        {isOpen && (
+          <div className="md:hidden bg-slate-900 border-b border-slate-800 p-6 flex flex-col gap-4 animate-fade-in">
+            <a href="#funcionalidades" className="text-lg font-bold text-slate-300">Recursos</a>
+            <a href="#como-funciona" className="text-lg font-bold text-slate-300">Como Funciona</a>
+            <a href="#precos" className="text-lg font-bold text-slate-300">Planos</a>
+            <hr className="border-slate-800" />
+            <a href={APP_URL} className="w-full bg-slate-800 text-white py-4 rounded-2xl font-black text-center tracking-widest uppercase text-xs">Login do Painel</a>
+            <button onClick={() => { setIsOpen(false); setShowSignupModal(true); }} className="w-full bg-blue-600 text-white py-4 rounded-2xl font-black text-center block tracking-widest uppercase text-xs">Criar Conta</button>
+          </div>
+        )}
+      </nav>
 
-      {/* SEÇÃO HERO */}
-      <section className={`pt-40 pb-20 px-6 overflow-hidden relative ${sysConfig?.promoActive ? 'mt-8' : ''}`}>
-        <div className="absolute top-20 right-[-10%] w-[500px] h-[500px] bg-blue-600/10 blur-[120px] rounded-full"></div>
-        <div className="absolute bottom-0 left-[-10%] w-[500px] h-[500px] bg-indigo-600/10 blur-[120px] rounded-full"></div>
+      {/* HERO SECTION */}
+      <section className="pt-40 pb-20 px-6 overflow-hidden relative">
+        <div className="absolute top-0 right-[-10%] w-[600px] h-[600px] bg-blue-600/10 blur-[150px] rounded-full pointer-events-none"></div>
+        <div className="absolute bottom-[-10%] left-[-10%] w-[600px] h-[600px] bg-indigo-600/10 blur-[150px] rounded-full pointer-events-none"></div>
         
         <div className="max-w-7xl mx-auto text-center relative z-10">
-          <div className="inline-flex items-center gap-2 bg-blue-600/10 border border-blue-500/20 px-4 py-2 rounded-full mb-8 animate-fade-in">
-            <Sparkles size={16} className="text-blue-500" />
-            <span className="text-[10px] md:text-xs font-black text-blue-400 uppercase tracking-widest">Tecnologia master para personais</span>
+          <div className="inline-flex items-center gap-3 bg-slate-900 border border-slate-800 px-5 py-2.5 rounded-full mb-10 animate-fade-in shadow-xl">
+            <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span className="text-[10px] md:text-xs font-black text-slate-300 uppercase tracking-[0.2em]">Engine IA 3.0 Ativa e Operante</span>
           </div>
           
-          <h1 className="text-5xl md:text-8xl font-black text-white leading-[1.1] tracking-tighter mb-8">
-            Escale sua consultoria <br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-indigo-400">com inteligência.</span>
+          <h1 className="text-5xl md:text-[5.5rem] font-black text-white leading-[1.05] tracking-tighter mb-8">
+            Sua Consultoria Fitness <br />
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-indigo-400">no Piloto Automático.</span>
           </h1>
           
           <p className="max-w-2xl mx-auto text-slate-400 text-lg md:text-xl font-medium mb-12 leading-relaxed">
-            Esqueça as planilhas manuais. Use Inteligência Artificial Master para criar fichas perfeitas e vídeos de execução em segundos.
+            Esqueça planilhas em Excel. Use nossa Inteligência Artificial para gerar periodizações completas, PDFs premium com vídeos e gerenciar seu faturamento em um só lugar.
           </p>
-          <div className="flex flex-col md:flex-row items-center justify-center gap-4">
-            <a href={appUrl} className="w-full md:w-auto bg-blue-600 text-white px-10 py-5 rounded-2xl font-black text-lg flex items-center justify-center gap-3 shadow-2xl shadow-blue-600/30 hover:scale-105 active:scale-95 transition-all">CRIAR MINHA CONTA <ArrowRight size={20}/></a>
-            <button onClick={irParaWhatsApp} className="w-full md:w-auto bg-slate-900 border border-slate-800 text-white px-10 py-5 rounded-2xl font-black text-lg flex items-center justify-center gap-3 hover:bg-slate-800 transition-all">FALAR COM ESPECIALISTA</button>
+
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <button onClick={() => setShowSignupModal(true)} className="w-full sm:w-auto bg-blue-600 text-white px-10 py-5 rounded-[2rem] font-black text-xs uppercase tracking-widest flex items-center justify-center gap-3 shadow-2xl shadow-blue-600/30 hover:-translate-y-1 transition-all">
+              <Zap size={18}/> GERAR MEUS 5 TREINOS GRÁTIS
+            </button>
+            <button onClick={irParaWhatsApp} className="w-full sm:w-auto bg-slate-900 border border-slate-800 text-white px-10 py-5 rounded-[2rem] font-black text-xs uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-slate-800 transition-all">
+              <MessageCircle size={18}/> Falar com Especialista
+            </button>
           </div>
+          <p className="mt-6 text-slate-500 font-bold text-[11px] uppercase tracking-widest">Nenhum cartão de crédito exigido no teste.</p>
         </div>
 
-        {/* Mockup Preview */}
-        <div className="max-w-5xl mx-auto mt-20 relative px-4">
-           <div className="bg-slate-800 p-2 rounded-[2rem] shadow-3xl border border-slate-700/50">
-             <div className="bg-slate-950 rounded-[1.5rem] aspect-video md:aspect-[21/9] flex items-center justify-center relative overflow-hidden group">
+        {/* MOCKUP SHOWCASE */}
+        <div className="max-w-6xl mx-auto mt-24 relative px-4 z-10">
+           <div className="bg-gradient-to-b from-slate-800 to-slate-900 p-2 md:p-4 rounded-[2.5rem] md:rounded-[4rem] shadow-[0_0_100px_rgba(37,99,235,0.15)] border border-slate-700/50">
+             <div className="bg-slate-950 rounded-[2rem] md:rounded-[3.5rem] aspect-[16/10] md:aspect-[21/9] flex items-center justify-center relative overflow-hidden group">
                 <img 
                   src="https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=1470&auto=format&fit=crop" 
-                  alt="Pré-visualização da Interface" 
-                  className="w-full h-full object-cover opacity-40 grayscale group-hover:grayscale-0 group-hover:opacity-60 transition-all duration-700"
+                  alt="Dashboard EvoTrainer" 
+                  className="w-full h-full object-cover opacity-50 grayscale group-hover:grayscale-0 group-hover:opacity-70 transition-all duration-700"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent"></div>
-                <div className="absolute flex flex-col items-center gap-4">
-                   <div className="bg-blue-600 w-16 h-16 rounded-full flex items-center justify-center shadow-2xl animate-pulse">
-                     <Play fill="white" size={24} className="ml-1" />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent"></div>
+                <div className="absolute bottom-10 left-10 right-10 flex justify-between items-end">
+                   <div className="hidden md:block">
+                     <div className="bg-blue-600/90 backdrop-blur-md px-6 py-4 rounded-2xl border border-blue-400/30">
+                        <p className="text-[10px] text-blue-200 font-black uppercase tracking-widest mb-1">Dossiê Gerado</p>
+                        <p className="text-white font-black text-xl">Mesociclo de Hipertrofia</p>
+                     </div>
                    </div>
-                   <p className="text-white font-black text-xs uppercase tracking-widest text-center">A produtividade que <br/> faltava no seu dia</p>
+                   <div className="bg-emerald-500/90 backdrop-blur-md px-6 py-4 rounded-2xl border border-emerald-400/30 mx-auto md:mx-0">
+                      <p className="text-[10px] text-emerald-100 font-black uppercase tracking-widest mb-1">Faturamento Atual</p>
+                      <p className="text-white font-black text-xl">R$ 5.400,00</p>
+                   </div>
                 </div>
              </div>
            </div>
         </div>
       </section>
 
-      {/* SEÇÃO COMO FUNCIONA */}
-      <section id="como-funciona" className="py-24 px-6 relative border-t border-slate-900">
+      {/* SEÇÃO RECURSOS DE ALTA PERFORMANCE */}
+      <section id="funcionalidades" className="py-32 px-6 relative border-t border-slate-900">
         <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-20">
-            <h2 className="text-3xl md:text-5xl font-black text-white mb-4">Como funciona?</h2>
-            <p className="text-slate-500 font-bold uppercase text-xs tracking-[0.3em]">Três passos para o sucesso</p>
+          <div className="text-center mb-24">
+            <h2 className="text-4xl md:text-5xl font-black text-white mb-6 tracking-tighter">Recursos de Alta Performance</h2>
+            <p className="text-slate-500 font-black uppercase text-xs tracking-[0.3em]">Tudo que você precisa para escalar, em um só lugar.</p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
-            <div className="text-center">
-              <div className="w-16 h-16 bg-slate-900 rounded-2xl flex items-center justify-center text-blue-500 font-black text-2xl mx-auto mb-6 border border-slate-800 shadow-xl">1</div>
-              <h3 className="text-xl font-black text-white mb-3">Registe-se</h3>
-              <p className="text-slate-500 text-sm">Crie a sua conta de Personal e adicione os seus primeiros alunos em segundos.</p>
-            </div>
-            <div className="text-center">
-              <div className="w-16 h-16 bg-slate-900 rounded-2xl flex items-center justify-center text-blue-500 font-black text-2xl mx-auto mb-6 border border-slate-800 shadow-xl">2</div>
-              <h3 className="text-xl font-black text-white mb-3">Gere com IA</h3>
-              <p className="text-slate-500 text-sm">Use o Mágico de IA para criar treinos periodizados com vídeos automáticos.</p>
-            </div>
-            <div className="text-center">
-              <div className="w-16 h-16 bg-slate-900 rounded-2xl flex items-center justify-center text-blue-500 font-black text-2xl mx-auto mb-6 border border-slate-800 shadow-xl">3</div>
-              <h3 className="text-xl font-black text-white mb-3">Envie ao Aluno</h3>
-              <p className="text-slate-500 text-sm">O seu aluno recebe o link, instala a app e começa a treinar com foco total.</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* SEÇÃO FUNCIONALIDADES */}
-      <section id="funcionalidades" className="py-24 px-6 bg-slate-950/50 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-blue-600/5 blur-[100px]"></div>
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-20">
-            <h2 className="text-3xl md:text-5xl font-black text-white mb-4">Seu braço direito digital</h2>
-            <p className="text-slate-500 font-bold uppercase text-xs tracking-[0.3em]">Ferramentas que geram faturamento</p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="bg-slate-900/50 p-10 rounded-[3rem] border border-slate-800 hover:border-blue-500/50 transition-all group">
-              <div className="bg-blue-600/20 w-14 h-14 rounded-2xl flex items-center justify-center text-blue-500 mb-6 group-hover:scale-110 transition-transform"><Sparkles size={28}/></div>
-              <h3 className="text-xl font-black text-white mb-4">Treino Inteligente</h3>
-              <p className="text-slate-400 leading-relaxed">Gere planilhas periodizadas para meses em apenas 10 segundos. Nossa IA entende de biomecânica e patologias.</p>
-            </div>
-            <div className="bg-slate-900/50 p-10 rounded-[3rem] border border-slate-800 hover:border-indigo-500/50 transition-all group">
-              <div className="bg-indigo-600/20 w-14 h-14 rounded-2xl flex items-center justify-center text-indigo-400 mb-6 group-hover:scale-110 transition-transform"><Youtube size={28}/></div>
-              <h3 className="text-xl font-black text-white mb-4">Vídeos Automáticos</h3>
-              <p className="text-slate-400 leading-relaxed">Não perca tempo anexando links. O sistema busca automaticamente o melhor vídeo de execução para cada exercício.</p>
-            </div>
-            <div className="bg-slate-900/50 p-10 rounded-[3rem] border border-slate-800 hover:border-cyan-500/50 transition-all group">
-              <div className="bg-cyan-600/20 w-14 h-14 rounded-2xl flex items-center justify-center text-cyan-400 mb-6 group-hover:scale-110 transition-transform"><Zap size={28}/></div>
-              <h3 className="text-xl font-black text-white mb-4">App PWA Instalável</h3>
-              <p className="text-slate-400 leading-relaxed">Seu aluno instala seu sistema no celular como se fosse um app da Apple Store, com ícone próprio e carregamento rápido.</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* SEÇÃO PREÇOS (DINÂMICA) */}
-      <section id="precos" className="py-24 px-6 relative">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-20">
-            <h2 className="text-3xl md:text-5xl font-black text-white mb-4">Planos e Preços</h2>
-          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <PlanCard title="Grátis" price="0" students="Até 5 Alunos" iaCalls="IA Manual" features={["App Aluno", "Busca de Vídeos"]} linkUrl={appUrl}/>
-            <PlanCard title="Start (Bronze)" price={sysConfig?.startPrice || "30"} students="Até 20 Alunos" iaCalls="10 Treinos IA/mês" features={["PDF", "Suporte"]} linkUrl={appUrl}/>
-            <PlanCard title="Pro (Silver)" price={sysConfig?.proPrice || "60"} students="Ilimitado" iaCalls="40 Treinos IA/mês" features={["IA+", "Envio WhatsApp"]} highlighted={true} linkUrl={appUrl}/>
-            <PlanCard title="Elite (Ouro)" price={sysConfig?.elitePrice || "100"} students="Tudo Ilimitado" iaCalls="IA Ilimitada" features={["White Label"]} linkUrl={appUrl}/>
+            <FeatureCard icon={Sparkles} color="bg-blue-500" title="IA Periodizada" desc="Digite o foco e nossa IA gera a semana inteira de treinos (Macro, Meso, Micro) respeitando lesões e nível do aluno." />
+            <FeatureCard icon={FileText} color="bg-red-500" title="Planilhas Premium" desc="Exporte treinos em PDFs lindíssimos com botões clicáveis que abrem vídeos explicativos diretamente no YouTube." />
+            <FeatureCard icon={TrendingUp} color="bg-emerald-500" title="CRM Financeiro" desc="Cadastre o valor da mensalidade de cada aluno e acompanhe o crescimento real do faturamento da sua consultoria." />
+            <FeatureCard icon={MessageCircle} color="bg-green-500" title="WhatsApp Nativo" desc="Um clique e o sistema abre seu WhatsApp com uma mensagem pronta avisando o aluno sobre a data de revisão da ficha." />
           </div>
         </div>
       </section>
 
-      {/* SEÇÃO FAQ */}
-      <section className="py-24 px-6 border-t border-slate-900 bg-slate-950">
-        <div className="max-w-4xl mx-auto">
-          <div className="text-center mb-16">
-             <h2 className="text-3xl font-black text-white">Dúvidas comuns</h2>
+      {/* SEÇÃO COMO FUNCIONA */}
+      <section id="como-funciona" className="py-32 px-6 bg-slate-900/20 relative">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-20">
+            <h2 className="text-4xl md:text-5xl font-black text-white mb-6 tracking-tighter">Do zero ao treino em 30s</h2>
           </div>
-          <div className="space-y-4">
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-12 relative">
+            <div className="hidden md:block absolute top-12 left-[20%] right-[20%] h-0.5 bg-gradient-to-r from-blue-600/0 via-blue-600/50 to-blue-600/0 z-0"></div>
+            
             {[
-              { q: "Meus alunos precisam pagar para acessar?", a: "Não. O acesso dos alunos é gratuito e ilimitado através da conta do Personal Trainer." },
-              { q: "O sistema funciona no iPhone e Android?", a: "Sim. O EvoTrainer é um PWA, o que significa que ele pode ser instalado como um aplicativo em qualquer smartphone." },
-              { q: "Como funciona a geração de treino por IA?", a: "Você informa o foco do aluno e as restrições (ex: dor no joelho) e nossa IA master gera uma periodização completa respeitando a biomecânica." },
-              { q: "Posso cancelar minha assinatura a qualquer momento?", a: "Sim. Não há fidelidade. Você pode cancelar ou mudar de plano quando quiser através do painel." }
+              { step: "01", title: "Cadastre o Aluno", desc: "Insira dados básicos, WhatsApp e o prontuário de saúde (lesões/restrições)." },
+              { step: "02", title: "Dê o Comando", desc: "No IA Center, diga quantos dias ele treina e qual o foco. A Engine gera as fichas." },
+              { step: "03", title: "Envie o PDF", desc: "Com 1 clique, baixe a planilha com vídeos ou avise o aluno diretamente no WhatsApp." }
             ].map((item, i) => (
-              <div key={i} className="bg-slate-900/30 border border-slate-800 p-6 rounded-2xl">
-                 <div className="flex items-center gap-3 mb-2">
-                   <HelpCircle size={18} className="text-blue-500" />
-                   <h4 className="font-black text-white">{item.q}</h4>
-                 </div>
-                 <p className="text-slate-500 text-sm leading-relaxed ml-7">{item.a}</p>
+              <div key={i} className="text-center relative z-10">
+                <div className="w-24 h-24 bg-slate-950 rounded-[2rem] flex items-center justify-center text-blue-500 font-black text-3xl mx-auto mb-8 border-2 border-slate-800 shadow-xl shadow-blue-900/20">{item.step}</div>
+                <h3 className="text-2xl font-black text-white mb-4">{item.title}</h3>
+                <p className="text-slate-400 font-medium leading-relaxed max-w-xs mx-auto">{item.desc}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
+      {/* SEÇÃO PREÇOS */}
+      <section id="precos" className="py-32 px-6 relative border-t border-slate-900">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-blue-900/10 via-slate-950 to-slate-950 pointer-events-none"></div>
+        <div className="max-w-7xl mx-auto relative z-10">
+          <div className="text-center mb-24">
+            <h2 className="text-4xl md:text-5xl font-black text-white mb-6 tracking-tighter">Um preço. Retorno Infinito.</h2>
+            <p className="text-slate-500 font-black uppercase text-xs tracking-[0.3em]">Custa menos que a mensalidade de UM aluno.</p>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+            <PlanCard 
+              title="Test Drive" 
+              price="0,00" 
+              subPrice="100% Grátis para testar"
+              features={["Até 5 Treinos gerados por IA", "Gestão de Alunos Básica", "Exportação em PDF simples", "Sem painel financeiro"]} 
+              onSignupClick={() => setShowSignupModal(true)}
+            />
+            <PlanCard 
+              title="Plano Mensal" 
+              price="39,90" 
+              subPrice="Por Mês (Sem fidelidade)"
+              badge="O MAIS ESCOLHIDO"
+              highlighted={true}
+              features={["Alunos Ilimitados", "Treinos por IA Ilimitados", "PDF Premium com Vídeos YT", "Dashboard Financeiro", "Integração WhatsApp"]} 
+              onSignupClick={() => setShowSignupModal(true)}
+            />
+            <PlanCard 
+              title="Plano Anual" 
+              price="29,90" 
+              subPrice="Por Mês (Cobrado R$ 358 à vista)"
+              features={["Tudo do plano Mensal", "Desconto de 25%", "Prioridade de Suporte", "Congelamento de preço anual"]} 
+              onSignupClick={() => setShowSignupModal(true)}
+            />
+          </div>
+        </div>
+      </section>
+
       {/* CALL TO ACTION FINAL */}
-      <section className="py-24 px-6">
-        <div className="max-w-5xl mx-auto bg-gradient-to-br from-blue-600 to-indigo-700 rounded-[3.5rem] p-10 md:p-20 text-center relative overflow-hidden shadow-3xl shadow-blue-600/20">
-          <div className="absolute top-0 left-0 w-full h-full opacity-10 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]"></div>
+      <section className="py-32 px-6">
+        <div className="max-w-6xl mx-auto bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-900 rounded-[4rem] p-12 md:p-24 text-center relative overflow-hidden shadow-[0_20px_80px_rgba(37,99,235,0.3)]">
+          <div className="absolute top-0 left-0 w-full h-full opacity-20 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]"></div>
           <div className="relative z-10">
-            <h2 className="text-3xl md:text-5xl font-black text-white mb-8 tracking-tighter leading-tight">
-              A revolução na sua consultoria <br className="hidden md:block"/> começa agora.
+            <h2 className="text-4xl md:text-6xl font-black text-white mb-8 tracking-tighter leading-[1.1]">
+              Pare de vender hora.<br className="hidden md:block"/> Comece a vender escala.
             </h2>
-            <div className="flex flex-col md:flex-row gap-4 justify-center">
-              <a href={appUrl} className="bg-white text-blue-600 px-12 py-5 rounded-2xl font-black text-lg hover:scale-105 transition-all inline-block shadow-2xl">CRIAR CONTA GRÁTIS</a>
-              <button onClick={irParaWhatsApp} className="bg-blue-800 text-white px-12 py-5 rounded-2xl font-black text-lg hover:bg-blue-900 transition-all inline-block">FALAR COM SUPORTE</button>
-            </div>
-            <p className="text-blue-100/60 mt-10 text-sm font-bold uppercase tracking-widest flex items-center justify-center gap-2">
-              <ShieldCheck size={16}/> Gestão MASTER de Pagamentos
+            <p className="text-blue-100 text-lg md:text-xl font-medium mb-12 max-w-2xl mx-auto opacity-90">
+              Junte-se à elite de Personal Trainers que multiplicaram seu faturamento usando Inteligência Artificial para otimizar 90% do trabalho chato.
             </p>
+            <div className="flex flex-col sm:flex-row gap-6 justify-center">
+              <button onClick={() => setShowSignupModal(true)} className="bg-white text-blue-700 px-12 py-6 rounded-[2.5rem] font-black text-xs uppercase tracking-widest hover:scale-105 active:scale-95 transition-all inline-flex items-center justify-center gap-3 shadow-2xl">
+                CRIAR MINHA CONTA GRÁTIS
+              </button>
+            </div>
           </div>
         </div>
       </section>
 
       {/* FOOTER */}
-      <footer className="py-12 px-6 border-t border-slate-900 bg-slate-950">
+      <footer className="py-16 px-6 border-t border-slate-900 bg-slate-950">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8 text-center md:text-left">
            <div>
-             <div className="flex items-center gap-2 justify-center md:justify-start">
-               <div className="bg-blue-600 p-1.5 rounded-lg text-white"><Dumbbell size={18}/></div>
-               <span className="text-lg font-black tracking-tighter text-white">EVO<span className="text-blue-500">TRAINER</span></span>
+             <div className="flex items-center gap-2 justify-center md:justify-start mb-4">
+               <div className="bg-blue-600 p-2 rounded-xl text-white"><Dumbbell size={20}/></div>
+               <span className="text-xl font-black tracking-tighter text-white">EVO<span className="text-blue-500">TRAINER</span></span>
              </div>
-             <p className="text-slate-600 text-xs font-bold mt-2 uppercase tracking-widest">Transformando Personal Trainers em Empresas de Elite.</p>
+             <p className="text-slate-600 text-xs font-bold uppercase tracking-[0.2em]">Tecnologia para Personal Trainers de Elite.</p>
            </div>
            
-           <div className="flex gap-8 text-slate-500 font-bold text-xs uppercase tracking-widest">
-             <a href="#" className="hover:text-blue-500 transition-colors">Termos</a>
+           <div className="flex gap-8 text-slate-500 font-black text-[10px] uppercase tracking-widest">
+             <a href="#" className="hover:text-blue-500 transition-colors">Termos de Uso</a>
              <a href="#" className="hover:text-blue-500 transition-colors">Privacidade</a>
-             <a href={appUrl} className="hover:text-blue-500 transition-colors">Login Admin</a>
+             <a href={APP_URL} className="hover:text-blue-500 transition-colors">Login Painel</a>
            </div>
-
-           <p className="text-slate-700 text-[10px] font-black uppercase tracking-[0.2em]">© 2024 EVO TRAINER MASTER. TODOS OS DIREITOS RESERVADOS.</p>
         </div>
       </footer>
+
+      {/* MODAL DE CADASTRO (REGISTRO DE PERSONAL) */}
+      {showSignupModal && (
+        <div className="fixed inset-0 bg-black/95 z-[999] flex items-center justify-center p-6 backdrop-blur-md animate-fade-in">
+           <div className="bg-slate-900 border border-slate-800 p-10 md:p-12 rounded-[3.5rem] w-full max-w-lg shadow-[0_0_80px_rgba(37,99,235,0.15)] relative">
+              <button onClick={() => setShowSignupModal(false)} className="absolute top-8 right-8 p-3 bg-slate-800 rounded-2xl text-slate-400 hover:text-white transition-all"><X size={24}/></button>
+              
+              <div className="text-center mb-10">
+                 <h3 className="text-3xl font-black text-white italic tracking-tighter uppercase mb-2">Criar Conta</h3>
+                 <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">Acesso de Personal Trainer</p>
+              </div>
+
+              <form onSubmit={handleRegister} className="space-y-6 text-left">
+                 <div>
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4 mb-2 block">Nome Completo</label>
+                    <input type="text" required className="w-full p-5 rounded-2xl bg-slate-950 border border-slate-800 text-white font-bold outline-none focus:border-blue-500 transition-all" value={formReg.name} onChange={e => setFormReg({...formReg, name: e.target.value})} />
+                 </div>
+                 <div>
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4 mb-2 block">E-mail Profissional</label>
+                    <input type="email" required className="w-full p-5 rounded-2xl bg-slate-950 border border-slate-800 text-white font-bold outline-none focus:border-blue-500 transition-all" value={formReg.email} onChange={e => setFormReg({...formReg, email: e.target.value})} />
+                 </div>
+                 <div>
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4 mb-2 block">WhatsApp</label>
+                    <input type="tel" required className="w-full p-5 rounded-2xl bg-slate-950 border border-slate-800 text-white font-bold outline-none focus:border-blue-500 transition-all" value={formReg.phone} onChange={e => setFormReg({...formReg, phone: e.target.value})} />
+                 </div>
+                 <div>
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4 mb-2 block">Crie uma Senha Segura</label>
+                    <input type="password" required className="w-full p-5 rounded-2xl bg-slate-950 border border-slate-800 text-white font-bold outline-none focus:border-blue-500 transition-all" value={formReg.password} onChange={e => setFormReg({...formReg, password: e.target.value})} />
+                 </div>
+                 
+                 <button type="submit" disabled={isSubmitting} className="w-full py-6 bg-blue-600 text-white font-black rounded-[2rem] shadow-2xl shadow-blue-600/20 uppercase tracking-widest text-xs active:scale-95 transition-all mt-4 hover:bg-blue-500 flex justify-center items-center gap-2">
+                    {isSubmitting ? <Activity className="animate-spin" size={20}/> : 'Concluir Cadastro'}
+                 </button>
+                 <p className="text-center text-slate-500 text-[10px] mt-4 font-medium">Ao se cadastrar, você concorda com nossos Termos de Uso.</p>
+              </form>
+           </div>
+        </div>
+      )}
+
+      {/* TOAST NOTIFICATION */}
+      {toastMsg && (
+        <div className="fixed top-12 left-1/2 -translate-x-1/2 z-[1000] bg-blue-600 text-white px-10 py-5 rounded-full font-black shadow-[0_20px_50px_rgba(37,99,235,0.5)] flex items-center gap-4 text-sm animate-bounce border border-white/10">
+           <CheckCircle2 size={24} /> {toastMsg}
+        </div>
+      )}
     </div>
   );
 }
