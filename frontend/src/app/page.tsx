@@ -3,13 +3,13 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Users, LogOut, X, User as UserIcon, Plus, Activity, Dumbbell, Trash2, Settings, List, 
-  Search, Download, Sparkles, Youtube, ChevronRight, MessageCircle, Crown, Zap, 
-  DollarSign, Target, Lock, Camera, BarChart3, Globe, Phone, CheckCircle2
+  Search, Download, Sparkles, Youtube, ChevronRight, MessageCircle, Crown, ShieldAlert, Zap, 
+  TrendingUp, DollarSign, Target, Lock, Camera, BarChart3, Globe, Phone, CheckCircle2
 } from 'lucide-react';
 
 const API_URL = "https://evotrainer.onrender.com/api";
 
-// --- COMPONENTE AUXILIAR (DEFINIDO NO TOPO) ---
+// --- COMPONENTES AUXILIARES ---
 const StatCard = ({ title, value, icon: Icon, color }: any) => (
   <div className="bg-slate-900/50 backdrop-blur-md border border-slate-800 p-6 rounded-[2.5rem] shadow-xl transition-all">
     <div className={`w-12 h-12 rounded-2xl ${color} bg-opacity-10 flex items-center justify-center mb-4`}>
@@ -81,7 +81,7 @@ export default function App() {
   const createAluno = async (e: React.FormEvent) => {
     e.preventDefault();
     const res = await fetch(`${API_URL}/alunos`, { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify(formAluno) });
-    if (res.ok) { showToast("Atleta Recrutado!"); setShowAddAlunoModal(false); fetchData(); }
+    if (res.ok) { showToast("Aluno Cadastrado!"); setShowAddAlunoModal(false); fetchData(); }
   };
 
   const updatePlan = async (id: number, plano: string) => {
@@ -91,28 +91,56 @@ export default function App() {
 
   const changePassword = async () => {
     const res = await fetch(`${API_URL}/perfil/senha`, { method: 'PUT', headers: getAuthHeaders(), body: JSON.stringify(passwordForm) });
-    if (res.ok) { showToast("Senha alterada!"); setShowPasswordModal(false); } else showToast("Senha atual incorreta.");
+    if (res.ok) { showToast("Senha alterada!"); setShowPasswordModal(false); } else showToast("Erro na senha atual.");
   };
 
   const gerarProtocoloIA = async () => {
     const prompt = (document.getElementById('comandoIA') as HTMLTextAreaElement).value;
-    if (!iaAlunoId || !prompt) return showToast("Selecione o atleta e o comando.");
+    if (!iaAlunoId || !prompt) return showToast("Selecione o aluno e o comando.");
     setIsLoading(true);
     try {
       const res = await fetch(`${API_URL}/ai/gerar-autonomo`, { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify({ alunoId: iaAlunoId, comandoPersonal: prompt }) });
-      if (res.ok) { showToast("EvoIntelligence™: Protocolo Salvo!"); setTabAtiva('alunos'); fetchData(); }
+      if (res.ok) { showToast("EvoIntelligence™: Treino Salvo!"); setTabAtiva('alunos'); fetchData(); }
       else showToast("Falha na Engine.");
     } catch (e) { showToast("Erro de conexão."); } finally { setIsLoading(false); }
   };
 
+  // --- FUNÇÃO PDF PREMIUM ---
   const exportarPDF = (treino: any, aluno: any) => {
-    const rows = treino.exercises?.map((ex: any, i: number) => `
-      <tr style="border-bottom: 1px solid #eee">
-        <td style="padding: 15px; font-weight: 800; color: #2563eb">${i+1}</td>
-        <td style="padding: 15px"><strong>${ex.name}</strong><br/><small>${ex.sets} | ${ex.weight}</small></td>
-      </tr>
-    `).join('');
-    const html = `<html><body style="font-family:sans-serif;padding:40px"><h1 style="color:#2563eb">EVOTRAINER</h1><h3>Atleta: ${aluno.name} | Ficha: ${treino.title}</h3><table style="width:100%;border-collapse:collapse">${rows}</table><script>window.onload=()=>window.print()</script></body></html>`;
+    const primaryColor = "#2563eb";
+    const rows = treino.exercises?.map((ex: any, i: number) => {
+      const youtubeLink = ex.youtubeId ? `https://www.youtube.com/watch?v=${ex.youtubeId}` : `https://www.youtube.com/results?search_query=${encodeURIComponent(ex.name + ' execução biomecânica')}`;
+      return `
+        <tr style="border-bottom: 1px solid #e2e8f0;">
+          <td style="padding: 16px; font-weight: 800; color: ${primaryColor}; font-size: 18px;">${String(i + 1).padStart(2, '0')}</td>
+          <td style="padding: 16px;">
+            <div style="font-weight: 800; color: #1e293b; font-size: 16px; text-transform: uppercase;">${ex.name}</div>
+            <div style="color: #64748b; font-size: 14px; margin-top: 4px;">Prescrição: ${ex.sets} | Intensidade: ${ex.weight}</div>
+          </td>
+          <td style="padding: 16px; text-align: right;">
+            <a href="${youtubeLink}" target="_blank" style="background-color: #ff0000; color: white; padding: 8px 16px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 12px; display: inline-flex; align-items: center;">VER VÍDEO 🎬</a>
+          </td>
+        </tr>`;
+    }).join('');
+
+    const html = `<html><head><style>@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap'); body { font-family: 'Inter', sans-serif; margin: 0; background: #f8fafc; } .header { background: ${primaryColor}; color: white; padding: 40px; border-bottom-left-radius: 40px; border-bottom-right-radius: 40px; } .container { max-width: 800px; margin: -20px auto 40px; background: white; border-radius: 30px; box-shadow: 0 20px 25px rgba(0,0,0,0.1); overflow: hidden; } table { width: 100%; border-collapse: collapse; }</style></head>
+      <body>
+        <div class="header">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div><h1 style="margin: 0; font-weight: 900; font-style: italic;">EVOTRAINER</h1><p style="margin: 5px 0 0; font-weight: 700; text-transform: uppercase; font-size: 12px;">Protocolo Biomecânico</p></div>
+            <div style="text-align: right;"><div style="font-weight: 900; font-size: 20px;">${aluno.name.toUpperCase()}</div><div style="font-size: 12px;">Ficha: ${treino.title}</div></div>
+          </div>
+        </div>
+        <div class="container">
+          <div style="padding: 30px; border-bottom: 2px solid #f1f5f9; display: flex; gap: 20px;">
+             <div style="flex: 1; background: #f8fafc; padding: 15px; border-radius: 15px; border: 1px solid #e2e8f0;"><span style="font-size: 10px; font-weight: 900; color: #64748b; display: block; text-transform: uppercase;">Nível</span><span style="font-weight: 800; color: ${primaryColor};">${aluno.level || 'Intermediário'}</span></div>
+             <div style="flex: 1; background: #f8fafc; padding: 15px; border-radius: 15px; border: 1px solid #e2e8f0;"><span style="font-size: 10px; font-weight: 900; color: #64748b; display: block; text-transform: uppercase;">Peso Atual</span><span style="font-weight: 800; color: ${primaryColor};">${aluno.weight || '--'} kg</span></div>
+          </div>
+          <table><tbody>${rows}</tbody></table>
+        </div>
+        <div style="text-align: center; color: #94a3b8; font-size: 12px; margin-bottom: 40px;">Gerado pela Engine EvoIntelligence™ baseada no seu prontuário físico.</div>
+        <script>window.onload=()=>window.print()</script>
+      </body></html>`;
     const win = window.open('', '_blank'); win?.document.write(html); win?.document.close();
   };
 
@@ -133,18 +161,16 @@ export default function App() {
   if (!currentUser) return (
     <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6 font-sans">
        <div className="w-full max-w-md bg-slate-900 border border-slate-800 p-10 rounded-[3rem] shadow-2xl text-center">
-          <Dumbbell className="text-blue-500 mx-auto mb-6" size={50} />
-          <h1 className="text-4xl font-black text-white italic mb-8 tracking-tighter">EVO<span className="text-blue-500">TRAINER</span></h1>
+          <Dumbbell className="text-blue-500 mx-auto mb-6 shadow-2xl" size={50} />
+          <h1 className="text-4xl font-black text-white italic mb-8 uppercase tracking-tighter">EVO<span className="text-blue-500">TRAINER</span></h1>
           <form onSubmit={handleLogin} className="space-y-4">
-            <input type="email" placeholder="E-mail" className="w-full p-5 rounded-2xl bg-slate-950 border border-slate-800 text-white outline-none" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} />
-            <input type="password" placeholder="Senha" className="w-full p-5 rounded-2xl bg-slate-950 border border-slate-800 text-white outline-none" value={loginPassword} onChange={e => setLoginPassword(e.target.value)} />
-            <button className="w-full p-6 bg-blue-600 rounded-3xl font-black text-white uppercase active:scale-95 shadow-xl">{isLoggingIn ? 'Sincronizando...' : 'Entrar no Sistema'}</button>
+            <input type="email" placeholder="E-mail" className="w-full p-5 rounded-2xl bg-slate-950 border border-slate-800 text-white outline-none focus:border-blue-500 font-bold" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} />
+            <input type="password" placeholder="Senha" className="w-full p-5 rounded-2xl bg-slate-950 border border-slate-800 text-white outline-none focus:border-blue-500 font-bold" value={loginPassword} onChange={e => setLoginPassword(e.target.value)} />
+            <button className="w-full p-6 bg-blue-600 rounded-3xl font-black text-white uppercase shadow-xl active:scale-95 transition-all">{isLoggingIn ? 'Sincronizando...' : 'Acessar Dashboard'}</button>
           </form>
        </div>
     </div>
   );
-
-  const isMaster = currentUser.role === 'SUPERADMIN';
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-50 flex flex-col font-sans">
@@ -159,9 +185,9 @@ export default function App() {
           <div className="space-y-10">
              <h2 className="text-4xl font-black italic tracking-tight uppercase">{isMaster ? 'Analytics' : 'Coach Dashboard'}</h2>
              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <StatCard title={isMaster ? "Personais" : "Atletas"} value={isMaster ? trainers.length : alunos.length} icon={Users} color={isMaster ? "bg-red-500" : "bg-blue-500"} />
+                <StatCard title={isMaster ? "Personais" : "Alunos"} value={isMaster ? trainers.length : alunos.length} icon={Users} color={isMaster ? "bg-red-500" : "bg-blue-500"} />
                 <StatCard title="Faturamento" value={`R$ ${isMaster ? trainers.length * 99 : alunos.length * 150}`} icon={DollarSign} color="bg-emerald-500" />
-                <StatCard title="Uso IA" value="Ativo" icon={Zap} color="bg-indigo-500" />
+                <StatCard title="Uso IA" value="Engine Online" icon={Zap} color="bg-indigo-500" />
                 <StatCard title="Sistema" value="OK" icon={Target} color="bg-amber-500" />
              </div>
           </div>
@@ -172,7 +198,7 @@ export default function App() {
              <div className="flex justify-between items-center">
                 <h2 className="text-3xl font-black italic uppercase">{isMaster ? 'Master Management' : 'Sua Tropa'}</h2>
                 <button onClick={() => isMaster ? setShowAddTrainerModal(true) : setShowAddAlunoModal(true)} className={`${isMaster ? 'bg-red-600' : 'bg-blue-600'} px-8 py-5 rounded-2xl font-black text-[10px] uppercase shadow-lg active:scale-95`}>
-                  <Plus size={16} /> {isMaster ? 'Novo Personal' : 'Recrutar Atleta'}
+                  <Plus size={16} /> {isMaster ? 'Novo Personal' : 'Incluir Aluno'}
                 </button>
              </div>
              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -187,9 +213,9 @@ export default function App() {
                           if(isMaster) { setTrainerSelecionado(item); setShowEditPlanModal(true); } 
                           else { setAlunoSelecionado(item); setShowGerenciarTreinosModal(true); }
                         }} className={`flex-1 ${isMaster ? 'bg-slate-800' : 'bg-blue-600'} text-white p-5 rounded-2xl font-black text-[10px] uppercase shadow-xl`}>
-                          {isMaster ? 'Configurar Plano' : 'Gerenciar Treinos'}
+                          {isMaster ? 'Plano / Conta' : 'Gerenciar Dossiê'}
                         </button>
-                        {item.phone && <button onClick={() => openWhatsApp(item.phone, item.name)} className="p-5 bg-emerald-600/10 text-emerald-500 rounded-2xl shadow-xl transition-all hover:bg-emerald-600 hover:text-white"><MessageCircle size={22}/></button>}
+                        {item.phone && <button onClick={() => openWhatsApp(item.phone, item.name)} className="p-5 bg-emerald-600/10 text-emerald-500 rounded-2xl transition-all hover:bg-emerald-600 hover:text-white shadow-xl"><MessageCircle size={22}/></button>}
                         <button className="p-5 bg-red-600/10 text-red-500 rounded-2xl shadow-xl"><Trash2 size={22}/></button>
                      </div>
                   </div>
@@ -202,17 +228,17 @@ export default function App() {
            <div className="max-w-4xl mx-auto space-y-10 animate-fade-in pb-40 text-center">
               <div className="bg-gradient-to-br from-indigo-700 to-blue-900 p-16 rounded-[4rem] shadow-2xl relative overflow-hidden border border-white/10">
                  <Sparkles size={100} className="mx-auto text-white mb-8 animate-pulse" />
-                 <h2 className="text-5xl font-black italic text-white tracking-tighter uppercase">EvoIntelligence™</h2>
+                 <h2 className="text-5xl font-black text-white italic tracking-tighter uppercase">EvoIntelligence™</h2>
                  <p className="text-blue-100 mt-4 opacity-80 leading-relaxed italic text-lg">Engine Autônoma de Prescrição Biomecânica</p>
               </div>
               <div className="bg-slate-900 border border-slate-800 p-10 rounded-[3.5rem] shadow-2xl text-left space-y-6">
-                 <label className="text-[11px] font-black text-slate-500 uppercase tracking-[0.4em] ml-4">1. Selecionar Atleta Alvo</label>
+                 <label className="text-[11px] font-black text-slate-500 uppercase tracking-[0.4em] ml-4">1. Selecionar Aluno Alvo</label>
                  <select value={iaAlunoId} onChange={e => setIaAlunoId(e.target.value)} className="w-full p-8 bg-slate-950 border-2 border-slate-800 rounded-[2rem] text-white font-black text-xl outline-none focus:border-blue-500 cursor-pointer">
-                   <option value="">Selecione na sua tropa...</option>
+                   <option value="">Acessar lista de alunos...</option>
                    {alunos.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
                  </select>
                  <label className="text-[11px] font-black text-slate-500 uppercase tracking-[0.4em] ml-4">2. Comando de Inteligência</label>
-                 <textarea id="comandoIA" placeholder="Ex: Monte um treino focado em hipertrofia de costas, use exercícios conjugados..." className="w-full p-8 bg-slate-950 border-2 border-slate-800 rounded-[3rem] text-white font-medium text-lg min-h-[200px] outline-none"></textarea>
+                 <textarea id="comandoIA" placeholder="Ex: Monte um treino focado em hipertrofia de costas, use bi-sets e foque em pico de contração..." className="w-full p-8 bg-slate-950 border-2 border-slate-800 rounded-[3rem] text-white font-medium text-lg min-h-[200px] outline-none"></textarea>
                  <button onClick={gerarProtocoloIA} disabled={isLoading} className="w-full py-10 bg-white text-blue-900 font-black rounded-[2.5rem] shadow-2xl active:scale-95 transition-all uppercase tracking-[0.3em] text-sm flex items-center justify-center gap-4 hover:bg-blue-50">
                     {isLoading ? <Activity className="animate-spin" size={30} /> : <><Zap size={24} /> Ativar Engine Biomecânica</>}
                  </button>
@@ -222,15 +248,15 @@ export default function App() {
 
         {tabAtiva === 'perfil' && (
           <div className="max-w-2xl mx-auto space-y-10 text-center animate-fade-in pb-40">
-             <h2 className="text-4xl font-black italic text-center uppercase tracking-tight">Gerenciar <span className="text-blue-500">Conta</span></h2>
-             <div className="bg-slate-900 border border-slate-800 p-12 rounded-[4rem] shadow-2xl relative overflow-hidden text-center">
-                <div className="w-32 h-32 bg-blue-600/20 text-blue-500 rounded-full flex items-center justify-center text-5xl font-black mx-auto mb-8 border-4 border-blue-500/20 shadow-2xl">
+             <h2 className="text-4xl font-black italic uppercase tracking-tight text-center">Gerenciar <span className="text-blue-500">Conta</span></h2>
+             <div className="bg-slate-900 border border-slate-800 p-12 rounded-[4rem] shadow-2xl relative overflow-hidden">
+                <div className="w-32 h-32 bg-blue-600/20 text-blue-500 rounded-full flex items-center justify-center text-5xl font-black mx-auto mb-8 border-4 border-blue-500/20">
                    {currentUser.name[0]}
                 </div>
                 <h3 className="text-3xl font-black text-white italic uppercase tracking-tighter">{currentUser.name}</h3>
                 <p className="text-slate-500 text-lg mt-2 mb-10">{currentUser.email}</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                   <button onClick={() => setShowPasswordModal(true)} className="bg-slate-800 p-6 rounded-[2rem] font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-3 border border-slate-700 active:scale-95 transition-all"><Lock size={18}/> Mudar Senha</button>
+                   <button onClick={() => setShowPasswordModal(true)} className="bg-slate-800 p-6 rounded-[2rem] font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-3 border border-slate-700 active:scale-95 transition-all hover:bg-red-600"><Lock size={18}/> Mudar Senha</button>
                    <button className="bg-slate-800 p-6 rounded-[2rem] font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-3 border border-slate-700 opacity-50 cursor-not-allowed"><Camera size={18}/> Foto Perfil</button>
                 </div>
              </div>
@@ -241,11 +267,11 @@ export default function App() {
       <nav className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-slate-900/90 backdrop-blur-3xl border border-white/10 px-12 py-6 rounded-full flex gap-14 shadow-2xl z-[100]">
         {[
           { id: 'dashboard', icon: BarChart3, label: 'DASH' },
-          { id: 'alunos', icon: Users, label: isMaster ? 'PROS' : 'TROPA' },
+          { id: 'alunos', icon: Users, label: isMaster ? 'PROS' : 'ALUNOS' },
           { id: 'ia', icon: Sparkles, label: 'EVO-INT' },
           { id: 'perfil', icon: UserIcon, label: 'CONTA' }
         ].map(item => (
-          <button key={item.id} onClick={() => setTabAtTab(item.id)} className={`flex flex-col items-center gap-2 group transition-all transform active:scale-75 ${tabAtiva === item.id ? 'scale-125' : 'opacity-30 hover:opacity-100'}`}>
+          <button key={item.id} onClick={() => setTabAtiva(item.id)} className={`flex flex-col items-center gap-2 group transition-all transform active:scale-75 ${tabAtiva === item.id ? 'scale-125' : 'opacity-30 hover:opacity-100'}`}>
             <item.icon size={28} className={tabAtiva === item.id ? (isMaster ? 'text-red-500' : 'text-blue-500') : 'text-white'} strokeWidth={tabAtiva === item.id ? 2.5 : 2} />
             <span className={`text-[7px] font-black uppercase tracking-widest ${tabAtiva === item.id ? 'text-white' : 'text-slate-500'}`}>{item.label}</span>
           </button>
@@ -258,8 +284,8 @@ export default function App() {
            <div className="bg-slate-900 border border-slate-800 p-12 rounded-[3rem] w-full max-w-md shadow-2xl text-center">
               <h3 className="text-2xl font-black text-white mb-8 italic uppercase tracking-tighter">Segurança da Conta</h3>
               <div className="space-y-4">
-                 <input type="password" placeholder="Senha Atual" className="w-full p-5 rounded-2xl bg-slate-950 border border-slate-800 text-white font-bold" value={passwordForm.currentPassword} onChange={e => setPasswordForm({...passwordForm, currentPassword: e.target.value})} />
-                 <input type="password" placeholder="Nova Senha" className="w-full p-5 rounded-2xl bg-slate-950 border border-slate-800 text-white font-bold" value={passwordForm.newPassword} onChange={e => setPasswordForm({...passwordForm, newPassword: e.target.value})} />
+                 <input type="password" placeholder="Senha Atual" className="w-full p-5 rounded-2xl bg-slate-950 border border-slate-800 text-white outline-none font-bold" value={passwordForm.currentPassword} onChange={e => setPasswordForm({...passwordForm, currentPassword: e.target.value})} />
+                 <input type="password" placeholder="Nova Senha" className="w-full p-5 rounded-2xl bg-slate-950 border border-slate-800 text-white outline-none font-bold" value={passwordForm.newPassword} onChange={e => setPasswordForm({...passwordForm, newPassword: e.target.value})} />
                  <button onClick={changePassword} className="w-full py-6 bg-blue-600 text-white font-black rounded-3xl active:scale-95 shadow-xl transition-all uppercase tracking-widest text-[11px] mt-4">Atualizar Agora</button>
                  <button onClick={() => setShowPasswordModal(false)} className="w-full py-2 text-slate-600 font-bold text-xs uppercase">Cancelar</button>
               </div>
@@ -271,7 +297,7 @@ export default function App() {
       {showAddAlunoModal && (
         <div className="fixed inset-0 bg-black/98 z-[600] flex items-center justify-center p-6 backdrop-blur-md animate-fade-in">
            <div className="bg-slate-900 border border-slate-800 p-10 rounded-[4rem] w-full max-w-2xl max-h-[90vh] overflow-y-auto custom-scrollbar shadow-2xl relative">
-              <div className="flex justify-between items-center mb-10 pb-6 border-b border-slate-800"><h3 className="text-3xl font-black text-white italic tracking-tighter uppercase">Recrutar Atleta</h3><button onClick={() => setShowAddAlunoModal(false)} className="p-3 bg-slate-800 rounded-2xl text-slate-400 hover:text-white"><X size={28}/></button></div>
+              <div className="flex justify-between items-center mb-10 pb-6 border-b border-slate-800"><h3 className="text-3xl font-black text-white italic tracking-tighter uppercase">Incluir Aluno</h3><button onClick={() => setShowAddAlunoModal(false)} className="p-3 bg-slate-800 rounded-2xl text-slate-400 hover:text-white transition-all"><X size={28}/></button></div>
               <form onSubmit={createAluno} className="space-y-6">
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <input type="text" placeholder="Nome Completo" required className="p-6 rounded-3xl bg-slate-950 border border-slate-800 text-white font-bold" value={formAluno.name} onChange={e => setFormAluno({...formAluno, name: e.target.value})} />
@@ -288,23 +314,7 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL: EDITAR PLANO (MASTER) */}
-      {showEditPlanModal && trainerSelecionado && (
-        <div className="fixed inset-0 bg-black/98 z-[600] flex items-center justify-center p-6 backdrop-blur-md animate-fade-in">
-           <div className="bg-slate-900 border border-slate-800 p-12 rounded-[4rem] w-full max-w-md shadow-2xl text-center">
-              <h3 className="text-2xl font-black text-white mb-2 tracking-tight uppercase">Alterar Plano</h3>
-              <p className="text-slate-500 mb-10 font-medium uppercase tracking-widest">{trainerSelecionado.name}</p>
-              <div className="space-y-4">
-                 {['GRATIS', 'START', 'PRO', 'ELITE'].map(p => (
-                   <button key={p} onClick={() => updatePlan(trainerSelecionado.id, p)} className={`w-full p-6 rounded-3xl font-black text-[12px] uppercase border transition-all ${trainerSelecionado.plano === p ? 'bg-red-600 text-white border-red-600 shadow-2xl' : 'bg-slate-950 border-slate-800 text-slate-500'}`}>PLANO {p}</button>
-                 ))}
-              </div>
-              <button onClick={() => setShowEditPlanModal(false)} className="w-full mt-10 text-slate-600 font-bold text-xs uppercase">Fechar</button>
-           </div>
-        </div>
-      )}
-
-      {/* MODAL: GERENCIAR ALUNO (Dossiê) */}
+      {/* MODAL: GERENCIAR ALUNO */}
       {showGerenciarTreinosModal && alunoSelecionado && (
         <div className="fixed inset-0 bg-black/98 z-[600] flex items-center justify-center p-6 backdrop-blur-md">
            <div className="bg-slate-900 border border-slate-800 p-12 rounded-[4rem] w-full max-w-lg shadow-2xl">
@@ -320,8 +330,8 @@ export default function App() {
                     <div key={w.id} className="bg-slate-950 p-6 rounded-[2.5rem] border border-slate-800 flex justify-between items-center group hover:border-blue-500/50 transition-all shadow-inner">
                       <p className="font-black text-blue-400 uppercase text-sm tracking-tight">{w.title}</p>
                       <div className="flex gap-2">
-                        <button onClick={() => exportarPDF(w, alunoSelecionado)} className="p-4 bg-blue-600 text-white rounded-xl shadow-xl active:scale-90 transition-all"><Download size={18}/></button>
-                        <button onClick={() => enviarWhatsApp(alunoSelecionado, w.title)} className="p-4 bg-emerald-600 text-white rounded-xl shadow-xl active:scale-90 transition-all"><MessageCircle size={18}/></button>
+                        <button onClick={() => exportarPDF(w, alunoSelecionado)} className="p-4 bg-blue-600 text-white rounded-xl shadow-xl active:scale-90 shadow-blue-600/20"><Download size={18}/></button>
+                        <button onClick={() => enviarWhatsApp(alunoSelecionado, w.title)} className="p-4 bg-emerald-600 text-white rounded-xl shadow-xl active:scale-90 shadow-emerald-600/20"><MessageCircle size={18}/></button>
                       </div>
                     </div>
                   ))
@@ -331,12 +341,7 @@ export default function App() {
         </div>
       )}
 
-      {/* TOAST NOTIFICATION */}
-      {toastMsg && (
-        <div className="fixed top-12 left-1/2 -translate-x-1/2 z-[1000] bg-blue-600 text-white px-10 py-5 rounded-full font-black shadow-[0_20px_50px_rgba(37,99,235,0.5)] flex items-center gap-4 text-sm animate-bounce border border-white/10">
-           <CheckCircle2 size={24} /> {toastMsg}
-        </div>
-      )}
+      {toastMsg && <div className="fixed top-12 left-1/2 -translate-x-1/2 z-[1000] bg-blue-600 text-white px-10 py-5 rounded-full font-black shadow-2xl border border-white/10 animate-bounce">{toastMsg}</div>}
     </div>
   );
 }
