@@ -12,7 +12,7 @@ app.use(express.json({ limit: '15mb' }));
 const JWT_SECRET = process.env.JWT_SECRET || "secreto-evotrainer-2026";
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
-// --- MIDDLEWARES DE SEGURANÇA ---
+// --- MIDDLEWARES ---
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1]; 
@@ -33,12 +33,12 @@ const isAdminOrMaster = (req, res, next) => {
   next();
 };
 
-// --- ROTA PÚBLICA DE REGISTRO (Para a Landing Page) ---
+// --- ROTA PÚBLICA DE REGISTRO (Usada na Landing Page) ---
 app.post('/api/register', async (req, res) => {
   const { name, email, phone, password } = req.body;
   try {
     const userExists = await prisma.user.findUnique({ where: { email } });
-    if (userExists) return res.status(400).json({ error: "E-mail já está em uso." });
+    if (userExists) return res.status(400).json({ error: "Este e-mail já está cadastrado." });
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const novoPersonal = await prisma.user.create({
@@ -47,18 +47,18 @@ app.post('/api/register', async (req, res) => {
         email,
         phone,
         password: hashedPassword,
-        role: 'ADMIN', // Ele entra como Personal Trainer
+        role: 'ADMIN', // Nível de Personal Trainer
         status: 'Ativo',
-        plano: 'GRATIS' // Inicia no plano de teste
+        plano: 'GRATIS' // Começa no plano gratuito/teste
       }
     });
     res.status(201).json({ message: "Conta criada com sucesso!", user: { id: novoPersonal.id, email: novoPersonal.email } });
   } catch (e) {
-    res.status(500).json({ error: "Erro ao criar conta." });
+    res.status(500).json({ error: "Erro interno ao criar a conta." });
   }
 });
 
-// --- EVOINTELLIGENCE™: ENGINE IA ---
+// --- EVOINTELLIGENCE™: ENGINE IA DE PERIODIZAÇÃO ---
 app.post('/api/ai/gerar-autonomo', authenticateToken, isAdminOrMaster, async (req, res) => {
   const { alunoId, comandoPersonal, frequencia, ciclo, semanas } = req.body;
   try {
@@ -181,4 +181,4 @@ app.put('/api/perfil/senha', authenticateToken, async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => console.log(`🚀 EvoCore rodando perfeitamente: ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 EvoCore finalizado e rodando na porta ${PORT}`));
