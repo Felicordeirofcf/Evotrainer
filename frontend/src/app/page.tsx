@@ -34,14 +34,18 @@ export default function App() {
   const [iaSemanas, setIaSemanas] = useState('4');
   const [isLoading, setIsLoading] = useState(false);
 
+  // States de Modais
   const [showAddAlunoModal, setShowAddAlunoModal] = useState(false);
   const [showEditAlunoModal, setShowEditAlunoModal] = useState(false);
   const [showGerenciarTreinosModal, setShowGerenciarTreinosModal] = useState(false);
   const [alunoSelecionado, setAlunoSelecionado] = useState<any>(null);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [showRecoverModal, setShowRecoverModal] = useState(false); // NOVO MODAL
 
+  // States de Formulários
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
+  const [recoverEmail, setRecoverEmail] = useState(''); // NOVO ESTADO
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   
   const [formAluno, setFormAluno] = useState({ name: '', email: '', phone: '', weight: '', height: '', level: 'Intermediário', anamnese: '', price: '' });
@@ -51,7 +55,6 @@ export default function App() {
   const showToast = (msg: string) => { setToastMsg(msg); setTimeout(() => setToastMsg(''), 3000); };
   const getAuthHeaders = () => ({ 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` });
 
-  // --- CÁLCULO DE FATURAMENTO DINÂMICO ---
   const faturamentoAtletas = alunos.reduce((acc, aluno) => acc + (parseFloat(aluno.price) || 0), 0);
   const faturamentoMaster = trainers.length * 99; 
   const faturamentoReal = isMaster ? faturamentoMaster : faturamentoAtletas;
@@ -79,6 +82,24 @@ export default function App() {
     } catch (e) { showToast("Erro no servidor."); } finally { setIsLoggingIn(false); }
   };
 
+  // --- NOVA FUNÇÃO: RECUPERAR SENHA ---
+  const handleRecoverPassword = async () => {
+    if(!recoverEmail) return showToast("Preencha o e-mail.");
+    setIsLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/recover-password`, { 
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify({ email: recoverEmail }) 
+      });
+      const data = await res.json();
+      if (res.ok) { 
+        showToast(data.message); 
+        setShowRecoverModal(false); 
+        setRecoverEmail('');
+      } else { showToast(data.error); }
+    } catch (e) { showToast("Erro de rede."); } finally { setIsLoading(false); }
+  };
+
   const createAluno = async (e: React.FormEvent) => {
     e.preventDefault();
     const res = await fetch(`${API_URL}/alunos`, { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify(formAluno) });
@@ -92,16 +113,16 @@ export default function App() {
   };
 
   const deleteAluno = async (id: number) => {
-    if(!confirm("Remover aluno e seus treinos permanentemente?")) return;
+    if(!confirm("Remover aluno permanentemente?")) return;
     const res = await fetch(`${API_URL}/alunos/${id}`, { method: 'DELETE', headers: getAuthHeaders() });
     if (res.ok) { showToast("Aluno Removido!"); fetchData(); }
   };
 
   const deletePlanilha = async (planilhaId: number) => {
-    if(!confirm("Deletar este treino específico?")) return;
+    if(!confirm("Deletar esta planilha do dossiê?")) return;
     const res = await fetch(`${API_URL}/treinos/${planilhaId}`, { method: 'DELETE', headers: getAuthHeaders() });
     if (res.ok) { 
-      showToast("Treino Excluído!"); 
+      showToast("Planilha Excluída!"); 
       setAlunoSelecionado((prev: any) => ({ ...prev, workouts: prev.workouts.filter((w: any) => w.id !== planilhaId) }));
       fetchData(); 
     }
@@ -192,12 +213,14 @@ export default function App() {
 
   useEffect(() => { if (currentUser) fetchData(); }, [currentUser, tabAtiva]);
 
+  // ================= TELA DE LOGIN PÚBLICA =================
   if (!currentUser) return (
-    <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6 text-center font-sans">
-       <div className="w-full max-w-md bg-slate-900 border border-slate-800 p-10 rounded-[3rem] shadow-2xl">
+    <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6 text-center font-sans relative">
+       <div className="w-full max-w-md bg-slate-900 border border-slate-800 p-10 rounded-[3rem] shadow-2xl relative z-10">
           <Dumbbell className="text-blue-500 mx-auto mb-6" size={50} />
           <h1 className="text-4xl font-black text-white italic mb-8 uppercase tracking-tighter">EVO<span className="text-blue-500">TRAINER</span></h1>
-          <form onSubmit={handleLogin} className="space-y-5 text-left">
+          
+          <form onSubmit={handleLogin} className="space-y-4 text-left">
             <div>
               <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4 mb-2 block">E-mail de Acesso</label>
               <input type="email" required className="w-full p-5 rounded-2xl bg-slate-950 border border-slate-800 text-white outline-none focus:border-blue-500 font-bold transition-all" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} />
@@ -206,12 +229,44 @@ export default function App() {
               <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4 mb-2 block">Senha Segura</label>
               <input type="password" required className="w-full p-5 rounded-2xl bg-slate-950 border border-slate-800 text-white outline-none focus:border-blue-500 font-bold transition-all" value={loginPassword} onChange={e => setLoginPassword(e.target.value)} />
             </div>
-            <button className="w-full p-6 bg-blue-600 rounded-3xl font-black text-white uppercase active:scale-95 transition-all shadow-xl mt-4">{isLoggingIn ? 'Sincronizando...' : 'Entrar no Dashboard'}</button>
+            
+            {/* BOTÃO ESQUECEU A SENHA */}
+            <div className="text-right mt-1">
+               <button type="button" onClick={() => setShowRecoverModal(true)} className="text-[10px] font-black text-slate-500 uppercase tracking-widest hover:text-blue-500 transition-all">
+                  Esqueceu a Senha?
+               </button>
+            </div>
+
+            <button className="w-full p-6 bg-blue-600 rounded-3xl font-black text-white uppercase active:scale-95 transition-all shadow-xl mt-4 hover:bg-blue-500">{isLoggingIn ? 'Sincronizando...' : 'Entrar no Dashboard'}</button>
           </form>
        </div>
+
+       {/* MODAL DE RECUPERAÇÃO DE SENHA */}
+       {showRecoverModal && (
+         <div className="fixed inset-0 bg-black/98 z-[800] flex items-center justify-center p-6 backdrop-blur-md animate-fade-in text-slate-50">
+            <div className="bg-slate-900 border border-slate-800 p-10 md:p-12 rounded-[3rem] w-full max-w-md shadow-2xl text-center relative">
+               <button onClick={() => setShowRecoverModal(false)} className="absolute top-6 right-6 p-2 text-slate-400 hover:text-white transition-all"><X size={24}/></button>
+               <h3 className="text-2xl font-black text-white mb-2 italic uppercase tracking-tighter">Recuperar Acesso</h3>
+               <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mb-8">Enviaremos instruções seguras</p>
+               
+               <div className="space-y-4 text-left">
+                  <div>
+                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4 mb-2 block">E-mail Cadastrado</label>
+                     <input type="email" required className="w-full p-5 rounded-2xl bg-slate-950 border border-slate-800 text-white outline-none focus:border-blue-500 font-bold transition-all" value={recoverEmail} onChange={e => setRecoverEmail(e.target.value)} />
+                  </div>
+                  <button onClick={handleRecoverPassword} disabled={isLoading} className="w-full py-6 bg-blue-600 text-white font-black rounded-3xl active:scale-95 shadow-xl transition-all uppercase tracking-widest text-[11px] mt-4 hover:bg-blue-500">
+                    {isLoading ? <Activity className="animate-spin mx-auto" size={20} /> : 'Enviar Instruções'}
+                  </button>
+               </div>
+            </div>
+         </div>
+       )}
+
+       {toastMsg && <div className="fixed top-12 left-1/2 -translate-x-1/2 z-[1000] bg-blue-600 text-white px-10 py-5 rounded-full font-black shadow-[0_20px_50px_rgba(37,99,235,0.5)] flex items-center gap-4 text-sm animate-bounce border border-white/10"><CheckCircle2 size={24} /> {toastMsg}</div>}
     </div>
   );
 
+  // ================= RENDERIZAÇÃO: DASHBOARD LOGADO =================
   return (
     <div className="min-h-screen bg-slate-950 text-slate-50 flex flex-col font-sans">
       <header className="p-6 bg-slate-900/50 backdrop-blur-xl border-b border-slate-800 flex justify-between items-center sticky top-0 z-50">
@@ -220,8 +275,6 @@ export default function App() {
       </header>
 
       <main className="flex-1 p-6 md:p-10 max-w-7xl mx-auto w-full pb-40 animate-fade-in">
-        
-        {/* DASHBOARD TAB (FATURAMENTO DINÂMICO) */}
         {tabAtiva === 'dashboard' && (
           <div className="space-y-10">
              <h2 className="text-4xl font-black italic tracking-tight uppercase text-white text-center sm:text-left">Dashboard</h2>
@@ -234,7 +287,6 @@ export default function App() {
           </div>
         )}
 
-        {/* ALUNOS TAB */}
         {tabAtiva === 'alunos' && (
           <div className="space-y-10">
              <div className="flex justify-between items-center">
@@ -244,7 +296,6 @@ export default function App() {
              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {alunos.map(item => (
                   <div key={item.id} className="bg-slate-900 border border-slate-800 p-8 rounded-[3.5rem] shadow-xl hover:border-slate-700 transition-all flex flex-col gap-6 relative">
-                     {/* TAG DE PREÇO FLUTUANTE PREMIUM */}
                      {item.price && (
                         <div className="absolute top-6 right-6 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-black text-[11px] px-4 py-2 rounded-xl backdrop-blur-md">
                            R$ {item.price}
@@ -265,7 +316,6 @@ export default function App() {
           </div>
         )}
 
-        {/* EVOINTELLIGENCE™ TAB */}
         {tabAtiva === 'ia' && (
            <div className="max-w-4xl mx-auto space-y-10 animate-fade-in pb-40 text-center">
               <div className="bg-gradient-to-br from-indigo-700 to-blue-900 p-16 rounded-[4rem] shadow-2xl relative overflow-hidden border border-white/10">
@@ -283,7 +333,7 @@ export default function App() {
                       </select>
                     </div>
                     <div className="space-y-4">
-                      <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest ml-4">2. Dias de Treino/Semana</label>
+                      <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest ml-4">2. Dias na Semana</label>
                       <select value={iaFrequencia} onChange={e => setIaFrequencia(e.target.value)} className="w-full p-8 bg-slate-950 border-2 border-slate-800 rounded-[2rem] text-white font-black text-xl outline-none focus:border-blue-500 cursor-pointer appearance-none">
                         {[1,2,3,4,5,6,7].map(n => <option key={n} value={n}>{n} dias na semana</option>)}
                       </select>
@@ -309,7 +359,7 @@ export default function App() {
 
                  <div className="space-y-4">
                     <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest ml-4">5. Comando da Periodização</label>
-                    <textarea id="comandoIA" placeholder="Ex: Monte um ABCDE focado em hipertrofia máxima..." className="w-full p-8 bg-slate-950 border-2 border-slate-800 rounded-[3rem] text-white font-medium text-lg min-h-[200px] outline-none shadow-inner"></textarea>
+                    <textarea id="comandoIA" placeholder="Ex: Monte um ABCDE focado em hipertrofia máxima, priorizando ombros..." className="w-full p-8 bg-slate-950 border-2 border-slate-800 rounded-[3rem] text-white font-medium text-lg min-h-[200px] outline-none shadow-inner"></textarea>
                  </div>
                  <button onClick={gerarSemanaIA} disabled={isLoading} className="w-full py-10 bg-white text-blue-900 font-black rounded-[2.5rem] shadow-2xl active:scale-95 transition-all uppercase tracking-widest text-sm flex items-center justify-center gap-4 hover:bg-blue-50">
                     {isLoading ? <Activity className="animate-spin" size={30} /> : <><Zap size={24} /> Ativar Engine Biomecânica</>}
@@ -318,7 +368,6 @@ export default function App() {
            </div>
         )}
 
-        {/* PERFIL TAB */}
         {tabAtiva === 'perfil' && (
           <div className="max-w-2xl mx-auto space-y-10 text-center animate-fade-in pb-40">
              <h2 className="text-4xl font-black italic uppercase tracking-tight text-center">Configurações</h2>
@@ -351,7 +400,7 @@ export default function App() {
         ))}
       </nav>
 
-      {/* MODAL: INCLUIR / EDITAR ALUNO */}
+      {/* MODAL: INCLUIR / EDITAR ALUNO COM LABELS PREMIUM */}
       {(showAddAlunoModal || showEditAlunoModal) && (
         <div className="fixed inset-0 bg-black/98 z-[600] flex items-center justify-center p-6 backdrop-blur-md animate-fade-in text-slate-50">
            <div className="bg-slate-900 border border-slate-800 p-10 rounded-[4rem] w-full max-w-3xl max-h-[90vh] overflow-y-auto custom-scrollbar shadow-2xl relative">
@@ -363,41 +412,41 @@ export default function App() {
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                       <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4 mb-2 block">Nome Completo</label>
-                      <input type="text" required className="w-full p-6 rounded-3xl bg-slate-950 border border-slate-800 text-white font-bold outline-none focus:border-blue-500 transition-all" value={formAluno.name} onChange={e => setFormAluno({...formAluno, name: e.target.value})} />
+                      <input type="text" required className="w-full p-6 rounded-3xl bg-slate-950 border border-slate-800 text-white font-bold outline-none focus:border-blue-500" value={formAluno.name} onChange={e => setFormAluno({...formAluno, name: e.target.value})} />
                     </div>
                     <div>
                       <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4 mb-2 block">E-mail de Login</label>
-                      <input type="email" required className="w-full p-6 rounded-3xl bg-slate-950 border border-slate-800 text-white font-bold outline-none focus:border-blue-500 transition-all" value={formAluno.email} onChange={e => setFormAluno({...formAluno, email: e.target.value})} />
+                      <input type="email" required className="w-full p-6 rounded-3xl bg-slate-950 border border-slate-800 text-white font-bold outline-none focus:border-blue-500" value={formAluno.email} onChange={e => setFormAluno({...formAluno, email: e.target.value})} />
                     </div>
                  </div>
 
                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div>
                       <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4 mb-2 block">WhatsApp</label>
-                      <input type="tel" required className="w-full p-6 rounded-3xl bg-slate-950 border border-slate-800 text-white font-bold outline-none focus:border-blue-500 transition-all" value={formAluno.phone} onChange={e => setFormAluno({...formAluno, phone: e.target.value})} />
+                      <input type="tel" required className="w-full p-6 rounded-3xl bg-slate-950 border border-slate-800 text-white font-bold outline-none focus:border-blue-500" value={formAluno.phone} onChange={e => setFormAluno({...formAluno, phone: e.target.value})} />
                     </div>
                     <div>
                       <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4 mb-2 block">Valor Mensalidade</label>
                       <div className="relative">
                          <span className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400 font-black">R$</span>
-                         <input type="number" step="0.01" className="w-full p-6 pl-14 rounded-3xl bg-slate-950 border border-slate-800 text-white font-bold outline-none focus:border-blue-500 transition-all" value={formAluno.price} onChange={e => setFormAluno({...formAluno, price: e.target.value})} />
+                         <input type="number" step="0.01" className="w-full p-6 pl-14 rounded-3xl bg-slate-950 border border-slate-800 text-white font-bold outline-none focus:border-blue-500" value={formAluno.price} onChange={e => setFormAluno({...formAluno, price: e.target.value})} />
                       </div>
                     </div>
                     <div>
                       <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4 mb-2 block">Nível de Treino</label>
-                      <select className="w-full p-6 rounded-3xl bg-slate-950 border border-slate-800 text-white font-black outline-none focus:border-blue-500 appearance-none cursor-pointer" value={formAluno.level} onChange={e => setFormAluno({...formAluno, level: e.target.value})}>
+                      <select className="w-full p-6 rounded-3xl bg-slate-950 border border-slate-800 text-white font-black outline-none focus:border-blue-500 appearance-none" value={formAluno.level} onChange={e => setFormAluno({...formAluno, level: e.target.value})}>
                          <option>Iniciante</option><option>Intermediário</option><option>Avançado</option>
                       </select>
                     </div>
                  </div>
 
                  <div>
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4 mb-2 block">Prontuário Médico / Restrições (Para a IA)</label>
-                    <textarea className="w-full p-8 bg-slate-950 border border-slate-800 rounded-[2.5rem] text-white min-h-[150px] outline-none focus:border-blue-500 transition-all shadow-inner" value={formAluno.anamnese} onChange={e => setFormAluno({...formAluno, anamnese: e.target.value})}></textarea>
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4 mb-2 block">Prontuário Médico / Restrições (IA)</label>
+                    <textarea className="w-full p-8 bg-slate-950 border border-slate-800 rounded-[2.5rem] text-white min-h-[150px] outline-none focus:border-blue-500" value={formAluno.anamnese} onChange={e => setFormAluno({...formAluno, anamnese: e.target.value})}></textarea>
                  </div>
                  
-                 <button type="submit" className="w-full py-8 bg-blue-600 text-white font-black rounded-[2.5rem] shadow-2xl uppercase tracking-widest text-[12px] active:scale-95 transition-all mt-4 hover:bg-blue-500">
-                    {showAddAlunoModal ? 'Salvar Aluno' : 'Atualizar Dados'}
+                 <button type="submit" className="w-full py-8 bg-blue-600 text-white font-black rounded-[2.5rem] shadow-2xl uppercase tracking-widest text-[12px] active:scale-95 transition-all mt-4">
+                    {showAddAlunoModal ? 'Salvar e Integrar IA' : 'Atualizar Dados do Aluno'}
                  </button>
               </form>
            </div>
@@ -406,36 +455,36 @@ export default function App() {
 
       {/* MODAL: MUDAR SENHA */}
       {showPasswordModal && (
-        <div className="fixed inset-0 bg-black/98 z-[800] flex items-center justify-center p-6 backdrop-blur-md">
+        <div className="fixed inset-0 bg-black/98 z-[800] flex items-center justify-center p-6 backdrop-blur-md text-slate-50">
            <div className="bg-slate-900 border border-slate-800 p-12 rounded-[3rem] w-full max-w-md shadow-2xl text-center">
-              <h3 className="text-2xl font-black text-white mb-8 italic uppercase tracking-tighter">Segurança da Conta</h3>
+              <h3 className="text-2xl font-black text-white mb-8 italic uppercase tracking-tighter">Segurança</h3>
               <div className="space-y-5 text-left">
                  <div>
                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4 mb-2 block">Senha Atual</label>
-                    <input type="password" required className="w-full p-5 rounded-2xl bg-slate-950 border border-slate-800 text-white outline-none focus:border-blue-500 font-bold" value={passwordForm.currentPassword} onChange={e => setPasswordForm({...passwordForm, currentPassword: e.target.value})} />
+                    <input type="password" required className="w-full p-5 rounded-2xl bg-slate-950 border border-slate-800 text-white outline-none font-bold" value={passwordForm.currentPassword} onChange={e => setPasswordForm({...passwordForm, currentPassword: e.target.value})} />
                  </div>
                  <div>
                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4 mb-2 block">Nova Senha Segura</label>
-                    <input type="password" required className="w-full p-5 rounded-2xl bg-slate-950 border border-slate-800 text-white outline-none focus:border-blue-500 font-bold" value={passwordForm.newPassword} onChange={e => setPasswordForm({...passwordForm, newPassword: e.target.value})} />
+                    <input type="password" required className="w-full p-5 rounded-2xl bg-slate-950 border border-slate-800 text-white outline-none font-bold" value={passwordForm.newPassword} onChange={e => setPasswordForm({...passwordForm, newPassword: e.target.value})} />
                  </div>
-                 <button onClick={changePassword} className="w-full py-6 bg-blue-600 text-white font-black rounded-3xl active:scale-95 shadow-xl transition-all uppercase tracking-widest text-[11px] mt-6 hover:bg-blue-500">Atualizar Agora</button>
-                 <button onClick={() => setShowPasswordModal(false)} className="w-full py-2 text-slate-600 font-bold text-xs uppercase hover:text-white transition-all">Cancelar</button>
+                 <button onClick={changePassword} className="w-full py-6 bg-blue-600 text-white font-black rounded-3xl active:scale-95 shadow-xl transition-all uppercase tracking-widest text-[11px] mt-6">Atualizar Agora</button>
+                 <button onClick={() => setShowPasswordModal(false)} className="w-full py-2 text-slate-600 font-bold text-xs uppercase">Cancelar</button>
               </div>
            </div>
         </div>
       )}
 
-      {/* MODAL: GERENCIAR TREINOS */}
+      {/* MODAL: GERENCIAR ALUNO (DOSSIÊ COM LIXEIRA E DATAS) */}
       {showGerenciarTreinosModal && alunoSelecionado && (
         <div className="fixed inset-0 bg-black/98 z-[600] flex items-center justify-center p-6 backdrop-blur-md animate-fade-in text-slate-50">
            <div className="bg-slate-900 border border-slate-800 p-12 rounded-[4rem] w-full max-w-2xl shadow-2xl">
               <div className="flex justify-between items-center mb-10 border-b border-slate-800 pb-8">
-                <div><h3 className="text-3xl font-black text-white tracking-tight uppercase italic">{alunoSelecionado.name}</h3><p className="text-[10px] text-blue-500 font-black uppercase mt-2 tracking-widest">Gestão de Treinos</p></div>
-                <button onClick={() => setShowGerenciarTreinosModal(false)} className="p-3 bg-slate-800 rounded-2xl text-slate-400 hover:text-white transition-all"><X size={28}/></button>
+                <div><h3 className="text-3xl font-black text-white tracking-tight uppercase italic">{alunoSelecionado.name}</h3><p className="text-[10px] text-blue-500 font-black uppercase mt-2 tracking-widest">Dossiê de Periodização</p></div>
+                <button onClick={() => setShowGerenciarTreinosModal(false)} className="p-3 bg-slate-800 rounded-2xl text-slate-400 hover:text-white"><X size={28}/></button>
               </div>
               <div className="space-y-4 max-h-[50vh] overflow-y-auto pr-2 custom-scrollbar">
                 {(!alunoSelecionado.workouts || alunoSelecionado.workouts.length === 0) ? (
-                  <div className="text-center py-20 text-slate-700 font-black uppercase text-xs tracking-widest border-2 border-dashed border-slate-800 rounded-[2rem]">Nenhuma ficha no banco.</div>
+                  <div className="text-center py-20 text-slate-700 font-black uppercase text-xs tracking-widest border-2 border-dashed border-slate-800 rounded-[2rem]">Nenhuma planilha no banco.</div>
                 ) : (
                   alunoSelecionado.workouts.map((w: any) => {
                     const dataCriacao = new Date(w.createdAt).toLocaleDateString('pt-BR');
@@ -450,9 +499,9 @@ export default function App() {
                            </div>
                         </div>
                         <div className="flex gap-2">
-                          <button onClick={() => exportarPDF(w, alunoSelecionado)} className="p-4 bg-blue-600 text-white rounded-xl shadow-xl active:scale-90 hover:bg-blue-500 transition-all" title="Gerar PDF"><Download size={18}/></button>
-                          <button onClick={() => enviarWhatsApp(alunoSelecionado, w)} className="p-4 bg-emerald-600 text-white rounded-xl shadow-xl active:scale-90 hover:bg-emerald-500 transition-all" title="Avisar no WhatsApp"><MessageCircle size={18}/></button>
-                          <button onClick={() => deletePlanilha(w.id)} className="p-4 bg-red-600/20 text-red-500 rounded-xl shadow-xl active:scale-90 hover:bg-red-600 hover:text-white transition-all" title="Deletar Treino"><Trash2 size={18}/></button>
+                          <button onClick={() => exportarPDF(w, alunoSelecionado)} className="p-4 bg-blue-600 text-white rounded-xl shadow-xl active:scale-90 hover:bg-blue-500 transition-all"><Download size={18}/></button>
+                          <button onClick={() => enviarWhatsApp(alunoSelecionado, w)} className="p-4 bg-emerald-600 text-white rounded-xl shadow-xl active:scale-90 hover:bg-emerald-500 transition-all"><MessageCircle size={18}/></button>
+                          <button onClick={() => deletePlanilha(w.id)} className="p-4 bg-red-600/20 text-red-500 rounded-xl shadow-xl active:scale-90 hover:bg-red-600 hover:text-white transition-all"><Trash2 size={18}/></button>
                         </div>
                       </div>
                     );

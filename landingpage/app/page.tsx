@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { 
-  Dumbbell, Sparkles, Users, CheckCircle2, ArrowRight, Youtube, 
-  Menu, X, ShieldCheck, Zap, HelpCircle, Play, FileText, TrendingUp, MessageCircle
+  Dumbbell, Sparkles, CheckCircle2, ArrowRight, Menu, X, ShieldCheck, Zap, 
+  HelpCircle, Play, FileText, TrendingUp, MessageCircle, Activity 
 } from 'lucide-react';
 
 const getBaseUrl = () => {
@@ -11,7 +11,45 @@ const getBaseUrl = () => {
   return 'https://evotrainer.onrender.com';
 };
 const API_URL = getBaseUrl().endsWith('/') ? `${getBaseUrl()}api` : `${getBaseUrl()}/api`;
-const APP_URL = "https://evotrainer.vercel.app";
+const APP_URL = "https://evotrainer.vercel.app"; // Substitua pelo link real do seu Dashboard
+
+const Navbar = ({ onOpenSignup }: any) => {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <nav className="fixed top-0 w-full z-[100] bg-slate-950/80 backdrop-blur-xl border-b border-slate-800">
+      <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="bg-blue-600 p-2 rounded-xl shadow-lg shadow-blue-600/20">
+            <Dumbbell className="text-white" size={24} />
+          </div>
+          <span className="text-xl font-black tracking-tighter text-white">EVO<span className="text-blue-500">TRAINER</span></span>
+        </div>
+        <div className="hidden md:flex items-center gap-8">
+          <a href="#funcionalidades" className="text-sm font-bold text-slate-400 hover:text-white transition-colors tracking-wide">Recursos</a>
+          <a href="#como-funciona" className="text-sm font-bold text-slate-400 hover:text-white transition-colors tracking-wide">Como Funciona</a>
+          <a href="#precos" className="text-sm font-bold text-slate-400 hover:text-white transition-colors tracking-wide">Planos</a>
+          <div className="flex gap-4 border-l border-slate-800 pl-8">
+            <a href={APP_URL} className="text-white font-bold text-sm hover:text-blue-400 transition-all flex items-center">Login</a>
+            <button onClick={onOpenSignup} className="bg-blue-600 text-white px-6 py-2.5 rounded-xl font-black text-xs uppercase tracking-widest shadow-lg shadow-blue-600/20 hover:scale-105 active:scale-95 transition-all">Testar Grátis</button>
+          </div>
+        </div>
+        <button className="md:hidden text-slate-400" onClick={() => setIsOpen(!isOpen)}>{isOpen ? <X /> : <Menu />}</button>
+      </div>
+
+      {isOpen && (
+        <div className="md:hidden bg-slate-900 border-b border-slate-800 p-6 flex flex-col gap-4 animate-fade-in">
+          <a href="#funcionalidades" className="text-lg font-bold text-slate-300">Recursos</a>
+          <a href="#como-funciona" className="text-lg font-bold text-slate-300">Como Funciona</a>
+          <a href="#precos" className="text-lg font-bold text-slate-300">Planos</a>
+          <hr className="border-slate-800" />
+          <a href={APP_URL} className="w-full bg-slate-800 text-white py-4 rounded-2xl font-black text-center tracking-widest uppercase text-xs">Login do Painel</a>
+          <button onClick={() => { setIsOpen(false); onOpenSignup(); }} className="w-full bg-blue-600 text-white py-4 rounded-2xl font-black text-center block tracking-widest uppercase text-xs">Criar Conta</button>
+        </div>
+      )}
+    </nav>
+  );
+};
 
 const FeatureCard = ({ icon: Icon, title, desc, color }: any) => (
   <div className="bg-slate-900/50 p-10 rounded-[3rem] border border-slate-800 hover:border-slate-600 transition-all group relative overflow-hidden">
@@ -24,7 +62,7 @@ const FeatureCard = ({ icon: Icon, title, desc, color }: any) => (
   </div>
 );
 
-const PlanCard = ({ title, price, subPrice, features, highlighted = false, onSignupClick, badge }: any) => {
+const PlanCard = ({ title, price, subPrice, features, highlighted = false, onAction, badge }: any) => {
   return (
     <div className={`relative p-10 rounded-[3rem] border transition-all duration-500 hover:-translate-y-2 flex flex-col h-full ${highlighted ? 'bg-slate-900 border-blue-500 shadow-2xl shadow-blue-900/20' : 'bg-slate-950 border-slate-800 hover:border-slate-700'}`}>
       {badge && (
@@ -50,7 +88,7 @@ const PlanCard = ({ title, price, subPrice, features, highlighted = false, onSig
         ))}
       </div>
 
-      <button onClick={onSignupClick} className={`w-full py-5 rounded-2xl font-black text-center text-[11px] uppercase tracking-[0.2em] transition-all ${highlighted ? 'bg-blue-600 text-white hover:bg-blue-500 shadow-xl shadow-blue-600/20' : 'bg-slate-800 text-white hover:bg-slate-700'}`}>
+      <button onClick={onAction} className={`w-full py-5 rounded-2xl font-black text-center text-[11px] uppercase tracking-[0.2em] transition-all ${highlighted ? 'bg-blue-600 text-white hover:bg-blue-500 shadow-xl shadow-blue-600/20' : 'bg-slate-800 text-white hover:bg-slate-700'}`}>
         {price === "0,00" ? "Iniciar Teste Grátis" : "Assinar Agora"}
       </button>
       {price !== "0,00" && <p className="text-center text-[10px] text-slate-500 mt-5 font-bold uppercase tracking-widest flex items-center justify-center gap-2"><ShieldCheck size={14} className="text-emerald-500"/> Pagamento Seguro</p>}
@@ -59,12 +97,10 @@ const PlanCard = ({ title, price, subPrice, features, highlighted = false, onSig
 };
 
 export default function LandingPage() {
-  const [isOpen, setIsOpen] = useState(false);
   const [showSignupModal, setShowSignupModal] = useState(false);
   const [toastMsg, setToastMsg] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  // Estado do formulário de registro do Personal
   const [formReg, setFormReg] = useState({ name: '', email: '', phone: '', password: '' });
 
   const showToast = (msg: string) => { setToastMsg(msg); setTimeout(() => setToastMsg(''), 3000); };
@@ -86,7 +122,7 @@ export default function LandingPage() {
       const data = await res.json();
       if (res.ok) {
         showToast("Conta criada com sucesso! Redirecionando...");
-        setTimeout(() => { window.location.href = APP_URL; }, 2000); // Manda pro App para fazer login
+        setTimeout(() => { window.location.href = APP_URL; }, 2000); 
       } else {
         showToast(data.error || "Erro ao criar conta.");
       }
@@ -108,39 +144,7 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-slate-950 font-sans selection:bg-blue-500/30">
-      
-      {/* NAVBAR */}
-      <nav className="fixed top-0 w-full z-[100] bg-slate-950/80 backdrop-blur-xl border-b border-slate-800">
-        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="bg-blue-600 p-2 rounded-xl shadow-lg shadow-blue-600/20">
-              <Dumbbell className="text-white" size={24} />
-            </div>
-            <span className="text-xl font-black tracking-tighter text-white">EVO<span className="text-blue-500">TRAINER</span></span>
-          </div>
-          <div className="hidden md:flex items-center gap-8">
-            <a href="#funcionalidades" className="text-sm font-bold text-slate-400 hover:text-white transition-colors tracking-wide">Recursos</a>
-            <a href="#como-funciona" className="text-sm font-bold text-slate-400 hover:text-white transition-colors tracking-wide">Como Funciona</a>
-            <a href="#precos" className="text-sm font-bold text-slate-400 hover:text-white transition-colors tracking-wide">Planos</a>
-            <div className="flex gap-4 border-l border-slate-800 pl-8">
-              <a href={APP_URL} className="text-white font-bold text-sm hover:text-blue-400 transition-all flex items-center">Login</a>
-              <button onClick={() => setShowSignupModal(true)} className="bg-blue-600 text-white px-6 py-2.5 rounded-xl font-black text-xs uppercase tracking-widest shadow-lg shadow-blue-600/20 hover:scale-105 active:scale-95 transition-all">Testar Grátis</button>
-            </div>
-          </div>
-          <button className="md:hidden text-slate-400" onClick={() => setIsOpen(!isOpen)}>{isOpen ? <X /> : <Menu />}</button>
-        </div>
-
-        {isOpen && (
-          <div className="md:hidden bg-slate-900 border-b border-slate-800 p-6 flex flex-col gap-4 animate-fade-in">
-            <a href="#funcionalidades" className="text-lg font-bold text-slate-300">Recursos</a>
-            <a href="#como-funciona" className="text-lg font-bold text-slate-300">Como Funciona</a>
-            <a href="#precos" className="text-lg font-bold text-slate-300">Planos</a>
-            <hr className="border-slate-800" />
-            <a href={APP_URL} className="w-full bg-slate-800 text-white py-4 rounded-2xl font-black text-center tracking-widest uppercase text-xs">Login do Painel</a>
-            <button onClick={() => { setIsOpen(false); setShowSignupModal(true); }} className="w-full bg-blue-600 text-white py-4 rounded-2xl font-black text-center block tracking-widest uppercase text-xs">Criar Conta</button>
-          </div>
-        )}
-      </nav>
+      <Navbar onOpenSignup={() => setShowSignupModal(true)} />
 
       {/* HERO SECTION */}
       <section className="pt-40 pb-20 px-6 overflow-hidden relative">
@@ -217,31 +221,6 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* SEÇÃO COMO FUNCIONA */}
-      <section id="como-funciona" className="py-32 px-6 bg-slate-900/20 relative">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-20">
-            <h2 className="text-4xl md:text-5xl font-black text-white mb-6 tracking-tighter">Do zero ao treino em 30s</h2>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-12 relative">
-            <div className="hidden md:block absolute top-12 left-[20%] right-[20%] h-0.5 bg-gradient-to-r from-blue-600/0 via-blue-600/50 to-blue-600/0 z-0"></div>
-            
-            {[
-              { step: "01", title: "Cadastre o Aluno", desc: "Insira dados básicos, WhatsApp e o prontuário de saúde (lesões/restrições)." },
-              { step: "02", title: "Dê o Comando", desc: "No IA Center, diga quantos dias ele treina e qual o foco. A Engine gera as fichas." },
-              { step: "03", title: "Envie o PDF", desc: "Com 1 clique, baixe a planilha com vídeos ou avise o aluno diretamente no WhatsApp." }
-            ].map((item, i) => (
-              <div key={i} className="text-center relative z-10">
-                <div className="w-24 h-24 bg-slate-950 rounded-[2rem] flex items-center justify-center text-blue-500 font-black text-3xl mx-auto mb-8 border-2 border-slate-800 shadow-xl shadow-blue-900/20">{item.step}</div>
-                <h3 className="text-2xl font-black text-white mb-4">{item.title}</h3>
-                <p className="text-slate-400 font-medium leading-relaxed max-w-xs mx-auto">{item.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* SEÇÃO PREÇOS */}
       <section id="precos" className="py-32 px-6 relative border-t border-slate-900">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-blue-900/10 via-slate-950 to-slate-950 pointer-events-none"></div>
@@ -253,48 +232,20 @@ export default function LandingPage() {
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
             <PlanCard 
-              title="Test Drive" 
-              price="0,00" 
-              subPrice="100% Grátis para testar"
+              title="Test Drive" price="0,00" subPrice="100% Grátis para testar"
               features={["Até 5 Treinos gerados por IA", "Gestão de Alunos Básica", "Exportação em PDF simples", "Sem painel financeiro"]} 
-              onSignupClick={() => setShowSignupModal(true)}
+              onAction={() => setShowSignupModal(true)}
             />
             <PlanCard 
-              title="Plano Mensal" 
-              price="39,90" 
-              subPrice="Por Mês (Sem fidelidade)"
-              badge="O MAIS ESCOLHIDO"
-              highlighted={true}
+              title="Plano Mensal" price="39,90" subPrice="Por Mês (Sem fidelidade)" badge="O MAIS ESCOLHIDO" highlighted={true}
               features={["Alunos Ilimitados", "Treinos por IA Ilimitados", "PDF Premium com Vídeos YT", "Dashboard Financeiro", "Integração WhatsApp"]} 
-              onSignupClick={() => setShowSignupModal(true)}
+              onAction={() => setShowSignupModal(true)}
             />
             <PlanCard 
-              title="Plano Anual" 
-              price="29,90" 
-              subPrice="Por Mês (Cobrado R$ 358 à vista)"
+              title="Plano Anual" price="29,90" subPrice="Por Mês (Cobrado R$ 358 à vista)"
               features={["Tudo do plano Mensal", "Desconto de 25%", "Prioridade de Suporte", "Congelamento de preço anual"]} 
-              onSignupClick={() => setShowSignupModal(true)}
+              onAction={() => setShowSignupModal(true)}
             />
-          </div>
-        </div>
-      </section>
-
-      {/* CALL TO ACTION FINAL */}
-      <section className="py-32 px-6">
-        <div className="max-w-6xl mx-auto bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-900 rounded-[4rem] p-12 md:p-24 text-center relative overflow-hidden shadow-[0_20px_80px_rgba(37,99,235,0.3)]">
-          <div className="absolute top-0 left-0 w-full h-full opacity-20 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]"></div>
-          <div className="relative z-10">
-            <h2 className="text-4xl md:text-6xl font-black text-white mb-8 tracking-tighter leading-[1.1]">
-              Pare de vender hora.<br className="hidden md:block"/> Comece a vender escala.
-            </h2>
-            <p className="text-blue-100 text-lg md:text-xl font-medium mb-12 max-w-2xl mx-auto opacity-90">
-              Junte-se à elite de Personal Trainers que multiplicaram seu faturamento usando Inteligência Artificial para otimizar 90% do trabalho chato.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-6 justify-center">
-              <button onClick={() => setShowSignupModal(true)} className="bg-white text-blue-700 px-12 py-6 rounded-[2.5rem] font-black text-xs uppercase tracking-widest hover:scale-105 active:scale-95 transition-all inline-flex items-center justify-center gap-3 shadow-2xl">
-                CRIAR MINHA CONTA GRÁTIS
-              </button>
-            </div>
           </div>
         </div>
       </section>
