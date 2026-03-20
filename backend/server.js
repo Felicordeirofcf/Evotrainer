@@ -3,8 +3,6 @@ const cors = require('cors');
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcryptjs'); 
 const jwt = require('jsonwebtoken'); 
-const crypto = require('crypto');
-const nodemailer = require('nodemailer');
 
 const prisma = new PrismaClient();
 const app = express();
@@ -19,9 +17,9 @@ const MASTER_KEY = "evotrainer2026";
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1]; 
-  if (!token) return res.status(401).json({ error: "Acesso negado." });
+  if (!token) return res.status(401).json({ error: "Sessão expirada." });
   jwt.verify(token, JWT_SECRET, (err, user) => {
-    if (err) return res.status(403).json({ error: "Sessão expirada." });
+    if (err) return res.status(403).json({ error: "Sessão inválida." });
     req.user = user; 
     next();
   });
@@ -37,7 +35,7 @@ const isAdminOrMaster = (req, res, next) => {
   next();
 };
 
-// --- ROTA: Busca Aluno por Nome (Para Claude MCP/IA) ---
+// --- ROTA BUSCA POR NOME (Essencial para IA/Claude) ---
 app.get('/api/alunos/busca/:nome', authenticateToken, isAdminOrMaster, async (req, res) => {
   try {
     const { nome } = req.params;
@@ -53,7 +51,7 @@ app.get('/api/alunos/busca/:nome', authenticateToken, isAdminOrMaster, async (re
   } catch (e) { res.status(500).json({ error: "Erro na busca." }); }
 });
 
-// --- ROTA: Troca de Senha do Perfil ---
+// --- ROTA DE SENHA (PADRONIZADA) ---
 app.put('/api/perfil/senha', authenticateToken, async (req, res) => {
   const { currentPassword, newPassword } = req.body;
   try {
@@ -90,17 +88,6 @@ app.put('/api/superadmin/trainers/:id/plano', authenticateToken, isSuperAdmin, a
   } catch (e) { res.status(500).json({ error: "Erro." }); }
 });
 
-app.post('/api/setup-master', async (req, res) => {
-  const { name, email, password, secret_key } = req.body;
-  if (secret_key !== MASTER_KEY) return res.status(403).json({ error: "Chave inválida." });
-  try {
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const master = await prisma.user.create({ data: { name, email, password: hashedPassword, role: 'SUPERADMIN', plano: 'ELITE', status: 'Ativo' } });
-    res.json(master);
-  } catch (e) { res.status(400).json({ error: "E-mail já existe." }); }
-});
-
-// --- LOGIN ---
 app.post('/api/login', async (req, res) => {
   const { email, password } = req.body;
   try {
@@ -109,28 +96,26 @@ app.post('/api/login', async (req, res) => {
     const valid = await bcrypt.compare(password, user.password);
     if (!valid && user.password !== "") return res.status(401).json({ error: "Senha inválida." });
     const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '30d' });
-    const { password: _, ...userNoPass } = user;
-    res.json({ token, user: userNoPass });
+    res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role } });
   } catch (e) { res.status(500).json({ error: "Erro." }); }
 });
 
-// --- ALUNOS ---
 app.post('/api/alunos', authenticateToken, isAdminOrMaster, async (req, res) => {
-  const { name, email, phone, age, weight, height, level, anamnese } = req.body;
+  const { name, email, phone, weight, height, level, anamnese } = req.body;
   try {
     const hashed = await bcrypt.hash("123456", 10);
     const novo = await prisma.user.create({
-      data: { name, email, phone, age, weight, height, level, anamnese, password: hashed, role: 'STUDENT', trainerId: req.user.id, status: 'Ativo' }
+      data: { name, email, phone, weight, height, level, anamnese, password: hashed, role: 'STUDENT', trainerId: req.user.id, status: 'Ativo' }
     });
     res.status(201).json(novo);
-  } catch (e) { res.status(400).json({ error: "Erro ao criar." }); }
+  } catch (e) { res.status(400).json({ error: "E-mail já existe." }); }
 });
 
 app.get('/api/alunos', authenticateToken, isAdminOrMaster, async (req, res) => {
   try {
     const alunos = await prisma.user.findMany({
       where: { trainerId: req.user.id },
-      include: { workouts: { include: { exercises: true } }, _count: { select: { workouts: true } } },
+      include: { workouts: true, _count: { select: { workouts: true } } },
       orderBy: { name: 'asc' }
     });
     res.json(alunos);
