@@ -34,53 +34,59 @@ const isAdminOrMaster = (req, res, next) => {
 };
 
 // ==========================================
-// 💸 WEBHOOK ASAAS (ACEITA /webhook E /webhooks)
+// 💸 WEBHOOK ASAAS (VERSÃO BLINDADA 2.0)
 // ==========================================
 app.post(['/api/webhook/asaas', '/api/webhooks/asaas'], async (req, res) => {
   try {
     const payload = req.body;
-    console.log("🚀 [WEBHOOK ASAAS] Evento recebido:", payload.event);
+    console.log("🔔 [WEBHOOK ASAAS] Evento recebido:", payload.event);
 
-    if (payload.event === 'PAYMENT_RECEIVED' || payload.event === 'PAYMENT_CONFIRMED') {
-      const customerId = payload.payment?.customer;
+    if ((payload.event === 'PAYMENT_RECEIVED' || payload.event === 'PAYMENT_CONFIRMED') && payload.payment) {
+      const customerId = payload.payment.customer;
 
       if (customerId) {
-        console.log("🔍 Consultando e-mail do cliente no Asaas...");
-        const asaasRes = await fetch(`https://api.asaas.com/v3/customers/${customerId}`, {
-          method: 'GET',
-          headers: { 
-            'access_token': process.env.ASAAS_API_KEY || '', 
-            'Content-Type': 'application/json'
-          }
-        });
-
-        if (asaasRes.ok) {
-          const customerData = await asaasRes.json();
-          const emailPagador = customerData.email;
-
-          if (emailPagador) {
-            const vencimento = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-            
-            const updatedUser = await prisma.user.updateMany({
-              where: { email: { equals: emailPagador, mode: 'insensitive' } },
-              data: { plano: 'PRO', iaUsadaMes: 0, planExpiresAt: vencimento }
-            });
-
-            if (updatedUser.count > 0) {
-               console.log(`✅ SUCESSO: Conta ${emailPagador} ativada via Webhook.`);
-            } else {
-               console.log(`⚠️ ALERTA: E-mail ${emailPagador} pagou mas não existe no banco.`);
+        console.log("🔍 [WEBHOOK] Buscando dados do cliente no Asaas:", customerId);
+        
+        try {
+          const asaasRes = await fetch(`https://api.asaas.com/v3/customers/${customerId}`, {
+            method: 'GET',
+            headers: { 
+              'access_token': process.env.ASAAS_API_KEY || '', 
+              'Content-Type': 'application/json'
             }
+          });
+
+          if (asaasRes.ok) {
+            const customerData = await asaasRes.json();
+            const emailPagador = customerData.email;
+
+            if (emailPagador) {
+              console.log("📧 [WEBHOOK] E-mail identificado:", emailPagador);
+              const vencimento = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+              
+              const updatedUser = await prisma.user.updateMany({
+                where: { email: { equals: emailPagador.trim(), mode: 'insensitive' } },
+                data: { plano: 'PRO', iaUsadaMes: 0, planExpiresAt: vencimento }
+              });
+
+              if (updatedUser.count > 0) {
+                 console.log(`✅ [WEBHOOK] SUCESSO: Conta ${emailPagador} liberada.`);
+              } else {
+                 console.log(`⚠️ [WEBHOOK] Alerta: E-mail ${emailPagador} não existe no banco.`);
+              }
+            }
+          } else {
+            console.log("❌ [WEBHOOK] Erro ao consultar API do Asaas.");
           }
-        } else {
-           console.log("❌ Erro na API do Asaas. Verifique a ASAAS_API_KEY no Render.");
+        } catch (fetchError) {
+          console.error("🔥 [WEBHOOK] Erro na requisição ao Asaas:", fetchError.message);
         }
       }
     }
-    res.status(200).send('OK');
+    return res.status(200).json({ status: "success" });
   } catch (e) {
-    console.error('🔥 Erro fatal no Webhook:', e);
-    res.status(500).send('Erro');
+    console.error('🔥 [WEBHOOK] Erro Crítico:', e);
+    return res.status(200).json({ status: "error_handled" });
   }
 });
 
@@ -128,10 +134,9 @@ app.post('/api/ai/gerar-autonomo', authenticateToken, isAdminOrMaster, async (re
     const aluno = await prisma.user.findUnique({ where: { id: parseInt(alunoId) } });
     if (!aluno) return res.status(404).json({ error: "Aluno não encontrado." });
 
-    const systemPrompt = `Você é a Engine EvoIntelligence™ de Elite. 
+    const systemPrompt = `Você é a Engine EvoIntelligence™ de Elite especializada em biomecânica. 
     TAREFA: Gere EXATAMENTE ${frequencia} fichas de treino diferentes (Ficha A, B, C...).
     DADOS: Aluno ${aluno.name}, Nível ${aluno.level}. Prontuário: ${aluno.anamnese || 'Sem restrições'}.
-    PARÂMETROS: Frequência: ${frequencia} dias. Ciclo: ${ciclo} (${semanas} semanas).
     FORMATO JSON OBRIGATÓRIO: {"planilha": [{"title": "Ficha A - ...", "exercises": [{"name": "...", "sets": "...", "weight": "...", "youtubeId": ""}]}]}`;
 
     const aiRes = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -210,17 +215,15 @@ app.put('/api/superadmin/trainers/:id/plano', authenticateToken, isSuperAdmin, a
   try {
     const { plano } = req.body;
     let dataUpdate = { plano };
-    
     if (plano === 'PRO') {
        dataUpdate.planExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
        dataUpdate.iaUsadaMes = 0;
     } else {
        dataUpdate.planExpiresAt = null;
     }
-
     const updated = await prisma.user.update({ where: { id: parseInt(req.params.id) }, data: dataUpdate });
     res.json(updated);
-  } catch (e) { res.status(500).json({ error: "Erro ao atualizar plano." }); }
+  } catch (e) { res.status(500).json({ error: "Erro." }); }
 });
 
 app.put('/api/superadmin/trainers/:id', authenticateToken, isSuperAdmin, async (req, res) => {
@@ -247,7 +250,7 @@ app.post('/api/login', async (req, res) => {
     if (!valid && user.password !== "") return res.status(401).json({ error: "Senha inválida." });
     const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '30d' });
     res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role, plano: user.plano, iaUsadaMes: user.iaUsadaMes, planExpiresAt: user.planExpiresAt } });
-  } catch (e) { res.status(500).json({ error: "Erro interno." }); }
+  } catch (e) { res.status(500).json({ error: "Erro interno no login." }); }
 });
 
 app.put('/api/perfil/senha', authenticateToken, async (req, res) => {
