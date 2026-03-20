@@ -38,15 +38,24 @@ export default function App() {
   const [showEditAlunoModal, setShowEditAlunoModal] = useState(false);
   const [showGerenciarTreinosModal, setShowGerenciarTreinosModal] = useState(false);
   const [alunoSelecionado, setAlunoSelecionado] = useState<any>(null);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
 
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
-  const [formAluno, setFormAluno] = useState({ name: '', email: '', phone: '', weight: '', height: '', level: 'Intermediário', anamnese: '' });
+  
+  // Incluído campo price no formAluno
+  const [formAluno, setFormAluno] = useState({ name: '', email: '', phone: '', weight: '', height: '', level: 'Intermediário', anamnese: '', price: '' });
+  const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '' });
 
   const isMaster = currentUser?.role === 'SUPERADMIN';
   const showToast = (msg: string) => { setToastMsg(msg); setTimeout(() => setToastMsg(''), 3000); };
   const getAuthHeaders = () => ({ 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` });
+
+  // --- CÁLCULO DE FATURAMENTO DINÂMICO ---
+  const faturamentoAtletas = alunos.reduce((acc, aluno) => acc + (parseFloat(aluno.price) || 0), 0);
+  const faturamentoMaster = trainers.length * 99; // Ajuste o valor da sua mensalidade master se necessário
+  const faturamentoReal = isMaster ? faturamentoMaster : faturamentoAtletas;
 
   const fetchData = async () => {
     if (!token || !currentUser) return;
@@ -89,19 +98,20 @@ export default function App() {
     if (res.ok) { showToast("Aluno Removido!"); fetchData(); }
   };
 
-  // EXCLUIR PLANILHA ESPECÍFICA DO DOSSIÊ
   const deletePlanilha = async (planilhaId: number) => {
     if(!confirm("Deletar esta planilha do dossiê?")) return;
     const res = await fetch(`${API_URL}/treinos/${planilhaId}`, { method: 'DELETE', headers: getAuthHeaders() });
     if (res.ok) { 
       showToast("Planilha Excluída!"); 
-      // Atualiza o modal localmente
-      setAlunoSelecionado((prev: any) => ({
-        ...prev,
-        workouts: prev.workouts.filter((w: any) => w.id !== planilhaId)
-      }));
+      setAlunoSelecionado((prev: any) => ({ ...prev, workouts: prev.workouts.filter((w: any) => w.id !== planilhaId) }));
       fetchData(); 
     }
+  };
+
+  const changePassword = async () => {
+    const res = await fetch(`${API_URL}/perfil/senha`, { method: 'PUT', headers: getAuthHeaders(), body: JSON.stringify(passwordForm) });
+    if (res.ok) { showToast("Senha alterada!"); setShowPasswordModal(false); setPasswordForm({ currentPassword: '', newPassword: '' }); } 
+    else showToast("Senha atual incorreta.");
   };
 
   const gerarSemanaIA = async () => {
@@ -118,7 +128,6 @@ export default function App() {
     } catch (e) { showToast("Erro de rede."); } finally { setIsLoading(false); }
   };
 
-  // Lógica de Datas
   const calcularDataRevisao = (dataCriacao: string, semanas: string) => {
     const numSemanas = parseInt(semanas.split(' ')[0]) || 4;
     const data = new Date(dataCriacao);
@@ -159,7 +168,7 @@ export default function App() {
            </div>
            <div style="padding:20px 30px; border-bottom:2px solid #f1f5f9; display:flex; gap:20px;">
               <div style="flex:1; background:#f8fafc; padding:15px; border-radius:15px; border:1px solid #e2e8f0;"><span style="font-size:10px; font-weight:900; color:#64748b; display:block; text-transform:uppercase;">Nível</span><span style="font-weight:800; color:${primaryColor};">${aluno.level}</span></div>
-              <div style="flex:1; background:#f8fafc; padding:15px; border-radius:15px; border:1px solid #e2e8f0;"><span style="font-size:10px; font-weight:900; color:#64748b; display:block; text-transform:uppercase;">Peso</span><span style="font-weight:800; color:${primaryColor};">${aluno.weight}kg</span></div>
+              <div style="flex:1; background:#f8fafc; padding:15px; border-radius:15px; border:1px solid #e2e8f0;"><span style="font-size:10px; font-weight:900; color:#64748b; display:block; text-transform:uppercase;">Peso</span><span style="font-weight:800; color:${primaryColor};">${aluno.weight || '--'}kg</span></div>
            </div>
            <table><tbody>${rows}</tbody></table>
         </div>
@@ -207,36 +216,36 @@ export default function App() {
 
       <main className="flex-1 p-6 md:p-10 max-w-7xl mx-auto w-full pb-40 animate-fade-in">
         
-        {/* DASHBOARD TAB */}
+        {/* DASHBOARD TAB (AGORA COM FATURAMENTO DINÂMICO REAL) */}
         {tabAtiva === 'dashboard' && (
           <div className="space-y-10">
-             <h2 className="text-4xl font-black italic tracking-tight uppercase text-white">Dashboard</h2>
+             <h2 className="text-4xl font-black italic tracking-tight uppercase text-white text-center sm:text-left">Dashboard</h2>
              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <StatCard title="Total Alunos" value={alunos.length} icon={Users} color="bg-blue-500" />
-                <StatCard title="Faturamento" value={`R$ ${alunos.length * 150}`} icon={DollarSign} color="bg-emerald-500" />
+                <StatCard title="Faturamento Atual" value={`R$ ${faturamentoReal.toFixed(2).replace('.',',')}`} icon={DollarSign} color="bg-emerald-500" />
                 <StatCard title="Engine IA" value="Online" icon={Zap} color="bg-indigo-500" />
                 <StatCard title="Métrica" value="98%" icon={Target} color="bg-amber-500" />
              </div>
           </div>
         )}
 
-        {/* ALUNOS TAB */}
         {tabAtiva === 'alunos' && (
           <div className="space-y-10">
              <div className="flex justify-between items-center">
                 <h2 className="text-3xl font-black italic uppercase">Gestão de Alunos</h2>
-                <button onClick={() => { setFormAluno({ name: '', email: '', phone: '', weight: '', height: '', level: 'Intermediário', anamnese: '' }); setShowAddAlunoModal(true); }} className="bg-blue-600 px-8 py-5 rounded-2xl font-black text-[10px] uppercase shadow-lg active:scale-95 transition-all"><Plus size={16} /> Incluir Aluno</button>
+                <button onClick={() => { setFormAluno({ name: '', email: '', phone: '', weight: '', height: '', level: 'Intermediário', anamnese: '', price: '' }); setShowAddAlunoModal(true); }} className="bg-blue-600 px-8 py-5 rounded-2xl font-black text-[10px] uppercase shadow-lg active:scale-95 transition-all"><Plus size={16} /> Incluir Aluno</button>
              </div>
              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {alunos.map(a => (
-                  <div key={a.id} className="bg-slate-900 border border-slate-800 p-8 rounded-[3.5rem] shadow-xl hover:border-slate-700 transition-all flex flex-col gap-6">
+                  <div key={a.id} className="bg-slate-900 border border-slate-800 p-8 rounded-[3.5rem] shadow-xl hover:border-slate-700 transition-all flex flex-col gap-6 relative overflow-hidden">
+                     {a.price && <div className="absolute top-0 right-0 bg-emerald-600 text-white font-black text-[10px] px-4 py-2 rounded-bl-[1.5rem]">R$ {a.price}</div>}
                      <div className="flex items-center gap-5">
                         <div className={`w-16 h-16 rounded-[1.5rem] bg-blue-600/10 text-blue-500 flex items-center justify-center font-black text-2xl border border-blue-500/10`}>{a.name[0]}</div>
                         <div><h3 className="font-black text-xl leading-none">{a.name}</h3><p className="text-xs text-slate-500 mt-2">{a.email}</p></div>
                      </div>
                      <div className="flex gap-2">
-                        <button onClick={() => { setAlunoSelecionado(a); setShowGerenciarTreinosModal(true); }} className="flex-1 bg-blue-600 text-white p-5 rounded-2xl font-black text-[10px] uppercase shadow-xl active:scale-95">Gerenciar Dossiê</button>
-                        <button onClick={() => { setAlunoSelecionado(a); setFormAluno({ name: a.name, email: a.email, phone: a.phone || '', weight: a.weight || '', height: a.height || '', level: a.level || 'Intermediário', anamnese: a.anamnese || '' }); setShowEditAlunoModal(true); }} className="p-5 bg-blue-600/10 text-blue-500 rounded-2xl shadow-xl hover:bg-blue-600 hover:text-white transition-all"><Edit2 size={22}/></button>
+                        <button onClick={() => { setAlunoSelecionado(a); setShowGerenciarTreinosModal(true); }} className="flex-1 bg-blue-600 text-white p-5 rounded-2xl font-black text-[10px] uppercase shadow-xl active:scale-95">Dossiê</button>
+                        <button onClick={() => { setAlunoSelecionado(a); setFormAluno({ name: a.name, email: a.email, phone: a.phone || '', weight: a.weight || '', height: a.height || '', level: a.level || 'Intermediário', anamnese: a.anamnese || '', price: a.price || '' }); setShowEditAlunoModal(true); }} className="p-5 bg-blue-600/10 text-blue-500 rounded-2xl shadow-xl hover:bg-blue-600 hover:text-white transition-all"><Edit2 size={22}/></button>
                         <button onClick={() => deleteAluno(a.id)} className="p-5 bg-red-600/10 text-red-500 rounded-2xl shadow-xl hover:bg-red-600 hover:text-white transition-all"><Trash2 size={22}/></button>
                      </div>
                   </div>
@@ -245,26 +254,25 @@ export default function App() {
           </div>
         )}
 
-        {/* EVOINTELLIGENCE™ TAB */}
         {tabAtiva === 'ia' && (
            <div className="max-w-4xl mx-auto space-y-10 animate-fade-in pb-40 text-center">
               <div className="bg-gradient-to-br from-indigo-700 to-blue-900 p-16 rounded-[4rem] shadow-2xl relative overflow-hidden border border-white/10">
                  <Sparkles size={100} className="mx-auto text-white mb-8 animate-pulse" />
                  <h2 className="text-5xl font-black text-white italic tracking-tighter uppercase">EvoIntelligence™</h2>
-                 <p className="text-blue-100 mt-4 opacity-80 leading-relaxed italic text-lg">Periodização Dinâmica (Micro, Meso e Macro)</p>
+                 <p className="text-blue-100 mt-4 opacity-80 leading-relaxed italic text-lg">Engine Autônoma de Periodização Semanal</p>
               </div>
               <div className="bg-slate-900 border border-slate-800 p-10 rounded-[3.5rem] shadow-2xl text-left space-y-8">
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div className="space-y-4">
-                      <label className="text-[11px] font-black text-slate-500 uppercase tracking-[0.4em] ml-4">1. Alvo</label>
-                      <select value={iaAlunoId} onChange={e => setIaAlunoId(e.target.value)} className="w-full p-6 bg-slate-950 border-2 border-slate-800 rounded-[2rem] text-white font-black text-lg outline-none focus:border-blue-500 appearance-none">
-                        <option value="">Selecionar Aluno...</option>
+                      <label className="text-[11px] font-black text-slate-500 uppercase tracking-[0.4em] ml-4">1. Selecionar Aluno</label>
+                      <select value={iaAlunoId} onChange={e => setIaAlunoId(e.target.value)} className="w-full p-8 bg-slate-950 border-2 border-slate-800 rounded-[2rem] text-white font-black text-xl outline-none focus:border-blue-500 cursor-pointer appearance-none">
+                        <option value="">Acessar lista...</option>
                         {alunos.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
                       </select>
                     </div>
                     <div className="space-y-4">
-                      <label className="text-[11px] font-black text-slate-500 uppercase tracking-[0.4em] ml-4">2. Frequência</label>
-                      <select value={iaFrequencia} onChange={e => setIaFrequencia(e.target.value)} className="w-full p-6 bg-slate-950 border-2 border-slate-800 rounded-[2rem] text-white font-black text-lg outline-none focus:border-blue-500 appearance-none">
+                      <label className="text-[11px] font-black text-slate-500 uppercase tracking-[0.4em] ml-4">2. Dias de Treino/Semana</label>
+                      <select value={iaFrequencia} onChange={e => setIaFrequencia(e.target.value)} className="w-full p-8 bg-slate-950 border-2 border-slate-800 rounded-[2rem] text-white font-black text-xl outline-none focus:border-blue-500 cursor-pointer appearance-none">
                         {[1,2,3,4,5,6,7].map(n => <option key={n} value={n}>{n} dias na semana</option>)}
                       </select>
                     </div>
@@ -288,14 +296,31 @@ export default function App() {
                  </div>
 
                  <div className="space-y-4">
-                    <label className="text-[11px] font-black text-slate-500 uppercase tracking-[0.4em] ml-4">5. Diretrizes da Periodização</label>
-                    <textarea id="comandoIA" placeholder="Ex: Monte a divisão focando em deltoides, evite impacto lombar..." className="w-full p-8 bg-slate-950 border-2 border-slate-800 rounded-[3rem] text-white font-medium text-lg min-h-[150px] outline-none shadow-inner"></textarea>
+                    <label className="text-[11px] font-black text-slate-500 uppercase tracking-[0.4em] ml-4">5. Comando da Periodização</label>
+                    <textarea id="comandoIA" placeholder="Ex: Monte um ABCDE focado em hipertrofia máxima, priorizando ombros..." className="w-full p-8 bg-slate-950 border-2 border-slate-800 rounded-[3rem] text-white font-medium text-lg min-h-[200px] outline-none shadow-inner"></textarea>
                  </div>
-                 <button onClick={gerarSemanaIA} disabled={isLoading} className="w-full py-8 bg-white text-blue-900 font-black rounded-[2.5rem] shadow-2xl active:scale-95 transition-all uppercase tracking-[0.3em] text-sm flex items-center justify-center gap-4 hover:bg-blue-50">
-                    {isLoading ? <Activity className="animate-spin" size={30} /> : <><Zap size={24} /> Processar Periodização</>}
+                 <button onClick={gerarSemanaIA} disabled={isLoading} className="w-full py-10 bg-white text-blue-900 font-black rounded-[2.5rem] shadow-2xl active:scale-95 transition-all uppercase tracking-[0.3em] text-sm flex items-center justify-center gap-4 hover:bg-blue-50">
+                    {isLoading ? <Activity className="animate-spin" size={30} /> : <><Zap size={24} /> Ativar Engine Biomecânica</>}
                  </button>
               </div>
            </div>
+        )}
+
+        {tabAtiva === 'perfil' && (
+          <div className="max-w-2xl mx-auto space-y-10 text-center animate-fade-in pb-40">
+             <h2 className="text-4xl font-black italic uppercase tracking-tight text-center">Ajustes</h2>
+             <div className="bg-slate-900 border border-slate-800 p-12 rounded-[4rem] shadow-2xl relative overflow-hidden">
+                <div className="w-32 h-32 bg-blue-600/20 text-blue-500 rounded-full flex items-center justify-center text-5xl font-black mx-auto mb-8 border-4 border-blue-500/20 shadow-2xl">
+                   {currentUser?.name?.charAt(0)?.toUpperCase() || 'U'}
+                </div>
+                <h3 className="text-3xl font-black text-white italic uppercase tracking-tighter">{currentUser?.name}</h3>
+                <p className="text-slate-500 text-lg mt-2 mb-10">{currentUser?.email}</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                   <button onClick={() => setShowPasswordModal(true)} className="bg-slate-800 p-6 rounded-[2rem] font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-3 border border-slate-700 active:scale-95 transition-all hover:bg-red-600"><Lock size={18}/> Mudar Senha</button>
+                   <button className="bg-slate-800 p-6 rounded-[2rem] font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-3 border border-slate-700 opacity-50 cursor-not-allowed"><Camera size={18}/> Foto Perfil</button>
+                </div>
+             </div>
+          </div>
         )}
       </main>
 
@@ -313,7 +338,7 @@ export default function App() {
         ))}
       </nav>
 
-      {/* MODAIS: INCLUIR E EDITAR ALUNO */}
+      {/* MODAIS: INCLUIR E EDITAR ALUNO (COM CAMPO PRICE) */}
       {(showAddAlunoModal || showEditAlunoModal) && (
         <div className="fixed inset-0 bg-black/98 z-[600] flex items-center justify-center p-6 backdrop-blur-md animate-fade-in text-slate-50">
            <div className="bg-slate-900 border border-slate-800 p-10 rounded-[4rem] w-full max-w-2xl max-h-[90vh] overflow-y-auto custom-scrollbar shadow-2xl relative">
@@ -323,13 +348,29 @@ export default function App() {
                     <input type="text" placeholder="Nome Completo" required className="p-6 rounded-3xl bg-slate-950 border border-slate-800 text-white font-bold outline-none" value={formAluno.name} onChange={e => setFormAluno({...formAluno, name: e.target.value})} />
                     <input type="email" placeholder="E-mail de Login" required className="p-6 rounded-3xl bg-slate-950 border border-slate-800 text-white font-bold outline-none" value={formAluno.email} onChange={e => setFormAluno({...formAluno, email: e.target.value})} />
                  </div>
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <input type="tel" placeholder="WhatsApp (DDD + Número)" required className="p-6 rounded-3xl bg-slate-950 border border-slate-800 text-white font-bold outline-none" value={formAluno.phone} onChange={e => setFormAluno({...formAluno, phone: e.target.value})} />
+                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <input type="tel" placeholder="WhatsApp (DDD+Num)" required className="p-6 rounded-3xl bg-slate-950 border border-slate-800 text-white font-bold outline-none" value={formAluno.phone} onChange={e => setFormAluno({...formAluno, phone: e.target.value})} />
+                    <input type="number" placeholder="Valor (R$)" className="p-6 rounded-3xl bg-slate-950 border border-slate-800 text-white font-bold outline-none" value={formAluno.price} onChange={e => setFormAluno({...formAluno, price: e.target.value})} />
                     <select className="p-6 rounded-3xl bg-slate-950 border border-slate-800 text-white font-black" value={formAluno.level} onChange={e => setFormAluno({...formAluno, level: e.target.value})}><option>Iniciante</option><option>Intermediário</option><option>Avançado</option></select>
                  </div>
                  <textarea placeholder="Anamnese / Histórico Médico / Restrições para a IA..." className="w-full p-8 bg-slate-950 border border-slate-800 rounded-[2.5rem] text-white min-h-[150px] outline-none" value={formAluno.anamnese} onChange={e => setFormAluno({...formAluno, anamnese: e.target.value})}></textarea>
-                 <button type="submit" className="w-full py-7 bg-blue-600 text-white font-black rounded-[2rem] shadow-2xl uppercase tracking-widest text-[12px]">{showAddAlunoModal ? 'Salvar e Integrar IA' : 'Atualizar Dados'}</button>
+                 <button type="submit" className="w-full py-7 bg-blue-600 text-white font-black rounded-[2rem] shadow-2xl uppercase tracking-widest text-[12px]">{showAddAlunoModal ? 'Salvar e Integrar' : 'Atualizar Dados'}</button>
               </form>
+           </div>
+        </div>
+      )}
+
+      {/* MODAL DE SEGURANÇA */}
+      {showPasswordModal && (
+        <div className="fixed inset-0 bg-black/98 z-[800] flex items-center justify-center p-6 backdrop-blur-md">
+           <div className="bg-slate-900 border border-slate-800 p-12 rounded-[3rem] w-full max-w-md shadow-2xl text-center">
+              <h3 className="text-2xl font-black text-white mb-8 italic uppercase tracking-tighter">Segurança</h3>
+              <div className="space-y-4">
+                 <input type="password" placeholder="Senha Atual" className="w-full p-5 rounded-2xl bg-slate-950 border border-slate-800 text-white outline-none font-bold" value={passwordForm.currentPassword} onChange={e => setPasswordForm({...passwordForm, currentPassword: e.target.value})} />
+                 <input type="password" placeholder="Nova Senha" className="w-full p-5 rounded-2xl bg-slate-950 border border-slate-800 text-white outline-none font-bold" value={passwordForm.newPassword} onChange={e => setPasswordForm({...passwordForm, newPassword: e.target.value})} />
+                 <button onClick={changePassword} className="w-full py-6 bg-blue-600 text-white font-black rounded-3xl active:scale-95 shadow-xl transition-all uppercase tracking-widest text-[11px] mt-4">Atualizar Agora</button>
+                 <button onClick={() => setShowPasswordModal(false)} className="w-full py-2 text-slate-600 font-bold text-xs uppercase">Cancelar</button>
+              </div>
            </div>
         </div>
       )}
@@ -372,7 +413,7 @@ export default function App() {
         </div>
       )}
 
-      {toastMsg && <div className="fixed top-12 left-1/2 -translate-x-1/2 z-[1000] bg-blue-600 text-white px-10 py-5 rounded-full font-black shadow-2xl border border-white/10 animate-bounce">{toastMsg}</div>}
+      {toastMsg && <div className="fixed top-12 left-1/2 -translate-x-1/2 z-[1000] bg-blue-600 text-white px-10 py-5 rounded-full font-black shadow-[0_20px_50px_rgba(37,99,235,0.5)] flex items-center gap-4 text-sm animate-bounce border border-white/10"><CheckCircle2 size={24} /> {toastMsg}</div>}
     </div>
   );
 }

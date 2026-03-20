@@ -12,7 +12,6 @@ app.use(express.json({ limit: '15mb' }));
 const JWT_SECRET = process.env.JWT_SECRET || "secreto-evotrainer-2026";
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
-// --- MIDDLEWARES ---
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1]; 
@@ -33,7 +32,6 @@ const isAdminOrMaster = (req, res, next) => {
   next();
 };
 
-// --- EVOINTELLIGENCE™: GERAÇÃO DE PERIODIZAÇÃO ---
 app.post('/api/ai/gerar-autonomo', authenticateToken, isAdminOrMaster, async (req, res) => {
   const { alunoId, comandoPersonal, frequencia, ciclo, semanas } = req.body;
   try {
@@ -42,15 +40,9 @@ app.post('/api/ai/gerar-autonomo', authenticateToken, isAdminOrMaster, async (re
 
     const systemPrompt = `Você é a Engine EvoIntelligence™. Monte uma PERIODIZAÇÃO DE TREINO.
     DADOS: Aluno ${aluno.name}, Nível ${aluno.level}. Prontuário: ${aluno.anamnese || 'Nenhum'}.
-    PARÂMETROS DA PERIODIZAÇÃO:
-    - Frequência: ${frequencia} dias na semana.
-    - Fase: ${ciclo} (Duração de ${semanas} semanas). Ajuste volume e intensidade adequados para esta fase.
-    
+    PARÂMETROS: Frequência: ${frequencia} dias na semana. Fase: ${ciclo} (Duração de ${semanas} semanas).
     TAREFA: Divida o treino nas fichas necessárias. O 'title' de cada ficha deve incluir o ciclo.
-    FORMATO JSON: 
-    {"planilha": [
-      {"title": "Ficha A - ${ciclo} (${semanas} Semanas)", "exercises": [{"name": "Supino", "sets": "4x10", "weight": "Moderado", "youtubeId": ""}]}
-    ]}`;
+    FORMATO JSON: {"planilha": [{"title": "Ficha A - ${ciclo}", "exercises": [{"name": "Supino", "sets": "4x10", "weight": "Moderado", "youtubeId": ""}]}]}`;
 
     const aiRes = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -68,12 +60,7 @@ app.post('/api/ai/gerar-autonomo', authenticateToken, isAdminOrMaster, async (re
     const treinosSalvos = [];
     for (const ficha of result.planilha) {
       const novoTreino = await prisma.workoutTemplate.create({
-        data: {
-          title: ficha.title,
-          userId: aluno.id,
-          duration: `${semanas} Semanas`, // Salvando a validade no campo duration para não quebrar seu Prisma
-          exercises: { create: ficha.exercises }
-        }
+        data: { title: ficha.title, userId: aluno.id, duration: `${semanas} Semanas`, exercises: { create: ficha.exercises } }
       });
       treinosSalvos.push(novoTreino);
     }
@@ -82,21 +69,20 @@ app.post('/api/ai/gerar-autonomo', authenticateToken, isAdminOrMaster, async (re
   } catch (e) { res.status(500).json({ error: "Falha na Engine IA." }); }
 });
 
-// --- GESTÃO DE FICHAS (EXCLUIR TREINO ESPECÍFICO) ---
 app.delete('/api/treinos/:id', authenticateToken, isAdminOrMaster, async (req, res) => {
   try {
     await prisma.workoutTemplate.delete({ where: { id: parseInt(req.params.id) } });
-    res.json({ message: "Ficha removida do dossiê." });
+    res.json({ message: "Ficha removida." });
   } catch (e) { res.status(500).json({ error: "Erro ao excluir ficha." }); }
 });
 
-// --- GESTÃO DE ALUNOS ---
+// --- GESTÃO DE ALUNOS (COM VALOR COBRADO) ---
 app.post('/api/alunos', authenticateToken, isAdminOrMaster, async (req, res) => {
-  const { name, email, phone, weight, height, level, anamnese } = req.body;
+  const { name, email, phone, weight, height, level, anamnese, price } = req.body;
   try {
     const hashed = await bcrypt.hash("123456", 10);
     const novo = await prisma.user.create({
-      data: { name, email, phone, weight, height, level, anamnese, password: hashed, role: 'STUDENT', trainerId: req.user.id, status: 'Ativo' }
+      data: { name, email, phone, weight, height, level, anamnese, price, password: hashed, role: 'STUDENT', trainerId: req.user.id, status: 'Ativo' }
     });
     res.status(201).json(novo);
   } catch (e) { res.status(400).json({ error: "E-mail duplicado." }); }
@@ -127,7 +113,6 @@ app.delete('/api/alunos/:id', authenticateToken, isAdminOrMaster, async (req, re
   } catch (e) { res.status(500).json({ error: "Erro ao excluir." }); }
 });
 
-// --- MASTER & LOGIN ---
 app.get('/api/superadmin/trainers', authenticateToken, isSuperAdmin, async (req, res) => {
   try {
     const trainers = await prisma.user.findMany({ where: { role: 'ADMIN' }, include: { _count: { select: { alunos: true } } }, orderBy: { createdAt: 'desc' } });
@@ -151,6 +136,18 @@ app.post('/api/login', async (req, res) => {
     if (!valid && user.password !== "") return res.status(401).json({ error: "Senha inválida." });
     const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '30d' });
     res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role } });
+  } catch (e) { res.status(500).json({ error: "Erro." }); }
+});
+
+app.put('/api/perfil/senha', authenticateToken, async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+  try {
+    const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+    const valid = await bcrypt.compare(currentPassword, user.password);
+    if (!valid) return res.status(401).json({ error: "Senha atual incorreta." });
+    const hashed = await bcrypt.hash(newPassword, 10);
+    await prisma.user.update({ where: { id: req.user.id }, data: { password: hashed } });
+    res.json({ message: "Senha alterada!" });
   } catch (e) { res.status(500).json({ error: "Erro." }); }
 });
 
