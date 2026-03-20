@@ -33,24 +33,15 @@ const isAdminOrMaster = (req, res, next) => {
   next();
 };
 
-// --- RECUPERAÇÃO DE SENHA ---
-app.post('/api/recover-password', async (req, res) => {
-  const { email } = req.body;
+// --- DADOS ATUALIZADOS DO USUÁRIO (NOVO) ---
+app.get('/api/me', authenticateToken, async (req, res) => {
   try {
-    // Em um sistema em produção real com SMTP, aqui você enviaria um e-mail com link.
-    // Como a lógica de e-mail requer servidor SMTP externo, retornamos sucesso visual 
-    // para não travar a experiência do usuário na interface.
-    const user = await prisma.user.findUnique({ where: { email } });
-    
-    // Por segurança, sempre dizemos que enviamos, independente de existir ou não,
-    // para evitar que hackers descubram quais e-mails estão na base.
-    res.json({ message: "Se o e-mail constar na base, as instruções foram enviadas." });
-  } catch (e) {
-    res.status(500).json({ error: "Erro ao processar recuperação." });
-  }
+    const user = await prisma.user.findUnique({ where: { id: req.user.id }, select: { id: true, name: true, email: true, role: true, plano: true, iaUsadaMes: true } });
+    res.json(user);
+  } catch (e) { res.status(500).json({ error: "Erro ao buscar dados." }); }
 });
 
-// --- ROTA PÚBLICA DE REGISTRO ---
+// --- ROTA PÚBLICA DE REGISTRO E RECUPERAÇÃO ---
 app.post('/api/register', async (req, res) => {
   const { name, email, phone, password } = req.body;
   try {
@@ -59,33 +50,36 @@ app.post('/api/register', async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const novoPersonal = await prisma.user.create({
-      data: {
-        name,
-        email,
-        phone,
-        password: hashedPassword,
-        role: 'ADMIN',
-        status: 'Ativo',
-        plano: 'GRATIS'
-      }
+      data: { name, email, phone, password: hashedPassword, role: 'ADMIN', status: 'Ativo', plano: 'GRATIS' }
     });
-    res.status(201).json({ message: "Conta criada com sucesso!", user: { id: novoPersonal.id, email: novoPersonal.email } });
-  } catch (e) {
-    res.status(500).json({ error: "Erro interno ao criar a conta." });
-  }
+    res.status(201).json({ message: "Conta criada!", user: { id: novoPersonal.id, email: novoPersonal.email } });
+  } catch (e) { res.status(500).json({ error: "Erro interno ao criar a conta." }); }
 });
 
-// --- EVOINTELLIGENCE™: ENGINE IA DE PERIODIZAÇÃO ---
+app.post('/api/recover-password', async (req, res) => {
+  const { email } = req.body;
+  try {
+    res.json({ message: "Se o e-mail constar na base, as instruções foram enviadas." });
+  } catch (e) { res.status(500).json({ error: "Erro na recuperação." }); }
+});
+
+// --- EVOINTELLIGENCE™: ENGINE IA (COM BLOQUEIO DE CRÉDITOS) ---
 app.post('/api/ai/gerar-autonomo', authenticateToken, isAdminOrMaster, async (req, res) => {
   const { alunoId, comandoPersonal, frequencia, ciclo, semanas } = req.body;
   try {
+    // 1. Verifica os Créditos do Personal
+    const personal = await prisma.user.findUnique({ where: { id: req.user.id } });
+    if (personal.role !== 'SUPERADMIN' && personal.plano === 'GRATIS' && personal.iaUsadaMes >= 5) {
+       return res.status(403).json({ error: "Você atingiu o limite de 5 treinos do Test Drive. Faça o upgrade para o plano Mensal." });
+    }
+
     const aluno = await prisma.user.findUnique({ where: { id: parseInt(alunoId) } });
     if (!aluno) return res.status(404).json({ error: "Aluno não encontrado." });
 
-    const systemPrompt = `Você é a Engine EvoIntelligence™, especialista em biomecânica de alta performance. 
+    const systemPrompt = `Você é a Engine EvoIntelligence™, especialista em biomecânica. 
     DADOS: Aluno ${aluno.name}, Nível ${aluno.level}. Prontuário Médico: ${aluno.anamnese || 'Sem restrições'}.
     PARÂMETROS: Frequência: ${frequencia} dias na semana. Fase: ${ciclo} (Duração de ${semanas} semanas).
-    TAREFA: Divida o treino nas fichas necessárias. O 'title' de cada ficha deve incluir a letra e o foco (Ex: Ficha A - Peito).
+    TAREFA: Divida o treino nas fichas necessárias. O 'title' deve incluir a letra e o foco.
     FORMATO JSON OBRIGATÓRIO: {"planilha": [{"title": "Ficha A - ${ciclo}", "exercises": [{"name": "Supino Reto", "sets": "4x10", "weight": "Moderado", "youtubeId": ""}]}]}`;
 
     const aiRes = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -109,8 +103,11 @@ app.post('/api/ai/gerar-autonomo', authenticateToken, isAdminOrMaster, async (re
       treinosSalvos.push(novoTreino);
     }
 
-    res.json({ message: "Periodização salva com sucesso!", treinos: treinosSalvos });
-  } catch (e) { res.status(500).json({ error: "Falha na Engine IA. Verifique sua API Key." }); }
+    // 2. Desconta o crédito (Soma 1 no uso)
+    await prisma.user.update({ where: { id: req.user.id }, data: { iaUsadaMes: { increment: 1 } } });
+
+    res.json({ message: "Periodização salva!", treinos: treinosSalvos });
+  } catch (e) { res.status(500).json({ error: "Falha na Engine IA." }); }
 });
 
 app.delete('/api/treinos/:id', authenticateToken, isAdminOrMaster, async (req, res) => {
@@ -129,7 +126,7 @@ app.post('/api/alunos', authenticateToken, isAdminOrMaster, async (req, res) => 
       data: { name, email, phone, weight, height, level, anamnese, price, password: hashed, role: 'STUDENT', trainerId: req.user.id, status: 'Ativo' }
     });
     res.status(201).json(novo);
-  } catch (e) { res.status(400).json({ error: "E-mail duplicado no sistema." }); }
+  } catch (e) { res.status(400).json({ error: "E-mail duplicado." }); }
 });
 
 app.get('/api/alunos', authenticateToken, isAdminOrMaster, async (req, res) => {
@@ -140,21 +137,21 @@ app.get('/api/alunos', authenticateToken, isAdminOrMaster, async (req, res) => {
       orderBy: { name: 'asc' }
     });
     res.json(alunos);
-  } catch (e) { res.status(500).json({ error: "Erro na busca de alunos." }); }
+  } catch (e) { res.status(500).json({ error: "Erro na busca." }); }
 });
 
 app.put('/api/alunos/:id', authenticateToken, isAdminOrMaster, async (req, res) => {
   try {
     const updated = await prisma.user.update({ where: { id: parseInt(req.params.id) }, data: req.body });
     res.json(updated);
-  } catch (e) { res.status(500).json({ error: "Erro ao editar aluno." }); }
+  } catch (e) { res.status(500).json({ error: "Erro ao editar." }); }
 });
 
 app.delete('/api/alunos/:id', authenticateToken, isAdminOrMaster, async (req, res) => {
   try {
     await prisma.user.delete({ where: { id: parseInt(req.params.id) } });
-    res.json({ message: "Aluno removido permanentemente." });
-  } catch (e) { res.status(500).json({ error: "Erro ao excluir aluno." }); }
+    res.json({ message: "Removido." });
+  } catch (e) { res.status(500).json({ error: "Erro ao excluir." }); }
 });
 
 // --- GESTÃO MASTER ---
@@ -169,7 +166,7 @@ app.put('/api/superadmin/trainers/:id/plano', authenticateToken, isSuperAdmin, a
   try {
     const updated = await prisma.user.update({ where: { id: parseInt(req.params.id) }, data: { plano: req.body.plano } });
     res.json(updated);
-  } catch (e) { res.status(500).json({ error: "Erro ao atualizar plano." }); }
+  } catch (e) { res.status(500).json({ error: "Erro." }); }
 });
 
 // --- AUTENTICAÇÃO E PERFIL ---
@@ -181,7 +178,8 @@ app.post('/api/login', async (req, res) => {
     const valid = await bcrypt.compare(password, user.password);
     if (!valid && user.password !== "") return res.status(401).json({ error: "Senha inválida." });
     const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '30d' });
-    res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role } });
+    // Retorna também plano e iaUsadaMes no login
+    res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role, plano: user.plano, iaUsadaMes: user.iaUsadaMes } });
   } catch (e) { res.status(500).json({ error: "Erro interno no login." }); }
 });
 
@@ -194,8 +192,8 @@ app.put('/api/perfil/senha', authenticateToken, async (req, res) => {
     const hashed = await bcrypt.hash(newPassword, 10);
     await prisma.user.update({ where: { id: req.user.id }, data: { password: hashed } });
     res.json({ message: "Senha alterada!" });
-  } catch (e) { res.status(500).json({ error: "Erro ao processar troca de senha." }); }
+  } catch (e) { res.status(500).json({ error: "Erro." }); }
 });
 
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => console.log(`🚀 EvoCore rodando na porta ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 EvoCore operante na porta ${PORT}`));
