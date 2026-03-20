@@ -12,7 +12,7 @@ app.use(express.json({ limit: '15mb' }));
 const JWT_SECRET = process.env.JWT_SECRET || "secreto-evotrainer-2026";
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
-// --- MIDDLEWARES ---
+// --- MIDDLEWARES DE SEGURANÇA ---
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1]; 
@@ -43,7 +43,7 @@ app.post('/api/ai/gerar-autonomo', authenticateToken, isAdminOrMaster, async (re
     const systemPrompt = `Você é a Engine EvoIntelligence™, especialista em biomecânica. 
     Monte um treino em JSON para o aluno ${aluno.name}. 
     Nível: ${aluno.level}. Prontuário: ${aluno.anamnese || 'Sem restrições'}.
-    Responda APENAS o JSON no formato: {"title": "Nome do Treino", "exercises": [{"name": "Exercicio", "sets": "3x12", "weight": "Moderado", "youtubeId": ""}]}`;
+    Responda APENAS o JSON no formato: {"title": "Nome do Treino", "exercises": [{"name": "Exercicio", "sets": "3x12", "weight": "Moderado"}]}`;
 
     const aiRes = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -67,33 +67,8 @@ app.post('/api/ai/gerar-autonomo', authenticateToken, isAdminOrMaster, async (re
       }
     });
 
-    res.json({ message: "Protocolo salvo no banco!", treino: novoTreino });
-  } catch (e) { res.status(500).json({ error: "Falha na Engine EvoIntelligence." }); }
-});
-
-// --- GESTÃO DE ACESSO ---
-app.post('/api/login', async (req, res) => {
-  const { email, password } = req.body;
-  try {
-    const user = await prisma.user.findUnique({ where: { email } });
-    if (!user) return res.status(404).json({ error: "Usuário não encontrado." });
-    const valid = await bcrypt.compare(password, user.password);
-    if (!valid && user.password !== "") return res.status(401).json({ error: "Senha inválida." });
-    const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '30d' });
-    res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role } });
-  } catch (e) { res.status(500).json({ error: "Erro interno." }); }
-});
-
-app.put('/api/perfil/senha', authenticateToken, async (req, res) => {
-  const { currentPassword, newPassword } = req.body;
-  try {
-    const user = await prisma.user.findUnique({ where: { id: req.user.id } });
-    const valid = await bcrypt.compare(currentPassword, user.password);
-    if (!valid) return res.status(401).json({ error: "Senha atual incorreta." });
-    const hashed = await bcrypt.hash(newPassword, 10);
-    await prisma.user.update({ where: { id: req.user.id }, data: { password: hashed } });
-    res.json({ message: "Segurança atualizada!" });
-  } catch (e) { res.status(500).json({ error: "Erro ao processar." }); }
+    res.json({ message: "Protocolo salvo!", treino: novoTreino });
+  } catch (e) { res.status(500).json({ error: "Falha na Engine IA." }); }
 });
 
 // --- GESTÃO DE ATLETAS (COACH) ---
@@ -111,10 +86,10 @@ app.post('/api/alunos', authenticateToken, isAdminOrMaster, async (req, res) => 
 app.get('/api/alunos', authenticateToken, isAdminOrMaster, async (req, res) => {
   try {
     const alunos = await prisma.user.findMany({
-      where: { trainerId: req.user.id }, include: { workouts: true, _count: { select: { workouts: true } } }, orderBy: { name: 'asc' }
+      where: { trainerId: req.user.id }, include: { workouts: { include: { exercises: true } }, _count: { select: { workouts: true } } }, orderBy: { name: 'asc' }
     });
     res.json(alunos);
-  } catch (e) { res.status(500).json({ error: "Erro ao buscar lista." }); }
+  } catch (e) { res.status(500).json({ error: "Erro na busca." }); }
 });
 
 // --- GESTÃO MASTER (SUPERADMIN) ---
@@ -138,12 +113,37 @@ app.post('/api/superadmin/trainers', authenticateToken, isSuperAdmin, async (req
   const { name, email, password, phone, plano } = req.body;
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
-    const trainer = await prisma.user.create({
+    await prisma.user.create({
       data: { name, email, phone, plano, password: hashedPassword, role: 'ADMIN', status: 'Ativo' }
     });
-    res.status(201).json(trainer);
-  } catch (e) { res.status(400).json({ error: "Erro ao criar personal." }); }
+    res.status(201).json({ message: "Criado!" });
+  } catch (e) { res.status(400).json({ error: "Falha ao criar." }); }
+});
+
+// --- PERFIL E LOGIN ---
+app.post('/api/login', async (req, res) => {
+  const { email, password } = req.body;
+  try {
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) return res.status(404).json({ error: "E-mail não encontrado." });
+    const valid = await bcrypt.compare(password, user.password);
+    if (!valid && user.password !== "") return res.status(401).json({ error: "Senha inválida." });
+    const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '30d' });
+    res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role } });
+  } catch (e) { res.status(500).json({ error: "Erro interno." }); }
+});
+
+app.put('/api/perfil/senha', authenticateToken, async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+  try {
+    const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+    const valid = await bcrypt.compare(currentPassword, user.password);
+    if (!valid) return res.status(401).json({ error: "Senha atual incorreta." });
+    const hashed = await bcrypt.hash(newPassword, 10);
+    await prisma.user.update({ where: { id: req.user.id }, data: { password: hashed } });
+    res.json({ message: "Senha atualizada!" });
+  } catch (e) { res.status(500).json({ error: "Erro." }); }
 });
 
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => console.log(`🚀 EvoTrainer Core em: ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Engine EvoTrainer ativa: ${PORT}`));
