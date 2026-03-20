@@ -2,20 +2,21 @@
 
 import React, { useState, useEffect } from 'react';
 import { 
-  Dumbbell, Sparkles, CheckCircle2, ArrowRight, Menu, X, ShieldCheck, Zap, 
-  HelpCircle, Play, FileText, TrendingUp, MessageCircle, Activity 
+  Dumbbell, Sparkles, CheckCircle2, Menu, X, ShieldCheck, Zap, 
+  FileText, TrendingUp, MessageCircle, Activity, Lock
 } from 'lucide-react';
 
+// --- CONFIGURAÇÕES DE API E REDIRECIONAMENTO ---
 const getBaseUrl = () => {
   if (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
-  return 'https://evotrainer.onrender.com';
+  return 'https://evotrainer.onrender.com'; // URL do seu Backend no Render
 };
 const API_URL = getBaseUrl().endsWith('/') ? `${getBaseUrl()}api` : `${getBaseUrl()}/api`;
-const APP_URL = "https://evotrainer.vercel.app"; // Substitua pelo link real do seu Dashboard
+const APP_URL = "https://evotrainer.vercel.app"; // URL do seu Sistema/Dashboard
 
-const Navbar = ({ onOpenSignup }: any) => {
+// --- COMPONENTES VISUAIS ---
+const Navbar = ({ onOpenSignup, onOpenLogin }: any) => {
   const [isOpen, setIsOpen] = useState(false);
-
   return (
     <nav className="fixed top-0 w-full z-[100] bg-slate-950/80 backdrop-blur-xl border-b border-slate-800">
       <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
@@ -30,7 +31,7 @@ const Navbar = ({ onOpenSignup }: any) => {
           <a href="#como-funciona" className="text-sm font-bold text-slate-400 hover:text-white transition-colors tracking-wide">Como Funciona</a>
           <a href="#precos" className="text-sm font-bold text-slate-400 hover:text-white transition-colors tracking-wide">Planos</a>
           <div className="flex gap-4 border-l border-slate-800 pl-8">
-            <a href={APP_URL} className="text-white font-bold text-sm hover:text-blue-400 transition-all flex items-center">Login</a>
+            <button onClick={onOpenLogin} className="text-white font-bold text-sm hover:text-blue-400 transition-all flex items-center">Login</button>
             <button onClick={onOpenSignup} className="bg-blue-600 text-white px-6 py-2.5 rounded-xl font-black text-xs uppercase tracking-widest shadow-lg shadow-blue-600/20 hover:scale-105 active:scale-95 transition-all">Testar Grátis</button>
           </div>
         </div>
@@ -43,7 +44,7 @@ const Navbar = ({ onOpenSignup }: any) => {
           <a href="#como-funciona" className="text-lg font-bold text-slate-300">Como Funciona</a>
           <a href="#precos" className="text-lg font-bold text-slate-300">Planos</a>
           <hr className="border-slate-800" />
-          <a href={APP_URL} className="w-full bg-slate-800 text-white py-4 rounded-2xl font-black text-center tracking-widest uppercase text-xs">Login do Painel</a>
+          <button onClick={() => { setIsOpen(false); onOpenLogin(); }} className="w-full bg-slate-800 text-white py-4 rounded-2xl font-black text-center tracking-widest uppercase text-xs">Login do Painel</button>
           <button onClick={() => { setIsOpen(false); onOpenSignup(); }} className="w-full bg-blue-600 text-white py-4 rounded-2xl font-black text-center block tracking-widest uppercase text-xs">Criar Conta</button>
         </div>
       )}
@@ -62,46 +63,55 @@ const FeatureCard = ({ icon: Icon, title, desc, color }: any) => (
   </div>
 );
 
-const PlanCard = ({ title, price, subPrice, features, highlighted = false, onAction, badge }: any) => {
-  return (
-    <div className={`relative p-10 rounded-[3rem] border transition-all duration-500 hover:-translate-y-2 flex flex-col h-full ${highlighted ? 'bg-slate-900 border-blue-500 shadow-2xl shadow-blue-900/20' : 'bg-slate-950 border-slate-800 hover:border-slate-700'}`}>
-      {badge && (
-        <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-blue-600 text-white px-6 py-1.5 rounded-full text-[10px] font-black uppercase tracking-[0.2em] shadow-lg shadow-blue-600/30 whitespace-nowrap">
-          {badge}
-        </div>
-      )}
-      <div className="mb-8 text-center mt-4">
-        <h3 className="text-slate-400 font-black text-xs uppercase tracking-[0.3em] mb-4">{title}</h3>
-        <div className="flex items-baseline justify-center gap-1">
-          <span className="text-slate-500 font-bold text-xl mr-1">R$</span>
-          <span className="text-6xl font-black text-white tracking-tighter">{price}</span>
-        </div>
-        <span className="text-slate-500 font-bold text-xs uppercase tracking-widest mt-2 block">{subPrice}</span>
+const PlanCard = ({ title, price, subPrice, features, highlighted = false, onAction, badge }: any) => (
+  <div className={`relative p-10 rounded-[3rem] border transition-all duration-500 hover:-translate-y-2 flex flex-col h-full ${highlighted ? 'bg-slate-900 border-blue-500 shadow-2xl shadow-blue-900/20' : 'bg-slate-950 border-slate-800 hover:border-slate-700'}`}>
+    {badge && (
+      <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-blue-600 text-white px-6 py-1.5 rounded-full text-[10px] font-black uppercase tracking-[0.2em] shadow-lg shadow-blue-600/30 whitespace-nowrap">
+        {badge}
       </div>
-      
-      <div className="space-y-5 mb-10 flex-1">
-        {features.map((f: string, i: number) => (
-          <div key={i} className="flex items-start gap-3">
-            <CheckCircle2 size={20} className="text-emerald-500 shrink-0 mt-0.5" />
-            <span className="text-slate-300 text-sm font-medium leading-relaxed">{f}</span>
-          </div>
-        ))}
+    )}
+    <div className="mb-8 text-center mt-4">
+      <h3 className="text-slate-400 font-black text-xs uppercase tracking-[0.3em] mb-4">{title}</h3>
+      <div className="flex items-baseline justify-center gap-1">
+        <span className="text-slate-500 font-bold text-xl mr-1">R$</span>
+        <span className="text-6xl font-black text-white tracking-tighter">{price}</span>
       </div>
-
-      <button onClick={onAction} className={`w-full py-5 rounded-2xl font-black text-center text-[11px] uppercase tracking-[0.2em] transition-all ${highlighted ? 'bg-blue-600 text-white hover:bg-blue-500 shadow-xl shadow-blue-600/20' : 'bg-slate-800 text-white hover:bg-slate-700'}`}>
-        {price === "0,00" ? "Iniciar Teste Grátis" : "Assinar Agora"}
-      </button>
-      {price !== "0,00" && <p className="text-center text-[10px] text-slate-500 mt-5 font-bold uppercase tracking-widest flex items-center justify-center gap-2"><ShieldCheck size={14} className="text-emerald-500"/> Pagamento Seguro</p>}
+      <span className="text-slate-500 font-bold text-xs uppercase tracking-widest mt-2 block">{subPrice}</span>
     </div>
-  );
-};
+    
+    <div className="space-y-5 mb-10 flex-1">
+      {features.map((f: string, i: number) => (
+        <div key={i} className="flex items-start gap-3">
+          <CheckCircle2 size={20} className="text-emerald-500 shrink-0 mt-0.5" />
+          <span className="text-slate-300 text-sm font-medium leading-relaxed">{f}</span>
+        </div>
+      ))}
+    </div>
 
+    <button onClick={onAction} className={`w-full py-5 rounded-2xl font-black text-center text-[11px] uppercase tracking-[0.2em] transition-all ${highlighted ? 'bg-blue-600 text-white hover:bg-blue-500 shadow-xl shadow-blue-600/20' : 'bg-slate-800 text-white hover:bg-slate-700'}`}>
+      {price === "0,00" ? "Iniciar Teste Grátis" : "Assinar Agora"}
+    </button>
+    {price !== "0,00" && <p className="text-center text-[10px] text-slate-500 mt-5 font-bold uppercase tracking-widest flex items-center justify-center gap-2"><ShieldCheck size={14} className="text-emerald-500"/> Pagamento Seguro</p>}
+  </div>
+);
+
+// ==========================================
+// LANDING PAGE PRINCIPAL
+// ==========================================
 export default function LandingPage() {
   const [showSignupModal, setShowSignupModal] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showRecoverModal, setShowRecoverModal] = useState(false);
+  
   const [toastMsg, setToastMsg] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   
+  // Forms
   const [formReg, setFormReg] = useState({ name: '', email: '', phone: '', password: '' });
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [recoverEmail, setRecoverEmail] = useState('');
 
   const showToast = (msg: string) => { setToastMsg(msg); setTimeout(() => setToastMsg(''), 3000); };
 
@@ -110,6 +120,7 @@ export default function LandingPage() {
     window.open(`https://wa.me/5521987708652?text=${msg}`, '_blank');
   };
 
+  // --- LÓGICA DE REGISTRO ---
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -121,18 +132,61 @@ export default function LandingPage() {
       });
       const data = await res.json();
       if (res.ok) {
-        showToast("Conta criada com sucesso! Redirecionando...");
-        setTimeout(() => { window.location.href = APP_URL; }, 2000); 
-      } else {
-        showToast(data.error || "Erro ao criar conta.");
-      }
-    } catch (err) {
-      showToast("Erro de conexão com o servidor.");
-    } finally {
-      setIsSubmitting(false);
-    }
+        showToast("Conta criada! Fazendo login...");
+        // Auto-login após registro
+        const loginRes = await fetch(`${API_URL}/login`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: formReg.email, password: formReg.password })
+        });
+        if(loginRes.ok) {
+          const loginData = await loginRes.json();
+          localStorage.setItem('treino_ai_token', loginData.token); 
+          localStorage.setItem('treino_ai_user', JSON.stringify(loginData.user));
+          window.location.href = APP_URL; // Redireciona pro app
+        }
+      } else { showToast(data.error || "Erro ao criar conta."); }
+    } catch (err) { showToast("Erro de conexão."); } finally { setIsSubmitting(false); }
   };
 
+  // --- LÓGICA DE LOGIN ---
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoggingIn(true);
+    try {
+      const res = await fetch(`${API_URL}/login`, { 
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify({ email: loginEmail, password: loginPassword }) 
+      });
+      const data = await res.json();
+      if (res.ok) {
+        localStorage.setItem('treino_ai_token', data.token); 
+        localStorage.setItem('treino_ai_user', JSON.stringify(data.user));
+        window.location.href = APP_URL; // Redireciona pro app logado
+      } else { showToast(data.error); }
+    } catch (e) { showToast("Servidor acordando..."); } finally { setIsLoggingIn(false); }
+  };
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+
+  // --- LÓGICA DE RECUPERAÇÃO ---
+  const handleRecoverPassword = async () => {
+    if(!recoverEmail) return showToast("Preencha o e-mail.");
+    setIsLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/recover-password`, { 
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify({ email: recoverEmail }) 
+      });
+      const data = await res.json();
+      if (res.ok) { 
+        showToast(data.message); 
+        setShowRecoverModal(false); 
+        setShowLoginModal(true); 
+        setRecoverEmail(''); 
+      } else { showToast(data.error); }
+    } catch (e) { showToast("Erro de rede."); } finally { setIsLoading(false); }
+  };
+
+  // --- INJEÇÃO DE PIXELS ---
   useEffect(() => {
     if (!document.getElementById('meta-pixel-script')) {
       const fbScript = document.createElement('script');
@@ -144,8 +198,8 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-slate-950 font-sans selection:bg-blue-500/30">
-      <Navbar onOpenSignup={() => setShowSignupModal(true)} />
-
+      <Navbar onOpenSignup={() => setShowSignupModal(true)} onOpenLogin={() => setShowLoginModal(true)} />
+      
       {/* HERO SECTION */}
       <section className="pt-40 pb-20 px-6 overflow-hidden relative">
         <div className="absolute top-0 right-[-10%] w-[600px] h-[600px] bg-blue-600/10 blur-[150px] rounded-full pointer-events-none"></div>
@@ -204,24 +258,23 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* SEÇÃO RECURSOS DE ALTA PERFORMANCE */}
+      {/* RECURSOS */}
       <section id="funcionalidades" className="py-32 px-6 relative border-t border-slate-900">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-24">
             <h2 className="text-4xl md:text-5xl font-black text-white mb-6 tracking-tighter">Recursos de Alta Performance</h2>
             <p className="text-slate-500 font-black uppercase text-xs tracking-[0.3em]">Tudo que você precisa para escalar, em um só lugar.</p>
           </div>
-
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <FeatureCard icon={Sparkles} color="bg-blue-500" title="IA Periodizada" desc="Digite o foco e nossa IA gera a semana inteira de treinos (Macro, Meso, Micro) respeitando lesões e nível do aluno." />
-            <FeatureCard icon={FileText} color="bg-red-500" title="Planilhas Premium" desc="Exporte treinos em PDFs lindíssimos com botões clicáveis que abrem vídeos explicativos diretamente no YouTube." />
-            <FeatureCard icon={TrendingUp} color="bg-emerald-500" title="CRM Financeiro" desc="Cadastre o valor da mensalidade de cada aluno e acompanhe o crescimento real do faturamento da sua consultoria." />
-            <FeatureCard icon={MessageCircle} color="bg-green-500" title="WhatsApp Nativo" desc="Um clique e o sistema abre seu WhatsApp com uma mensagem pronta avisando o aluno sobre a data de revisão da ficha." />
+            <FeatureCard icon={Sparkles} color="bg-blue-500" title="IA Periodizada" desc="Digite o foco e nossa IA gera a semana inteira de treinos respeitando lesões e nível do aluno." />
+            <FeatureCard icon={FileText} color="bg-red-500" title="Planilhas Premium" desc="Exporte treinos em PDFs lindíssimos com botões que abrem vídeos explicativos no YouTube." />
+            <FeatureCard icon={TrendingUp} color="bg-emerald-500" title="CRM Financeiro" desc="Cadastre a mensalidade de cada aluno e acompanhe o crescimento real do seu faturamento." />
+            <FeatureCard icon={MessageCircle} color="bg-green-500" title="WhatsApp Nativo" desc="Com 1 clique, dispare mensagens automáticas sobre a nova ficha direto no WhatsApp do aluno." />
           </div>
         </div>
       </section>
 
-      {/* SEÇÃO PREÇOS */}
+      {/* PREÇOS (OFERTA) */}
       <section id="precos" className="py-32 px-6 relative border-t border-slate-900">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-blue-900/10 via-slate-950 to-slate-950 pointer-events-none"></div>
         <div className="max-w-7xl mx-auto relative z-10">
@@ -229,28 +282,21 @@ export default function LandingPage() {
             <h2 className="text-4xl md:text-5xl font-black text-white mb-6 tracking-tighter">Um preço. Retorno Infinito.</h2>
             <p className="text-slate-500 font-black uppercase text-xs tracking-[0.3em]">Custa menos que a mensalidade de UM aluno.</p>
           </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
             <PlanCard 
-              title="Test Drive" price="0,00" subPrice="100% Grátis para testar"
-              features={["Até 5 Treinos gerados por IA", "Gestão de Alunos Básica", "Exportação em PDF simples", "Sem painel financeiro"]} 
-              onAction={() => setShowSignupModal(true)}
+              title="Test Drive" price="0,00" subPrice="100% Grátis para testar" 
+              features={["Até 5 Treinos por IA", "Gestão de Alunos Básica", "PDF simples"]} 
+              onAction={() => setShowSignupModal(true)} 
             />
             <PlanCard 
-              title="Plano Mensal" price="39,90" subPrice="Por Mês (Sem fidelidade)" badge="O MAIS ESCOLHIDO" highlighted={true}
-              features={["Alunos Ilimitados", "Treinos por IA Ilimitados", "PDF Premium com Vídeos YT", "Dashboard Financeiro", "Integração WhatsApp"]} 
-              onAction={() => setShowSignupModal(true)}
-            />
-            <PlanCard 
-              title="Plano Anual" price="29,90" subPrice="Por Mês (Cobrado R$ 358 à vista)"
-              features={["Tudo do plano Mensal", "Desconto de 25%", "Prioridade de Suporte", "Congelamento de preço anual"]} 
-              onAction={() => setShowSignupModal(true)}
+              title="Plano Mensal" price="39,90" subPrice="Por Mês (Sem fidelidade)" badge="O MAIS ESCOLHIDO" highlighted={true} 
+              features={["Alunos Ilimitados", "Treinos por IA Ilimitados", "PDF Premium com Vídeos", "Dashboard Financeiro", "WhatsApp Nativo"]} 
+              onAction={() => setShowSignupModal(true)} 
             />
           </div>
         </div>
       </section>
 
-      {/* FOOTER */}
       <footer className="py-16 px-6 border-t border-slate-900 bg-slate-950">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8 text-center md:text-left">
            <div>
@@ -260,26 +306,50 @@ export default function LandingPage() {
              </div>
              <p className="text-slate-600 text-xs font-bold uppercase tracking-[0.2em]">Tecnologia para Personal Trainers de Elite.</p>
            </div>
-           
            <div className="flex gap-8 text-slate-500 font-black text-[10px] uppercase tracking-widest">
-             <a href="#" className="hover:text-blue-500 transition-colors">Termos de Uso</a>
-             <a href="#" className="hover:text-blue-500 transition-colors">Privacidade</a>
-             <a href={APP_URL} className="hover:text-blue-500 transition-colors">Login Painel</a>
+             <button onClick={() => setShowLoginModal(true)} className="hover:text-blue-500 transition-colors">Login Painel</button>
            </div>
         </div>
       </footer>
 
-      {/* MODAL DE CADASTRO (REGISTRO DE PERSONAL) */}
+      {/* ================= MODAIS ================= */}
+
+      {/* MODAL: LOGIN */}
+      {showLoginModal && (
+        <div className="fixed inset-0 bg-black/95 z-[999] flex items-center justify-center p-6 backdrop-blur-md animate-fade-in text-slate-50">
+           <div className="bg-slate-900 border border-slate-800 p-10 rounded-[3.5rem] w-full max-w-md shadow-2xl relative">
+              <button onClick={() => setShowLoginModal(false)} className="absolute top-8 right-8 p-3 bg-slate-800 rounded-2xl text-slate-400 hover:text-white transition-all"><X size={24}/></button>
+              <div className="text-center mb-8">
+                 <Dumbbell className="text-blue-500 mx-auto mb-4" size={40} />
+                 <h3 className="text-3xl font-black text-white italic tracking-tighter uppercase">Login</h3>
+              </div>
+              <form onSubmit={handleLogin} className="space-y-4 text-left">
+                 <div>
+                   <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4 mb-2 block">E-mail de Acesso</label>
+                   <input type="email" required className="w-full p-5 rounded-2xl bg-slate-950 border border-slate-800 text-white outline-none focus:border-blue-500 font-bold transition-all" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} />
+                 </div>
+                 <div>
+                   <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4 mb-2 block">Senha Segura</label>
+                   <input type="password" required className="w-full p-5 rounded-2xl bg-slate-950 border border-slate-800 text-white outline-none focus:border-blue-500 font-bold transition-all" value={loginPassword} onChange={e => setLoginPassword(e.target.value)} />
+                 </div>
+                 <div className="text-right mt-1">
+                    <button type="button" onClick={() => { setShowLoginModal(false); setShowRecoverModal(true); }} className="text-[10px] font-black text-slate-500 uppercase tracking-widest hover:text-blue-500 transition-all">Esqueceu a Senha?</button>
+                 </div>
+                 <button className="w-full p-6 bg-blue-600 rounded-[2rem] font-black text-white uppercase active:scale-95 transition-all shadow-xl mt-4 hover:bg-blue-500">{isLoggingIn ? 'Entrando...' : 'Acessar Dashboard'}</button>
+              </form>
+           </div>
+        </div>
+      )}
+
+      {/* MODAL DE CADASTRO */}
       {showSignupModal && (
-        <div className="fixed inset-0 bg-black/95 z-[999] flex items-center justify-center p-6 backdrop-blur-md animate-fade-in">
+        <div className="fixed inset-0 bg-black/95 z-[999] flex items-center justify-center p-6 backdrop-blur-md animate-fade-in text-slate-50">
            <div className="bg-slate-900 border border-slate-800 p-10 md:p-12 rounded-[3.5rem] w-full max-w-lg shadow-[0_0_80px_rgba(37,99,235,0.15)] relative">
               <button onClick={() => setShowSignupModal(false)} className="absolute top-8 right-8 p-3 bg-slate-800 rounded-2xl text-slate-400 hover:text-white transition-all"><X size={24}/></button>
-              
               <div className="text-center mb-10">
                  <h3 className="text-3xl font-black text-white italic tracking-tighter uppercase mb-2">Criar Conta</h3>
                  <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">Acesso de Personal Trainer</p>
               </div>
-
               <form onSubmit={handleRegister} className="space-y-6 text-left">
                  <div>
                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4 mb-2 block">Nome Completo</label>
@@ -297,22 +367,35 @@ export default function LandingPage() {
                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4 mb-2 block">Crie uma Senha Segura</label>
                     <input type="password" required className="w-full p-5 rounded-2xl bg-slate-950 border border-slate-800 text-white font-bold outline-none focus:border-blue-500 transition-all" value={formReg.password} onChange={e => setFormReg({...formReg, password: e.target.value})} />
                  </div>
-                 
-                 <button type="submit" disabled={isSubmitting} className="w-full py-6 bg-blue-600 text-white font-black rounded-[2rem] shadow-2xl shadow-blue-600/20 uppercase tracking-widest text-xs active:scale-95 transition-all mt-4 hover:bg-blue-500 flex justify-center items-center gap-2">
+                 <button type="submit" disabled={isSubmitting} className="w-full py-6 bg-blue-600 text-white font-black rounded-[2rem] shadow-2xl uppercase tracking-widest text-xs active:scale-95 hover:bg-blue-500 flex justify-center items-center gap-2">
                     {isSubmitting ? <Activity className="animate-spin" size={20}/> : 'Concluir Cadastro'}
                  </button>
-                 <p className="text-center text-slate-500 text-[10px] mt-4 font-medium">Ao se cadastrar, você concorda com nossos Termos de Uso.</p>
               </form>
            </div>
         </div>
       )}
 
-      {/* TOAST NOTIFICATION */}
-      {toastMsg && (
-        <div className="fixed top-12 left-1/2 -translate-x-1/2 z-[1000] bg-blue-600 text-white px-10 py-5 rounded-full font-black shadow-[0_20px_50px_rgba(37,99,235,0.5)] flex items-center gap-4 text-sm animate-bounce border border-white/10">
-           <CheckCircle2 size={24} /> {toastMsg}
+      {/* MODAL: RECUPERAR SENHA */}
+      {showRecoverModal && (
+        <div className="fixed inset-0 bg-black/98 z-[999] flex items-center justify-center p-6 backdrop-blur-md animate-fade-in text-slate-50">
+           <div className="bg-slate-900 border border-slate-800 p-10 md:p-12 rounded-[3.5rem] w-full max-w-md shadow-2xl text-center relative">
+              <button onClick={() => setShowRecoverModal(false)} className="absolute top-6 right-6 p-2 text-slate-400 hover:text-white transition-all"><X size={24}/></button>
+              <h3 className="text-2xl font-black text-white mb-2 italic uppercase tracking-tighter">Recuperar Acesso</h3>
+              <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mb-8">Enviaremos instruções seguras</p>
+              <div className="space-y-4 text-left">
+                 <div>
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4 mb-2 block">E-mail Cadastrado</label>
+                    <input type="email" required className="w-full p-5 rounded-2xl bg-slate-950 border border-slate-800 text-white outline-none focus:border-blue-500 font-bold transition-all" value={recoverEmail} onChange={e => setRecoverEmail(e.target.value)} />
+                 </div>
+                 <button onClick={handleRecoverPassword} disabled={isLoading} className="w-full py-6 bg-blue-600 text-white font-black rounded-[2rem] active:scale-95 shadow-xl transition-all uppercase tracking-widest text-[11px] mt-4 hover:bg-blue-500 flex justify-center items-center gap-2">
+                   {isLoading ? <Activity className="animate-spin" size={20} /> : 'Enviar Instruções'}
+                 </button>
+              </div>
+           </div>
         </div>
       )}
+
+      {toastMsg && <div className="fixed top-12 left-1/2 -translate-x-1/2 z-[1000] bg-blue-600 text-white px-10 py-5 rounded-full font-black shadow-[0_20px_50px_rgba(37,99,235,0.5)] flex items-center gap-4 text-sm animate-bounce border border-white/10"><CheckCircle2 size={24} /> {toastMsg}</div>}
     </div>
   );
 }

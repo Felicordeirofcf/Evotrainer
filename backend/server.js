@@ -33,12 +33,58 @@ const isAdminOrMaster = (req, res, next) => {
   next();
 };
 
-// --- DADOS ATUALIZADOS DO USUÁRIO (NOVO) ---
-app.get('/api/me', authenticateToken, async (req, res) => {
+// ==========================================
+// 💸 AUTOMAÇÃO FINANCEIRA (WEBHOOK ASAAS)
+// ==========================================
+app.post('/api/webhook/asaas', async (req, res) => {
   try {
-    const user = await prisma.user.findUnique({ where: { id: req.user.id }, select: { id: true, name: true, email: true, role: true, plano: true, iaUsadaMes: true } });
-    res.json(user);
-  } catch (e) { res.status(500).json({ error: "Erro ao buscar dados." }); }
+    const payload = req.body;
+    console.log("🔔 [WEBHOOK ASAAS] Evento recebido:", payload.event);
+
+    // Verifica se o evento é de pagamento confirmado
+    if (payload.event === 'PAYMENT_RECEIVED' || payload.event === 'PAYMENT_CONFIRMED') {
+      const customerId = payload.payment?.customer;
+
+      if (customerId) {
+        // Consulta o Asaas para pegar o E-mail do Cliente usando a sua Chave de API
+        const asaasRes = await fetch(`https://api.asaas.com/v3/customers/${customerId}`, {
+          method: 'GET',
+          headers: { 
+            'access_token': process.env.ASAAS_API_KEY || '', 
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (asaasRes.ok) {
+          const customerData = await asaasRes.json();
+          const emailPagador = customerData.email;
+
+          if (emailPagador) {
+            const vencimento = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // Adiciona 30 dias
+            
+            // Procura o usuário por e-mail e atualiza o plano para PRO
+            const updatedUser = await prisma.user.updateMany({
+              where: { email: emailPagador },
+              data: { plano: 'PRO', iaUsadaMes: 0, planExpiresAt: vencimento }
+            });
+
+            if (updatedUser.count > 0) {
+               console.log(`✅ SUCESSO: Conta ${emailPagador} ativada para PRO.`);
+            } else {
+               console.log(`⚠️ ALERTA: Pagamento recebido, mas o email ${emailPagador} não está cadastrado no EvoTrainer.`);
+            }
+          }
+        } else {
+           console.log("❌ Erro ao consultar o cliente no Asaas. A ASAAS_API_KEY está configurada no Render?");
+        }
+      }
+    }
+    // Sempre retorne 200 para o Asaas entender que você recebeu o recado
+    res.status(200).send('Recebido com sucesso');
+  } catch (e) {
+    console.error('Erro geral no Webhook:', e);
+    res.status(500).send('Erro interno no servidor');
+  }
 });
 
 // --- ROTA PÚBLICA DE REGISTRO E RECUPERAÇÃO ---
@@ -63,11 +109,21 @@ app.post('/api/recover-password', async (req, res) => {
   } catch (e) { res.status(500).json({ error: "Erro na recuperação." }); }
 });
 
-// --- EVOINTELLIGENCE™: ENGINE IA (COM BLOQUEIO DE CRÉDITOS) ---
+// --- DADOS DO USUÁRIO EM TEMPO REAL ---
+app.get('/api/me', authenticateToken, async (req, res) => {
+  try {
+    const user = await prisma.user.findUnique({ 
+      where: { id: req.user.id }, 
+      select: { id: true, name: true, email: true, role: true, plano: true, iaUsadaMes: true, planExpiresAt: true } 
+    });
+    res.json(user);
+  } catch (e) { res.status(500).json({ error: "Erro ao buscar dados." }); }
+});
+
+// --- EVOINTELLIGENCE™: ENGINE IA ---
 app.post('/api/ai/gerar-autonomo', authenticateToken, isAdminOrMaster, async (req, res) => {
   const { alunoId, comandoPersonal, frequencia, ciclo, semanas } = req.body;
   try {
-    // 1. Verifica os Créditos do Personal
     const personal = await prisma.user.findUnique({ where: { id: req.user.id } });
     if (personal.role !== 'SUPERADMIN' && personal.plano === 'GRATIS' && personal.iaUsadaMes >= 5) {
        return res.status(403).json({ error: "Você atingiu o limite de 5 treinos do Test Drive. Faça o upgrade para o plano Mensal." });
@@ -103,9 +159,7 @@ app.post('/api/ai/gerar-autonomo', authenticateToken, isAdminOrMaster, async (re
       treinosSalvos.push(novoTreino);
     }
 
-    // 2. Desconta o crédito (Soma 1 no uso)
     await prisma.user.update({ where: { id: req.user.id }, data: { iaUsadaMes: { increment: 1 } } });
-
     res.json({ message: "Periodização salva!", treinos: treinosSalvos });
   } catch (e) { res.status(500).json({ error: "Falha na Engine IA." }); }
 });
@@ -169,7 +223,21 @@ app.put('/api/superadmin/trainers/:id/plano', authenticateToken, isSuperAdmin, a
   } catch (e) { res.status(500).json({ error: "Erro." }); }
 });
 
-// --- AUTENTICAÇÃO E PERFIL ---
+app.put('/api/superadmin/trainers/:id', authenticateToken, isSuperAdmin, async (req, res) => {
+  try {
+    const updated = await prisma.user.update({ where: { id: parseInt(req.params.id) }, data: { name: req.body.name, email: req.body.email, phone: req.body.phone } });
+    res.json(updated);
+  } catch (e) { res.status(500).json({ error: "Erro." }); }
+});
+
+app.delete('/api/superadmin/trainers/:id', authenticateToken, isSuperAdmin, async (req, res) => {
+  try {
+    await prisma.user.delete({ where: { id: parseInt(req.params.id) } });
+    res.json({ message: "Personal Removido!" });
+  } catch (e) { res.status(500).json({ error: "Erro ao remover personal." }); }
+});
+
+// --- LOGIN E SEGURANÇA ---
 app.post('/api/login', async (req, res) => {
   const { email, password } = req.body;
   try {
@@ -178,8 +246,7 @@ app.post('/api/login', async (req, res) => {
     const valid = await bcrypt.compare(password, user.password);
     if (!valid && user.password !== "") return res.status(401).json({ error: "Senha inválida." });
     const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '30d' });
-    // Retorna também plano e iaUsadaMes no login
-    res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role, plano: user.plano, iaUsadaMes: user.iaUsadaMes } });
+    res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role, plano: user.plano, iaUsadaMes: user.iaUsadaMes, planExpiresAt: user.planExpiresAt } });
   } catch (e) { res.status(500).json({ error: "Erro interno no login." }); }
 });
 
