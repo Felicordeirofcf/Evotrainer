@@ -33,22 +33,23 @@ const isAdminOrMaster = (req, res, next) => {
   next();
 };
 
-// --- EVOINTELLIGENCE™: GERAÇÃO SEMANAL AUTÔNOMA ---
+// --- EVOINTELLIGENCE™: GERAÇÃO DE PERIODIZAÇÃO ---
 app.post('/api/ai/gerar-autonomo', authenticateToken, isAdminOrMaster, async (req, res) => {
-  const { alunoId, comandoPersonal, frequencia } = req.body;
+  const { alunoId, comandoPersonal, frequencia, ciclo, semanas } = req.body;
   try {
     const aluno = await prisma.user.findUnique({ where: { id: parseInt(alunoId) } });
     if (!aluno) return res.status(404).json({ error: "Aluno não encontrado." });
 
-    const systemPrompt = `Você é a Engine EvoIntelligence™. Monte uma PERIODIZAÇÃO COMPLETA DE TREINO.
-    DADOS: Aluno ${aluno.name}, Nível ${aluno.level}, Prontuário: ${aluno.anamnese || 'Sem restrições'}.
-    FREQUÊNCIA: O aluno treina ${frequencia} dias por semana.
+    const systemPrompt = `Você é a Engine EvoIntelligence™. Monte uma PERIODIZAÇÃO DE TREINO.
+    DADOS: Aluno ${aluno.name}, Nível ${aluno.level}. Prontuário: ${aluno.anamnese || 'Nenhum'}.
+    PARÂMETROS DA PERIODIZAÇÃO:
+    - Frequência: ${frequencia} dias na semana.
+    - Fase: ${ciclo} (Duração de ${semanas} semanas). Ajuste volume e intensidade adequados para esta fase.
     
-    TAREFA: Divida o treino em fichas (Ex: Treino A, Treino B...) condizentes com a frequência de ${frequencia} dias.
-    REGRAS TÉCNICAS: Responda APENAS o JSON no formato: 
+    TAREFA: Divida o treino nas fichas necessárias. O 'title' de cada ficha deve incluir o ciclo.
+    FORMATO JSON: 
     {"planilha": [
-      {"title": "Treino A - Peito e Tríceps", "exercises": [{"name": "Supino", "sets": "4x10", "weight": "Moderado", "youtubeId": ""}]},
-      {"title": "Treino B - Costas e Bíceps", "exercises": [...]}
+      {"title": "Ficha A - ${ciclo} (${semanas} Semanas)", "exercises": [{"name": "Supino", "sets": "4x10", "weight": "Moderado", "youtubeId": ""}]}
     ]}`;
 
     const aiRes = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -64,22 +65,29 @@ app.post('/api/ai/gerar-autonomo', authenticateToken, isAdminOrMaster, async (re
     const aiData = await aiRes.json();
     const result = JSON.parse(aiData.choices[0].message.content);
 
-    // Salva cada ficha da planilha no banco
     const treinosSalvos = [];
     for (const ficha of result.planilha) {
       const novoTreino = await prisma.workoutTemplate.create({
         data: {
           title: ficha.title,
           userId: aluno.id,
-          duration: "60 min",
+          duration: `${semanas} Semanas`, // Salvando a validade no campo duration para não quebrar seu Prisma
           exercises: { create: ficha.exercises }
         }
       });
       treinosSalvos.push(novoTreino);
     }
 
-    res.json({ message: `${treinosSalvos.length} treinos gerados e salvos!`, treinos: treinosSalvos });
-  } catch (e) { res.status(500).json({ error: "Falha na Engine IA Semanal." }); }
+    res.json({ message: "Periodização salva!", treinos: treinosSalvos });
+  } catch (e) { res.status(500).json({ error: "Falha na Engine IA." }); }
+});
+
+// --- GESTÃO DE FICHAS (EXCLUIR TREINO ESPECÍFICO) ---
+app.delete('/api/treinos/:id', authenticateToken, isAdminOrMaster, async (req, res) => {
+  try {
+    await prisma.workoutTemplate.delete({ where: { id: parseInt(req.params.id) } });
+    res.json({ message: "Ficha removida do dossiê." });
+  } catch (e) { res.status(500).json({ error: "Erro ao excluir ficha." }); }
 });
 
 // --- GESTÃO DE ALUNOS ---
@@ -120,6 +128,20 @@ app.delete('/api/alunos/:id', authenticateToken, isAdminOrMaster, async (req, re
 });
 
 // --- MASTER & LOGIN ---
+app.get('/api/superadmin/trainers', authenticateToken, isSuperAdmin, async (req, res) => {
+  try {
+    const trainers = await prisma.user.findMany({ where: { role: 'ADMIN' }, include: { _count: { select: { alunos: true } } }, orderBy: { createdAt: 'desc' } });
+    res.json(trainers);
+  } catch (e) { res.status(500).json({ error: "Erro." }); }
+});
+
+app.put('/api/superadmin/trainers/:id/plano', authenticateToken, isSuperAdmin, async (req, res) => {
+  try {
+    const updated = await prisma.user.update({ where: { id: parseInt(req.params.id) }, data: { plano: req.body.plano } });
+    res.json(updated);
+  } catch (e) { res.status(500).json({ error: "Erro." }); }
+});
+
 app.post('/api/login', async (req, res) => {
   const { email, password } = req.body;
   try {
@@ -133,4 +155,4 @@ app.post('/api/login', async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => console.log(`🚀 EvoCore Semanal ativa: ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 EvoCore Periodização ativa: ${PORT}`));

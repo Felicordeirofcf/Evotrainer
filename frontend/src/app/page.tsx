@@ -25,8 +25,13 @@ export default function App() {
   const [tabAtiva, setTabAtiva] = useState('dashboard');
   const [toastMsg, setToastMsg] = useState('');
   const [alunos, setAlunos] = useState<any[]>([]);
+  const [trainers, setTrainers] = useState<any[]>([]);
+  
+  // States da IA
   const [iaAlunoId, setIaAlunoId] = useState('');
   const [iaFrequencia, setIaFrequencia] = useState('3');
+  const [iaCiclo, setIaCiclo] = useState('Mesociclo (Hipertrofia/Força)');
+  const [iaSemanas, setIaSemanas] = useState('4');
   const [isLoading, setIsLoading] = useState(false);
 
   const [showAddAlunoModal, setShowAddAlunoModal] = useState(false);
@@ -45,8 +50,12 @@ export default function App() {
 
   const fetchData = async () => {
     if (!token || !currentUser) return;
-    const res = await fetch(`${API_URL}/alunos`, { headers: getAuthHeaders() });
-    if (res.ok) setAlunos(await res.json());
+    const ep = isMaster ? '/superadmin/trainers' : '/alunos';
+    const res = await fetch(`${API_URL}${ep}`, { headers: getAuthHeaders() });
+    if (res.ok) {
+      const data = await res.json();
+      isMaster ? setTrainers(data) : setAlunos(data);
+    }
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -75,9 +84,24 @@ export default function App() {
   };
 
   const deleteAluno = async (id: number) => {
-    if(!confirm("Remover aluno e treinos permanentemente?")) return;
+    if(!confirm("Remover aluno permanentemente?")) return;
     const res = await fetch(`${API_URL}/alunos/${id}`, { method: 'DELETE', headers: getAuthHeaders() });
     if (res.ok) { showToast("Aluno Removido!"); fetchData(); }
+  };
+
+  // EXCLUIR PLANILHA ESPECÍFICA DO DOSSIÊ
+  const deletePlanilha = async (planilhaId: number) => {
+    if(!confirm("Deletar esta planilha do dossiê?")) return;
+    const res = await fetch(`${API_URL}/treinos/${planilhaId}`, { method: 'DELETE', headers: getAuthHeaders() });
+    if (res.ok) { 
+      showToast("Planilha Excluída!"); 
+      // Atualiza o modal localmente
+      setAlunoSelecionado((prev: any) => ({
+        ...prev,
+        workouts: prev.workouts.filter((w: any) => w.id !== planilhaId)
+      }));
+      fetchData(); 
+    }
   };
 
   const gerarSemanaIA = async () => {
@@ -86,17 +110,27 @@ export default function App() {
     setIsLoading(true);
     try {
       const res = await fetch(`${API_URL}/ai/gerar-autonomo`, { 
-        method: 'POST', 
-        headers: getAuthHeaders(), 
-        body: JSON.stringify({ alunoId: iaAlunoId, comandoPersonal: prompt, frequencia: iaFrequencia }) 
+        method: 'POST', headers: getAuthHeaders(), 
+        body: JSON.stringify({ alunoId: iaAlunoId, comandoPersonal: prompt, frequencia: iaFrequencia, ciclo: iaCiclo, semanas: iaSemanas }) 
       });
-      if (res.ok) { showToast("Planilha Semanal Criada!"); setTabAtiva('alunos'); fetchData(); }
+      if (res.ok) { showToast("Periodização Criada!"); setTabAtiva('alunos'); fetchData(); }
       else showToast("Erro na Engine IA.");
     } catch (e) { showToast("Erro de rede."); } finally { setIsLoading(false); }
   };
 
+  // Lógica de Datas
+  const calcularDataRevisao = (dataCriacao: string, semanas: string) => {
+    const numSemanas = parseInt(semanas.split(' ')[0]) || 4;
+    const data = new Date(dataCriacao);
+    data.setDate(data.getDate() + (numSemanas * 7));
+    return data.toLocaleDateString('pt-BR');
+  };
+
   const exportarPDF = (treino: any, aluno: any) => {
     const primaryColor = "#2563eb";
+    const dataCriado = new Date(treino.createdAt).toLocaleDateString('pt-BR');
+    const dataRevisao = calcularDataRevisao(treino.createdAt, treino.duration || '4 Semanas');
+
     const rows = treino.exercises?.map((ex: any, i: number) => {
       const youtubeLink = ex.youtubeId ? `https://www.youtube.com/watch?v=${ex.youtubeId}` : `https://www.youtube.com/results?search_query=${encodeURIComponent(ex.name + ' execução biomecânica')}`;
       return `
@@ -104,18 +138,42 @@ export default function App() {
           <td style="padding: 16px; font-weight: 800; color: ${primaryColor}; font-size: 18px;">${String(i + 1).padStart(2, '0')}</td>
           <td style="padding: 16px;">
             <div style="font-weight: 800; color: #1e293b; font-size: 16px; text-transform: uppercase;">${ex.name}</div>
-            <div style="color: #64748b; font-size: 13px; margin-top: 4px;">P: ${ex.sets} | I: ${ex.weight}</div>
+            <div style="color: #64748b; font-size: 13px; margin-top: 4px;">Séries: ${ex.sets} | Carga: ${ex.weight}</div>
           </td>
           <td style="padding: 16px; text-align: right;"><a href="${youtubeLink}" target="_blank" style="background: #ff0000; color: white; padding: 10px 15px; border-radius: 8px; text-decoration: none; font-weight: 900; font-size: 10px;">VÍDEO 🎬</a></td>
         </tr>`;
     }).join('');
+
     const html = `<html><head><style>@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap'); body { font-family: 'Inter', sans-serif; margin: 0; background: #f8fafc; } .header { background: ${primaryColor}; color: white; padding: 40px; border-bottom-left-radius: 40px; border-bottom-right-radius: 40px; } .container { max-width: 800px; margin: -20px auto 40px; background: white; border-radius: 30px; box-shadow: 0 20px 25px rgba(0,0,0,0.1); overflow: hidden; } table { width: 100%; border-collapse: collapse; }</style></head>
       <body>
-        <div class="header"><div style="display:flex; justify-content:space-between; align-items:center;"><div><h1 style="margin:0; font-weight:900; font-style:italic;">EVOTRAINER</h1><p style="margin:5px 0 0; font-weight:700; text-transform:uppercase; font-size:12px;">Planilha de Elite</p></div><div style="text-align:right;"><div style="font-weight:900; font-size:20px;">${aluno.name.toUpperCase()}</div><div style="font-size:12px;">Ficha: ${treino.title}</div></div></div></div>
-        <div class="container"><div style="padding:30px; border-bottom:2px solid #f1f5f9; display:flex; gap:20px;"><div style="flex:1; background:#f8fafc; padding:15px; border-radius:15px; border:1px solid #e2e8f0;"><span style="font-size:10px; font-weight:900; color:#64748b; display:block; text-transform:uppercase;">Nível</span><span style="font-weight:800; color:${primaryColor};">${aluno.level}</span></div><div style="flex:1; background:#f8fafc; padding:15px; border-radius:15px; border:1px solid #e2e8f0;"><span style="font-size:10px; font-weight:900; color:#64748b; display:block; text-transform:uppercase;">Peso</span><span style="font-weight:800; color:${primaryColor};">${aluno.weight}kg</span></div></div><table><tbody>${rows}</tbody></table></div>
+        <div class="header">
+           <div style="display:flex; justify-content:space-between; align-items:center;">
+             <div><h1 style="margin:0; font-weight:900; font-style:italic;">EVOTRAINER</h1><p style="margin:5px 0 0; font-weight:700; text-transform:uppercase; font-size:12px;">Periodização de Elite</p></div>
+             <div style="text-align:right;"><div style="font-weight:900; font-size:20px;">${aluno.name.toUpperCase()}</div><div style="font-size:12px;">Ficha: ${treino.title}</div></div>
+           </div>
+        </div>
+        <div class="container">
+           <div style="padding:20px 30px; background: #eff6ff; display:flex; gap:20px; border-bottom: 1px solid #e2e8f0;">
+              <div style="flex:1"><span style="font-size:10px; font-weight:900; color:#3b82f6; text-transform:uppercase;">Enviado em</span><br/><strong style="color:#1e3a8a">${dataCriado}</strong></div>
+              <div style="flex:1"><span style="font-size:10px; font-weight:900; color:#ef4444; text-transform:uppercase;">Data de Revisão</span><br/><strong style="color:#991b1b">${dataRevisao}</strong></div>
+           </div>
+           <div style="padding:20px 30px; border-bottom:2px solid #f1f5f9; display:flex; gap:20px;">
+              <div style="flex:1; background:#f8fafc; padding:15px; border-radius:15px; border:1px solid #e2e8f0;"><span style="font-size:10px; font-weight:900; color:#64748b; display:block; text-transform:uppercase;">Nível</span><span style="font-weight:800; color:${primaryColor};">${aluno.level}</span></div>
+              <div style="flex:1; background:#f8fafc; padding:15px; border-radius:15px; border:1px solid #e2e8f0;"><span style="font-size:10px; font-weight:900; color:#64748b; display:block; text-transform:uppercase;">Peso</span><span style="font-weight:800; color:${primaryColor};">${aluno.weight}kg</span></div>
+           </div>
+           <table><tbody>${rows}</tbody></table>
+        </div>
+        <div style="text-align:center; padding: 20px; font-size:12px; color: #64748b;"><strong>EVOTRAINER™</strong> - Ciência e Resultado</div>
         <script>window.onload=()=>window.print()</script>
       </body></html>`;
     const win = window.open('', '_blank'); win?.document.write(html); win?.document.close();
+  };
+
+  const enviarWhatsApp = (aluno: any, treino: any) => {
+    const cleanPhone = aluno.phone?.replace(/\D/g, '');
+    const dataRev = calcularDataRevisao(treino.createdAt, treino.duration || '4 Semanas');
+    const msg = encodeURIComponent(`Fala ${aluno.name.split(' ')[0]}! 💪 Seu novo protocolo "${treino.title}" já está disponível no EvoTrainer.\n\n📅 Nossa próxima revisão de treino será em: *${dataRev}*.\nBora esmagar!`);
+    window.open(`https://wa.me/55${cleanPhone}?text=${msg}`, '_blank');
   };
 
   useEffect(() => {
@@ -149,9 +207,10 @@ export default function App() {
 
       <main className="flex-1 p-6 md:p-10 max-w-7xl mx-auto w-full pb-40 animate-fade-in">
         
+        {/* DASHBOARD TAB */}
         {tabAtiva === 'dashboard' && (
           <div className="space-y-10">
-             <h2 className="text-4xl font-black italic tracking-tight uppercase text-white text-center sm:text-left">Dashboard</h2>
+             <h2 className="text-4xl font-black italic tracking-tight uppercase text-white">Dashboard</h2>
              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <StatCard title="Total Alunos" value={alunos.length} icon={Users} color="bg-blue-500" />
                 <StatCard title="Faturamento" value={`R$ ${alunos.length * 150}`} icon={DollarSign} color="bg-emerald-500" />
@@ -161,6 +220,7 @@ export default function App() {
           </div>
         )}
 
+        {/* ALUNOS TAB */}
         {tabAtiva === 'alunos' && (
           <div className="space-y-10">
              <div className="flex justify-between items-center">
@@ -175,7 +235,7 @@ export default function App() {
                         <div><h3 className="font-black text-xl leading-none">{a.name}</h3><p className="text-xs text-slate-500 mt-2">{a.email}</p></div>
                      </div>
                      <div className="flex gap-2">
-                        <button onClick={() => { setAlunoSelecionado(a); setShowGerenciarTreinosModal(true); }} className="flex-1 bg-blue-600 text-white p-5 rounded-2xl font-black text-[10px] uppercase shadow-xl active:scale-95">Gerenciar</button>
+                        <button onClick={() => { setAlunoSelecionado(a); setShowGerenciarTreinosModal(true); }} className="flex-1 bg-blue-600 text-white p-5 rounded-2xl font-black text-[10px] uppercase shadow-xl active:scale-95">Gerenciar Dossiê</button>
                         <button onClick={() => { setAlunoSelecionado(a); setFormAluno({ name: a.name, email: a.email, phone: a.phone || '', weight: a.weight || '', height: a.height || '', level: a.level || 'Intermediário', anamnese: a.anamnese || '' }); setShowEditAlunoModal(true); }} className="p-5 bg-blue-600/10 text-blue-500 rounded-2xl shadow-xl hover:bg-blue-600 hover:text-white transition-all"><Edit2 size={22}/></button>
                         <button onClick={() => deleteAluno(a.id)} className="p-5 bg-red-600/10 text-red-500 rounded-2xl shadow-xl hover:bg-red-600 hover:text-white transition-all"><Trash2 size={22}/></button>
                      </div>
@@ -185,67 +245,69 @@ export default function App() {
           </div>
         )}
 
+        {/* EVOINTELLIGENCE™ TAB */}
         {tabAtiva === 'ia' && (
            <div className="max-w-4xl mx-auto space-y-10 animate-fade-in pb-40 text-center">
               <div className="bg-gradient-to-br from-indigo-700 to-blue-900 p-16 rounded-[4rem] shadow-2xl relative overflow-hidden border border-white/10">
                  <Sparkles size={100} className="mx-auto text-white mb-8 animate-pulse" />
                  <h2 className="text-5xl font-black text-white italic tracking-tighter uppercase">EvoIntelligence™</h2>
-                 <p className="text-blue-100 mt-4 opacity-80 leading-relaxed italic text-lg">Engine Autônoma de Periodização Semanal</p>
+                 <p className="text-blue-100 mt-4 opacity-80 leading-relaxed italic text-lg">Periodização Dinâmica (Micro, Meso e Macro)</p>
               </div>
               <div className="bg-slate-900 border border-slate-800 p-10 rounded-[3.5rem] shadow-2xl text-left space-y-8">
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-4">
-                      <label className="text-[11px] font-black text-slate-500 uppercase tracking-[0.4em] ml-4">1. Selecionar Aluno</label>
-                      <select value={iaAlunoId} onChange={e => setIaAlunoId(e.target.value)} className="w-full p-8 bg-slate-950 border-2 border-slate-800 rounded-[2rem] text-white font-black text-xl outline-none focus:border-blue-500 cursor-pointer appearance-none">
-                        <option value="">Acessar lista...</option>
+                      <label className="text-[11px] font-black text-slate-500 uppercase tracking-[0.4em] ml-4">1. Alvo</label>
+                      <select value={iaAlunoId} onChange={e => setIaAlunoId(e.target.value)} className="w-full p-6 bg-slate-950 border-2 border-slate-800 rounded-[2rem] text-white font-black text-lg outline-none focus:border-blue-500 appearance-none">
+                        <option value="">Selecionar Aluno...</option>
                         {alunos.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
                       </select>
                     </div>
                     <div className="space-y-4">
-                      <label className="text-[11px] font-black text-slate-500 uppercase tracking-[0.4em] ml-4">2. Dias de Treino/Semana</label>
-                      <select value={iaFrequencia} onChange={e => setIaFrequencia(e.target.value)} className="w-full p-8 bg-slate-950 border-2 border-slate-800 rounded-[2rem] text-white font-black text-xl outline-none focus:border-blue-500 cursor-pointer appearance-none">
+                      <label className="text-[11px] font-black text-slate-500 uppercase tracking-[0.4em] ml-4">2. Frequência</label>
+                      <select value={iaFrequencia} onChange={e => setIaFrequencia(e.target.value)} className="w-full p-6 bg-slate-950 border-2 border-slate-800 rounded-[2rem] text-white font-black text-lg outline-none focus:border-blue-500 appearance-none">
                         {[1,2,3,4,5,6,7].map(n => <option key={n} value={n}>{n} dias na semana</option>)}
                       </select>
                     </div>
                  </div>
-                 <div className="space-y-4">
-                    <label className="text-[11px] font-black text-slate-500 uppercase tracking-[0.4em] ml-4">3. Comando da Periodização</label>
-                    <textarea id="comandoIA" placeholder="Ex: Monte um ABCDE focado em hipertrofia máxima, priorizando ombros..." className="w-full p-8 bg-slate-950 border-2 border-slate-800 rounded-[3rem] text-white font-medium text-lg min-h-[200px] outline-none shadow-inner"></textarea>
+
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-4">
+                      <label className="text-[11px] font-black text-slate-500 uppercase tracking-[0.4em] ml-4">3. Fase do Ciclo</label>
+                      <select value={iaCiclo} onChange={e => setIaCiclo(e.target.value)} className="w-full p-6 bg-slate-950 border-2 border-slate-800 rounded-[2rem] text-white font-black text-lg outline-none focus:border-blue-500 appearance-none">
+                        <option>Microciclo (Choque/Recuperação)</option>
+                        <option>Mesociclo (Hipertrofia/Força)</option>
+                        <option>Macrociclo (Preparação Longa)</option>
+                      </select>
+                    </div>
+                    <div className="space-y-4">
+                      <label className="text-[11px] font-black text-slate-500 uppercase tracking-[0.4em] ml-4">4. Duração (Validade)</label>
+                      <select value={iaSemanas} onChange={e => setIaSemanas(e.target.value)} className="w-full p-6 bg-slate-950 border-2 border-slate-800 rounded-[2rem] text-white font-black text-lg outline-none focus:border-blue-500 appearance-none">
+                        {[1,2,3,4,5,6,8,12].map(n => <option key={n} value={n}>{n} Semanas</option>)}
+                      </select>
+                    </div>
                  </div>
-                 <button onClick={gerarSemanaIA} disabled={isLoading} className="w-full py-10 bg-white text-blue-900 font-black rounded-[2.5rem] shadow-2xl active:scale-95 transition-all uppercase tracking-[0.3em] text-sm flex items-center justify-center gap-4 hover:bg-blue-50">
-                    {isLoading ? <Activity className="animate-spin" size={30} /> : <><Zap size={24} /> Ativar Engine Biomecânica</>}
+
+                 <div className="space-y-4">
+                    <label className="text-[11px] font-black text-slate-500 uppercase tracking-[0.4em] ml-4">5. Diretrizes da Periodização</label>
+                    <textarea id="comandoIA" placeholder="Ex: Monte a divisão focando em deltoides, evite impacto lombar..." className="w-full p-8 bg-slate-950 border-2 border-slate-800 rounded-[3rem] text-white font-medium text-lg min-h-[150px] outline-none shadow-inner"></textarea>
+                 </div>
+                 <button onClick={gerarSemanaIA} disabled={isLoading} className="w-full py-8 bg-white text-blue-900 font-black rounded-[2.5rem] shadow-2xl active:scale-95 transition-all uppercase tracking-[0.3em] text-sm flex items-center justify-center gap-4 hover:bg-blue-50">
+                    {isLoading ? <Activity className="animate-spin" size={30} /> : <><Zap size={24} /> Processar Periodização</>}
                  </button>
               </div>
            </div>
-        )}
-
-        {tabAtiva === 'perfil' && (
-          <div className="max-w-2xl mx-auto space-y-10 text-center animate-fade-in pb-40">
-             <h2 className="text-4xl font-black italic uppercase tracking-tight text-center">Ajustes</h2>
-             <div className="bg-slate-900 border border-slate-800 p-12 rounded-[4rem] shadow-2xl relative overflow-hidden">
-                <div className="w-32 h-32 bg-blue-600/20 text-blue-500 rounded-full flex items-center justify-center text-5xl font-black mx-auto mb-8 border-4 border-blue-500/20 shadow-2xl">
-                   {currentUser?.name[0]}
-                </div>
-                <h3 className="text-3xl font-black text-white italic uppercase tracking-tighter">{currentUser?.name}</h3>
-                <p className="text-slate-500 text-lg mt-2 mb-10">{currentUser?.email}</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                   <button className="bg-slate-800 p-6 rounded-[2rem] font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-3 border border-slate-700 active:scale-95 transition-all hover:bg-red-600"><Lock size={18}/> Mudar Senha</button>
-                   <button className="bg-slate-800 p-6 rounded-[2rem] font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-3 border border-slate-700 opacity-50 cursor-not-allowed"><Camera size={18}/> Foto Perfil</button>
-                </div>
-             </div>
-          </div>
         )}
       </main>
 
       <nav className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-slate-900/90 backdrop-blur-3xl border border-white/10 px-12 py-6 rounded-full flex gap-14 shadow-[0_20px_60px_rgba(0,0,0,0.8)] z-[100]">
         {[
           { id: 'dashboard', icon: BarChart3, label: 'DASH' },
-          { id: 'alunos', icon: Users, label: isMaster ? 'PROS' : 'ALUNOS' },
+          { id: 'alunos', icon: Users, label: 'ALUNOS' },
           { id: 'ia', icon: Sparkles, label: 'EVO-INT' },
           { id: 'perfil', icon: UserIcon, label: 'CONTA' }
         ].map(item => (
           <button key={item.id} onClick={() => setTabAtiva(item.id)} className={`flex flex-col items-center gap-2 group transition-all transform active:scale-75 ${tabAtiva === item.id ? 'scale-125' : 'opacity-30 hover:opacity-100'}`}>
-            <item.icon size={28} className={tabAtiva === item.id ? (isMaster ? 'text-red-500' : 'text-blue-500') : 'text-white'} strokeWidth={tabAtiva === item.id ? 2.5 : 2} />
+            <item.icon size={28} className={tabAtiva === item.id ? 'text-blue-500' : 'text-white'} strokeWidth={tabAtiva === item.id ? 2.5 : 2} />
             <span className={`text-[7px] font-black uppercase tracking-widest ${tabAtiva === item.id ? 'text-white' : 'text-slate-500'}`}>{item.label}</span>
           </button>
         ))}
@@ -272,27 +334,38 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL: GERENCIAR ALUNO (DOSSIÊ) */}
+      {/* MODAL: GERENCIAR ALUNO (DOSSIÊ COM LIXEIRA E DATAS) */}
       {showGerenciarTreinosModal && alunoSelecionado && (
         <div className="fixed inset-0 bg-black/98 z-[600] flex items-center justify-center p-6 backdrop-blur-md animate-fade-in text-slate-50">
-           <div className="bg-slate-900 border border-slate-800 p-12 rounded-[4rem] w-full max-w-lg shadow-2xl">
+           <div className="bg-slate-900 border border-slate-800 p-12 rounded-[4rem] w-full max-w-2xl shadow-2xl">
               <div className="flex justify-between items-center mb-10 border-b border-slate-800 pb-8">
-                <div><h3 className="text-3xl font-black text-white tracking-tight uppercase italic">{alunoSelecionado.name}</h3><p className="text-[10px] text-blue-500 font-black uppercase mt-2 tracking-widest">Dossiê de Fichas</p></div>
+                <div><h3 className="text-3xl font-black text-white tracking-tight uppercase italic">{alunoSelecionado.name}</h3><p className="text-[10px] text-blue-500 font-black uppercase mt-2 tracking-widest">Dossiê de Periodização</p></div>
                 <button onClick={() => setShowGerenciarTreinosModal(false)} className="p-3 bg-slate-800 rounded-2xl text-slate-400 hover:text-white"><X size={28}/></button>
               </div>
               <div className="space-y-4 max-h-[50vh] overflow-y-auto pr-2 custom-scrollbar">
                 {(!alunoSelecionado.workouts || alunoSelecionado.workouts.length === 0) ? (
-                  <div className="text-center py-20 text-slate-700 font-black uppercase text-xs tracking-widest border-2 border-dashed border-slate-800 rounded-[2rem]">Nenhuma ficha no banco.</div>
+                  <div className="text-center py-20 text-slate-700 font-black uppercase text-xs tracking-widest border-2 border-dashed border-slate-800 rounded-[2rem]">Nenhuma planilha no banco.</div>
                 ) : (
-                  alunoSelecionado.workouts.map((w: any) => (
-                    <div key={w.id} className="bg-slate-950 p-6 rounded-[2.5rem] border border-slate-800 flex justify-between items-center group hover:border-blue-500/50 transition-all shadow-inner">
-                      <p className="font-black text-blue-400 uppercase text-sm tracking-tight">{w.title}</p>
-                      <div className="flex gap-2">
-                        <button onClick={() => exportarPDF(w, alunoSelecionado)} className="p-4 bg-blue-600 text-white rounded-xl shadow-xl active:scale-90"><Download size={18}/></button>
-                        <button onClick={() => enviarWhatsApp(alunoSelecionado, w.title)} className="p-4 bg-emerald-600 text-white rounded-xl shadow-xl active:scale-90"><MessageCircle size={18}/></button>
+                  alunoSelecionado.workouts.map((w: any) => {
+                    const dataCriacao = new Date(w.createdAt).toLocaleDateString('pt-BR');
+                    const dataRevisao = calcularDataRevisao(w.createdAt, w.duration || '4');
+                    return (
+                      <div key={w.id} className="bg-slate-950 p-6 rounded-[2.5rem] border border-slate-800 flex flex-col md:flex-row justify-between items-center gap-4 group hover:border-blue-500/50 transition-all shadow-inner">
+                        <div className="flex-1">
+                           <p className="font-black text-blue-400 uppercase text-sm tracking-tight leading-tight">{w.title}</p>
+                           <div className="flex gap-4 mt-2">
+                             <span className="text-[10px] font-bold text-slate-500 uppercase">Enviado: {dataCriacao}</span>
+                             <span className="text-[10px] font-bold text-red-500 uppercase">Revisar: {dataRevisao}</span>
+                           </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <button onClick={() => exportarPDF(w, alunoSelecionado)} className="p-4 bg-blue-600 text-white rounded-xl shadow-xl active:scale-90 hover:bg-blue-500 transition-all"><Download size={18}/></button>
+                          <button onClick={() => enviarWhatsApp(alunoSelecionado, w)} className="p-4 bg-emerald-600 text-white rounded-xl shadow-xl active:scale-90 hover:bg-emerald-500 transition-all"><MessageCircle size={18}/></button>
+                          <button onClick={() => deletePlanilha(w.id)} className="p-4 bg-red-600/20 text-red-500 rounded-xl shadow-xl active:scale-90 hover:bg-red-600 hover:text-white transition-all"><Trash2 size={18}/></button>
+                        </div>
                       </div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
            </div>
