@@ -3,13 +3,12 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Users, LogOut, X, User as UserIcon, Plus, Activity, Dumbbell, Trash2, Settings, List, 
-  Search, Download, Sparkles, Youtube, ChevronRight, MessageCircle, Crown, ShieldAlert, Zap, 
-  TrendingUp, DollarSign, Target, Lock, Camera, BarChart3, Globe, Phone, CheckCircle2
+  Search, Download, Sparkles, Youtube, ChevronRight, MessageCircle, Crown, Zap, 
+  DollarSign, Target, Lock, Camera, BarChart3, Globe, Phone, CheckCircle2, Edit2, Calendar
 } from 'lucide-react';
 
 const API_URL = "https://evotrainer.onrender.com/api";
 
-// --- COMPONENTES AUXILIARES ---
 const StatCard = ({ title, value, icon: Icon, color }: any) => (
   <div className="bg-slate-900/50 backdrop-blur-md border border-slate-800 p-6 rounded-[2.5rem] shadow-xl transition-all">
     <div className={`w-12 h-12 rounded-2xl ${color} bg-opacity-10 flex items-center justify-center mb-4`}>
@@ -25,38 +24,29 @@ export default function App() {
   const [token, setToken] = useState<string | null>(null);
   const [tabAtiva, setTabAtiva] = useState('dashboard');
   const [toastMsg, setToastMsg] = useState('');
+  const [alunos, setAlunos] = useState<any[]>([]);
+  const [iaAlunoId, setIaAlunoId] = useState('');
+  const [iaFrequencia, setIaFrequencia] = useState('3');
+  const [isLoading, setIsLoading] = useState(false);
+
+  const [showAddAlunoModal, setShowAddAlunoModal] = useState(false);
+  const [showEditAlunoModal, setShowEditAlunoModal] = useState(false);
+  const [showGerenciarTreinosModal, setShowGerenciarTreinosModal] = useState(false);
+  const [alunoSelecionado, setAlunoSelecionado] = useState<any>(null);
+
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-
-  const [trainers, setTrainers] = useState<any[]>([]);
-  const [alunos, setAlunos] = useState<any[]>([]);
-  const [alunoSelecionado, setAlunoSelecionado] = useState<any>(null);
-  const [trainerSelecionado, setTrainerSelecionado] = useState<any>(null);
-
-  const [showAddTrainerModal, setShowAddTrainerModal] = useState(false);
-  const [showAddAlunoModal, setShowAddAlunoModal] = useState(false);
-  const [showEditPlanModal, setShowEditPlanModal] = useState(false);
-  const [showGerenciarTreinosModal, setShowGerenciarTreinosModal] = useState(false);
-  const [showPasswordModal, setShowPasswordModal] = useState(false);
-
-  const [formTrainer, setFormTrainer] = useState({ name: '', email: '', password: '', phone: '', plano: 'START' });
   const [formAluno, setFormAluno] = useState({ name: '', email: '', phone: '', weight: '', height: '', level: 'Intermediário', anamnese: '' });
-  const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '' });
-  const [iaAlunoId, setIaAlunoId] = useState('');
 
+  const isMaster = currentUser?.role === 'SUPERADMIN';
   const showToast = (msg: string) => { setToastMsg(msg); setTimeout(() => setToastMsg(''), 3000); };
   const getAuthHeaders = () => ({ 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` });
 
   const fetchData = async () => {
     if (!token || !currentUser) return;
-    const ep = currentUser.role === 'SUPERADMIN' ? '/superadmin/trainers' : '/alunos';
-    const res = await fetch(`${API_URL}${ep}`, { headers: getAuthHeaders() });
-    if (res.ok) {
-      const data = await res.json();
-      currentUser.role === 'SUPERADMIN' ? setTrainers(data) : setAlunos(data);
-    }
+    const res = await fetch(`${API_URL}/alunos`, { headers: getAuthHeaders() });
+    if (res.ok) setAlunos(await res.json());
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -69,43 +59,42 @@ export default function App() {
         setToken(data.token); setCurrentUser(data.user);
         localStorage.setItem('treino_ai_token', data.token); localStorage.setItem('treino_ai_user', JSON.stringify(data.user));
       } else showToast(data.error);
-    } catch (e) { showToast("Erro: Servidor acordando..."); } finally { setIsLoggingIn(false); }
-  };
-
-  const createTrainer = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const res = await fetch(`${API_URL}/superadmin/trainers`, { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify(formTrainer) });
-    if (res.ok) { showToast("Personal Ativado!"); setShowAddTrainerModal(false); fetchData(); }
+    } catch (e) { showToast("Erro no servidor."); } finally { setIsLoggingIn(false); }
   };
 
   const createAluno = async (e: React.FormEvent) => {
     e.preventDefault();
     const res = await fetch(`${API_URL}/alunos`, { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify(formAluno) });
-    if (res.ok) { showToast("Aluno Cadastrado!"); setShowAddAlunoModal(false); fetchData(); }
+    if (res.ok) { showToast("Aluno Incluído!"); setShowAddAlunoModal(false); fetchData(); }
   };
 
-  const updatePlan = async (id: number, plano: string) => {
-    const res = await fetch(`${API_URL}/superadmin/trainers/${id}/plano`, { method: 'PUT', headers: getAuthHeaders(), body: JSON.stringify({ plano }) });
-    if (res.ok) { showToast("Plano Atualizado!"); setShowEditPlanModal(false); fetchData(); }
+  const updateAluno = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const res = await fetch(`${API_URL}/alunos/${alunoSelecionado.id}`, { method: 'PUT', headers: getAuthHeaders(), body: JSON.stringify(formAluno) });
+    if (res.ok) { showToast("Dados Atualizados!"); setShowEditAlunoModal(false); fetchData(); }
   };
 
-  const changePassword = async () => {
-    const res = await fetch(`${API_URL}/perfil/senha`, { method: 'PUT', headers: getAuthHeaders(), body: JSON.stringify(passwordForm) });
-    if (res.ok) { showToast("Senha alterada!"); setShowPasswordModal(false); } else showToast("Erro na senha atual.");
+  const deleteAluno = async (id: number) => {
+    if(!confirm("Remover aluno e treinos permanentemente?")) return;
+    const res = await fetch(`${API_URL}/alunos/${id}`, { method: 'DELETE', headers: getAuthHeaders() });
+    if (res.ok) { showToast("Aluno Removido!"); fetchData(); }
   };
 
-  const gerarProtocoloIA = async () => {
+  const gerarSemanaIA = async () => {
     const prompt = (document.getElementById('comandoIA') as HTMLTextAreaElement).value;
-    if (!iaAlunoId || !prompt) return showToast("Selecione o aluno e o comando.");
+    if (!iaAlunoId || !prompt) return showToast("Dados incompletos.");
     setIsLoading(true);
     try {
-      const res = await fetch(`${API_URL}/ai/gerar-autonomo`, { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify({ alunoId: iaAlunoId, comandoPersonal: prompt }) });
-      if (res.ok) { showToast("EvoIntelligence™: Treino Salvo!"); setTabAtiva('alunos'); fetchData(); }
-      else showToast("Falha na Engine.");
-    } catch (e) { showToast("Erro de conexão."); } finally { setIsLoading(false); }
+      const res = await fetch(`${API_URL}/ai/gerar-autonomo`, { 
+        method: 'POST', 
+        headers: getAuthHeaders(), 
+        body: JSON.stringify({ alunoId: iaAlunoId, comandoPersonal: prompt, frequencia: iaFrequencia }) 
+      });
+      if (res.ok) { showToast("Planilha Semanal Criada!"); setTabAtiva('alunos'); fetchData(); }
+      else showToast("Erro na Engine IA.");
+    } catch (e) { showToast("Erro de rede."); } finally { setIsLoading(false); }
   };
 
-  // --- FUNÇÃO PDF PREMIUM ---
   const exportarPDF = (treino: any, aluno: any) => {
     const primaryColor = "#2563eb";
     const rows = treino.exercises?.map((ex: any, i: number) => {
@@ -115,39 +104,18 @@ export default function App() {
           <td style="padding: 16px; font-weight: 800; color: ${primaryColor}; font-size: 18px;">${String(i + 1).padStart(2, '0')}</td>
           <td style="padding: 16px;">
             <div style="font-weight: 800; color: #1e293b; font-size: 16px; text-transform: uppercase;">${ex.name}</div>
-            <div style="color: #64748b; font-size: 14px; margin-top: 4px;">Prescrição: ${ex.sets} | Intensidade: ${ex.weight}</div>
+            <div style="color: #64748b; font-size: 13px; margin-top: 4px;">P: ${ex.sets} | I: ${ex.weight}</div>
           </td>
-          <td style="padding: 16px; text-align: right;">
-            <a href="${youtubeLink}" target="_blank" style="background-color: #ff0000; color: white; padding: 8px 16px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 12px; display: inline-flex; align-items: center;">VER VÍDEO 🎬</a>
-          </td>
+          <td style="padding: 16px; text-align: right;"><a href="${youtubeLink}" target="_blank" style="background: #ff0000; color: white; padding: 10px 15px; border-radius: 8px; text-decoration: none; font-weight: 900; font-size: 10px;">VÍDEO 🎬</a></td>
         </tr>`;
     }).join('');
-
     const html = `<html><head><style>@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap'); body { font-family: 'Inter', sans-serif; margin: 0; background: #f8fafc; } .header { background: ${primaryColor}; color: white; padding: 40px; border-bottom-left-radius: 40px; border-bottom-right-radius: 40px; } .container { max-width: 800px; margin: -20px auto 40px; background: white; border-radius: 30px; box-shadow: 0 20px 25px rgba(0,0,0,0.1); overflow: hidden; } table { width: 100%; border-collapse: collapse; }</style></head>
       <body>
-        <div class="header">
-          <div style="display: flex; justify-content: space-between; align-items: center;">
-            <div><h1 style="margin: 0; font-weight: 900; font-style: italic;">EVOTRAINER</h1><p style="margin: 5px 0 0; font-weight: 700; text-transform: uppercase; font-size: 12px;">Protocolo Biomecânico</p></div>
-            <div style="text-align: right;"><div style="font-weight: 900; font-size: 20px;">${aluno.name.toUpperCase()}</div><div style="font-size: 12px;">Ficha: ${treino.title}</div></div>
-          </div>
-        </div>
-        <div class="container">
-          <div style="padding: 30px; border-bottom: 2px solid #f1f5f9; display: flex; gap: 20px;">
-             <div style="flex: 1; background: #f8fafc; padding: 15px; border-radius: 15px; border: 1px solid #e2e8f0;"><span style="font-size: 10px; font-weight: 900; color: #64748b; display: block; text-transform: uppercase;">Nível</span><span style="font-weight: 800; color: ${primaryColor};">${aluno.level || 'Intermediário'}</span></div>
-             <div style="flex: 1; background: #f8fafc; padding: 15px; border-radius: 15px; border: 1px solid #e2e8f0;"><span style="font-size: 10px; font-weight: 900; color: #64748b; display: block; text-transform: uppercase;">Peso Atual</span><span style="font-weight: 800; color: ${primaryColor};">${aluno.weight || '--'} kg</span></div>
-          </div>
-          <table><tbody>${rows}</tbody></table>
-        </div>
-        <div style="text-align: center; color: #94a3b8; font-size: 12px; margin-bottom: 40px;">Gerado pela Engine EvoIntelligence™ baseada no seu prontuário físico.</div>
+        <div class="header"><div style="display:flex; justify-content:space-between; align-items:center;"><div><h1 style="margin:0; font-weight:900; font-style:italic;">EVOTRAINER</h1><p style="margin:5px 0 0; font-weight:700; text-transform:uppercase; font-size:12px;">Planilha de Elite</p></div><div style="text-align:right;"><div style="font-weight:900; font-size:20px;">${aluno.name.toUpperCase()}</div><div style="font-size:12px;">Ficha: ${treino.title}</div></div></div></div>
+        <div class="container"><div style="padding:30px; border-bottom:2px solid #f1f5f9; display:flex; gap:20px;"><div style="flex:1; background:#f8fafc; padding:15px; border-radius:15px; border:1px solid #e2e8f0;"><span style="font-size:10px; font-weight:900; color:#64748b; display:block; text-transform:uppercase;">Nível</span><span style="font-weight:800; color:${primaryColor};">${aluno.level}</span></div><div style="flex:1; background:#f8fafc; padding:15px; border-radius:15px; border:1px solid #e2e8f0;"><span style="font-size:10px; font-weight:900; color:#64748b; display:block; text-transform:uppercase;">Peso</span><span style="font-weight:800; color:${primaryColor};">${aluno.weight}kg</span></div></div><table><tbody>${rows}</tbody></table></div>
         <script>window.onload=()=>window.print()</script>
       </body></html>`;
     const win = window.open('', '_blank'); win?.document.write(html); win?.document.close();
-  };
-
-  const enviarWhatsApp = (aluno: any, treinoNome: string) => {
-    const cleanPhone = aluno.phone?.replace(/\D/g, '');
-    const msg = encodeURIComponent(`Olá ${aluno.name}, seu novo treino "${treinoNome}" está pronto no EvoTrainer! 💪`);
-    window.open(`https://wa.me/55${cleanPhone}?text=${msg}`, '_blank');
   };
 
   useEffect(() => {
@@ -159,14 +127,14 @@ export default function App() {
   useEffect(() => { if (currentUser) fetchData(); }, [currentUser, tabAtiva]);
 
   if (!currentUser) return (
-    <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6 font-sans">
-       <div className="w-full max-w-md bg-slate-900 border border-slate-800 p-10 rounded-[3rem] shadow-2xl text-center">
-          <Dumbbell className="text-blue-500 mx-auto mb-6 shadow-2xl" size={50} />
+    <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6 text-center font-sans">
+       <div className="w-full max-w-md bg-slate-900 border border-slate-800 p-10 rounded-[3rem] shadow-2xl">
+          <Dumbbell className="text-blue-500 mx-auto mb-6" size={50} />
           <h1 className="text-4xl font-black text-white italic mb-8 uppercase tracking-tighter">EVO<span className="text-blue-500">TRAINER</span></h1>
           <form onSubmit={handleLogin} className="space-y-4">
-            <input type="email" placeholder="E-mail" className="w-full p-5 rounded-2xl bg-slate-950 border border-slate-800 text-white outline-none focus:border-blue-500 font-bold" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} />
-            <input type="password" placeholder="Senha" className="w-full p-5 rounded-2xl bg-slate-950 border border-slate-800 text-white outline-none focus:border-blue-500 font-bold" value={loginPassword} onChange={e => setLoginPassword(e.target.value)} />
-            <button className="w-full p-6 bg-blue-600 rounded-3xl font-black text-white uppercase shadow-xl active:scale-95 transition-all">{isLoggingIn ? 'Sincronizando...' : 'Acessar Dashboard'}</button>
+            <input type="email" placeholder="E-mail" className="w-full p-5 rounded-2xl bg-slate-950 border border-slate-800 text-white outline-none font-bold" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} />
+            <input type="password" placeholder="Senha" className="w-full p-5 rounded-2xl bg-slate-950 border border-slate-800 text-white outline-none font-bold" value={loginPassword} onChange={e => setLoginPassword(e.target.value)} />
+            <button className="w-full p-6 bg-blue-600 rounded-3xl font-black text-white uppercase active:scale-95 transition-all shadow-xl">{isLoggingIn ? 'Sincronizando...' : 'Entrar no Dashboard'}</button>
           </form>
        </div>
     </div>
@@ -183,12 +151,12 @@ export default function App() {
         
         {tabAtiva === 'dashboard' && (
           <div className="space-y-10">
-             <h2 className="text-4xl font-black italic tracking-tight uppercase">{isMaster ? 'Analytics' : 'Coach Dashboard'}</h2>
+             <h2 className="text-4xl font-black italic tracking-tight uppercase text-white text-center sm:text-left">Dashboard</h2>
              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <StatCard title={isMaster ? "Personais" : "Alunos"} value={isMaster ? trainers.length : alunos.length} icon={Users} color={isMaster ? "bg-red-500" : "bg-blue-500"} />
-                <StatCard title="Faturamento" value={`R$ ${isMaster ? trainers.length * 99 : alunos.length * 150}`} icon={DollarSign} color="bg-emerald-500" />
-                <StatCard title="Uso IA" value="Engine Online" icon={Zap} color="bg-indigo-500" />
-                <StatCard title="Sistema" value="OK" icon={Target} color="bg-amber-500" />
+                <StatCard title="Total Alunos" value={alunos.length} icon={Users} color="bg-blue-500" />
+                <StatCard title="Faturamento" value={`R$ ${alunos.length * 150}`} icon={DollarSign} color="bg-emerald-500" />
+                <StatCard title="Engine IA" value="Online" icon={Zap} color="bg-indigo-500" />
+                <StatCard title="Métrica" value="98%" icon={Target} color="bg-amber-500" />
              </div>
           </div>
         )}
@@ -196,27 +164,20 @@ export default function App() {
         {tabAtiva === 'alunos' && (
           <div className="space-y-10">
              <div className="flex justify-between items-center">
-                <h2 className="text-3xl font-black italic uppercase">{isMaster ? 'Master Management' : 'Sua Tropa'}</h2>
-                <button onClick={() => isMaster ? setShowAddTrainerModal(true) : setShowAddAlunoModal(true)} className={`${isMaster ? 'bg-red-600' : 'bg-blue-600'} px-8 py-5 rounded-2xl font-black text-[10px] uppercase shadow-lg active:scale-95`}>
-                  <Plus size={16} /> {isMaster ? 'Novo Personal' : 'Incluir Aluno'}
-                </button>
+                <h2 className="text-3xl font-black italic uppercase">Gestão de Alunos</h2>
+                <button onClick={() => { setFormAluno({ name: '', email: '', phone: '', weight: '', height: '', level: 'Intermediário', anamnese: '' }); setShowAddAlunoModal(true); }} className="bg-blue-600 px-8 py-5 rounded-2xl font-black text-[10px] uppercase shadow-lg active:scale-95 transition-all"><Plus size={16} /> Incluir Aluno</button>
              </div>
              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {(isMaster ? trainers : alunos).map(item => (
-                  <div key={item.id} className="bg-slate-900 border border-slate-800 p-8 rounded-[3.5rem] shadow-xl hover:border-slate-700 transition-all flex flex-col gap-6">
+                {alunos.map(a => (
+                  <div key={a.id} className="bg-slate-900 border border-slate-800 p-8 rounded-[3.5rem] shadow-xl hover:border-slate-700 transition-all flex flex-col gap-6">
                      <div className="flex items-center gap-5">
-                        <div className={`w-16 h-16 rounded-[1.5rem] flex items-center justify-center font-black text-2xl ${isMaster ? 'bg-red-600/10 text-red-500' : 'bg-blue-600/10 text-blue-500'}`}>{item.name[0]}</div>
-                        <div><h3 className="font-black text-xl leading-none">{item.name}</h3><p className="text-xs text-slate-500">{item.email}</p></div>
+                        <div className={`w-16 h-16 rounded-[1.5rem] bg-blue-600/10 text-blue-500 flex items-center justify-center font-black text-2xl border border-blue-500/10`}>{a.name[0]}</div>
+                        <div><h3 className="font-black text-xl leading-none">{a.name}</h3><p className="text-xs text-slate-500 mt-2">{a.email}</p></div>
                      </div>
                      <div className="flex gap-2">
-                        <button onClick={() => { 
-                          if(isMaster) { setTrainerSelecionado(item); setShowEditPlanModal(true); } 
-                          else { setAlunoSelecionado(item); setShowGerenciarTreinosModal(true); }
-                        }} className={`flex-1 ${isMaster ? 'bg-slate-800' : 'bg-blue-600'} text-white p-5 rounded-2xl font-black text-[10px] uppercase shadow-xl`}>
-                          {isMaster ? 'Plano / Conta' : 'Gerenciar Dossiê'}
-                        </button>
-                        {item.phone && <button onClick={() => openWhatsApp(item.phone, item.name)} className="p-5 bg-emerald-600/10 text-emerald-500 rounded-2xl transition-all hover:bg-emerald-600 hover:text-white shadow-xl"><MessageCircle size={22}/></button>}
-                        <button className="p-5 bg-red-600/10 text-red-500 rounded-2xl shadow-xl"><Trash2 size={22}/></button>
+                        <button onClick={() => { setAlunoSelecionado(a); setShowGerenciarTreinosModal(true); }} className="flex-1 bg-blue-600 text-white p-5 rounded-2xl font-black text-[10px] uppercase shadow-xl active:scale-95">Gerenciar</button>
+                        <button onClick={() => { setAlunoSelecionado(a); setFormAluno({ name: a.name, email: a.email, phone: a.phone || '', weight: a.weight || '', height: a.height || '', level: a.level || 'Intermediário', anamnese: a.anamnese || '' }); setShowEditAlunoModal(true); }} className="p-5 bg-blue-600/10 text-blue-500 rounded-2xl shadow-xl hover:bg-blue-600 hover:text-white transition-all"><Edit2 size={22}/></button>
+                        <button onClick={() => deleteAluno(a.id)} className="p-5 bg-red-600/10 text-red-500 rounded-2xl shadow-xl hover:bg-red-600 hover:text-white transition-all"><Trash2 size={22}/></button>
                      </div>
                   </div>
                 ))}
@@ -229,17 +190,29 @@ export default function App() {
               <div className="bg-gradient-to-br from-indigo-700 to-blue-900 p-16 rounded-[4rem] shadow-2xl relative overflow-hidden border border-white/10">
                  <Sparkles size={100} className="mx-auto text-white mb-8 animate-pulse" />
                  <h2 className="text-5xl font-black text-white italic tracking-tighter uppercase">EvoIntelligence™</h2>
-                 <p className="text-blue-100 mt-4 opacity-80 leading-relaxed italic text-lg">Engine Autônoma de Prescrição Biomecânica</p>
+                 <p className="text-blue-100 mt-4 opacity-80 leading-relaxed italic text-lg">Engine Autônoma de Periodização Semanal</p>
               </div>
-              <div className="bg-slate-900 border border-slate-800 p-10 rounded-[3.5rem] shadow-2xl text-left space-y-6">
-                 <label className="text-[11px] font-black text-slate-500 uppercase tracking-[0.4em] ml-4">1. Selecionar Aluno Alvo</label>
-                 <select value={iaAlunoId} onChange={e => setIaAlunoId(e.target.value)} className="w-full p-8 bg-slate-950 border-2 border-slate-800 rounded-[2rem] text-white font-black text-xl outline-none focus:border-blue-500 cursor-pointer">
-                   <option value="">Acessar lista de alunos...</option>
-                   {alunos.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-                 </select>
-                 <label className="text-[11px] font-black text-slate-500 uppercase tracking-[0.4em] ml-4">2. Comando de Inteligência</label>
-                 <textarea id="comandoIA" placeholder="Ex: Monte um treino focado em hipertrofia de costas, use bi-sets e foque em pico de contração..." className="w-full p-8 bg-slate-950 border-2 border-slate-800 rounded-[3rem] text-white font-medium text-lg min-h-[200px] outline-none"></textarea>
-                 <button onClick={gerarProtocoloIA} disabled={isLoading} className="w-full py-10 bg-white text-blue-900 font-black rounded-[2.5rem] shadow-2xl active:scale-95 transition-all uppercase tracking-[0.3em] text-sm flex items-center justify-center gap-4 hover:bg-blue-50">
+              <div className="bg-slate-900 border border-slate-800 p-10 rounded-[3.5rem] shadow-2xl text-left space-y-8">
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="space-y-4">
+                      <label className="text-[11px] font-black text-slate-500 uppercase tracking-[0.4em] ml-4">1. Selecionar Aluno</label>
+                      <select value={iaAlunoId} onChange={e => setIaAlunoId(e.target.value)} className="w-full p-8 bg-slate-950 border-2 border-slate-800 rounded-[2rem] text-white font-black text-xl outline-none focus:border-blue-500 cursor-pointer appearance-none">
+                        <option value="">Acessar lista...</option>
+                        {alunos.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                      </select>
+                    </div>
+                    <div className="space-y-4">
+                      <label className="text-[11px] font-black text-slate-500 uppercase tracking-[0.4em] ml-4">2. Dias de Treino/Semana</label>
+                      <select value={iaFrequencia} onChange={e => setIaFrequencia(e.target.value)} className="w-full p-8 bg-slate-950 border-2 border-slate-800 rounded-[2rem] text-white font-black text-xl outline-none focus:border-blue-500 cursor-pointer appearance-none">
+                        {[1,2,3,4,5,6,7].map(n => <option key={n} value={n}>{n} dias na semana</option>)}
+                      </select>
+                    </div>
+                 </div>
+                 <div className="space-y-4">
+                    <label className="text-[11px] font-black text-slate-500 uppercase tracking-[0.4em] ml-4">3. Comando da Periodização</label>
+                    <textarea id="comandoIA" placeholder="Ex: Monte um ABCDE focado em hipertrofia máxima, priorizando ombros..." className="w-full p-8 bg-slate-950 border-2 border-slate-800 rounded-[3rem] text-white font-medium text-lg min-h-[200px] outline-none shadow-inner"></textarea>
+                 </div>
+                 <button onClick={gerarSemanaIA} disabled={isLoading} className="w-full py-10 bg-white text-blue-900 font-black rounded-[2.5rem] shadow-2xl active:scale-95 transition-all uppercase tracking-[0.3em] text-sm flex items-center justify-center gap-4 hover:bg-blue-50">
                     {isLoading ? <Activity className="animate-spin" size={30} /> : <><Zap size={24} /> Ativar Engine Biomecânica</>}
                  </button>
               </div>
@@ -248,15 +221,15 @@ export default function App() {
 
         {tabAtiva === 'perfil' && (
           <div className="max-w-2xl mx-auto space-y-10 text-center animate-fade-in pb-40">
-             <h2 className="text-4xl font-black italic uppercase tracking-tight text-center">Gerenciar <span className="text-blue-500">Conta</span></h2>
+             <h2 className="text-4xl font-black italic uppercase tracking-tight text-center">Ajustes</h2>
              <div className="bg-slate-900 border border-slate-800 p-12 rounded-[4rem] shadow-2xl relative overflow-hidden">
-                <div className="w-32 h-32 bg-blue-600/20 text-blue-500 rounded-full flex items-center justify-center text-5xl font-black mx-auto mb-8 border-4 border-blue-500/20">
-                   {currentUser.name[0]}
+                <div className="w-32 h-32 bg-blue-600/20 text-blue-500 rounded-full flex items-center justify-center text-5xl font-black mx-auto mb-8 border-4 border-blue-500/20 shadow-2xl">
+                   {currentUser?.name[0]}
                 </div>
-                <h3 className="text-3xl font-black text-white italic uppercase tracking-tighter">{currentUser.name}</h3>
-                <p className="text-slate-500 text-lg mt-2 mb-10">{currentUser.email}</p>
+                <h3 className="text-3xl font-black text-white italic uppercase tracking-tighter">{currentUser?.name}</h3>
+                <p className="text-slate-500 text-lg mt-2 mb-10">{currentUser?.email}</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                   <button onClick={() => setShowPasswordModal(true)} className="bg-slate-800 p-6 rounded-[2rem] font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-3 border border-slate-700 active:scale-95 transition-all hover:bg-red-600"><Lock size={18}/> Mudar Senha</button>
+                   <button className="bg-slate-800 p-6 rounded-[2rem] font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-3 border border-slate-700 active:scale-95 transition-all hover:bg-red-600"><Lock size={18}/> Mudar Senha</button>
                    <button className="bg-slate-800 p-6 rounded-[2rem] font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-3 border border-slate-700 opacity-50 cursor-not-allowed"><Camera size={18}/> Foto Perfil</button>
                 </div>
              </div>
@@ -264,7 +237,7 @@ export default function App() {
         )}
       </main>
 
-      <nav className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-slate-900/90 backdrop-blur-3xl border border-white/10 px-12 py-6 rounded-full flex gap-14 shadow-2xl z-[100]">
+      <nav className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-slate-900/90 backdrop-blur-3xl border border-white/10 px-12 py-6 rounded-full flex gap-14 shadow-[0_20px_60px_rgba(0,0,0,0.8)] z-[100]">
         {[
           { id: 'dashboard', icon: BarChart3, label: 'DASH' },
           { id: 'alunos', icon: Users, label: isMaster ? 'PROS' : 'ALUNOS' },
@@ -278,45 +251,30 @@ export default function App() {
         ))}
       </nav>
 
-      {/* MODAL: MUDAR SENHA */}
-      {showPasswordModal && (
-        <div className="fixed inset-0 bg-black/98 z-[800] flex items-center justify-center p-6 backdrop-blur-md">
-           <div className="bg-slate-900 border border-slate-800 p-12 rounded-[3rem] w-full max-w-md shadow-2xl text-center">
-              <h3 className="text-2xl font-black text-white mb-8 italic uppercase tracking-tighter">Segurança da Conta</h3>
-              <div className="space-y-4">
-                 <input type="password" placeholder="Senha Atual" className="w-full p-5 rounded-2xl bg-slate-950 border border-slate-800 text-white outline-none font-bold" value={passwordForm.currentPassword} onChange={e => setPasswordForm({...passwordForm, currentPassword: e.target.value})} />
-                 <input type="password" placeholder="Nova Senha" className="w-full p-5 rounded-2xl bg-slate-950 border border-slate-800 text-white outline-none font-bold" value={passwordForm.newPassword} onChange={e => setPasswordForm({...passwordForm, newPassword: e.target.value})} />
-                 <button onClick={changePassword} className="w-full py-6 bg-blue-600 text-white font-black rounded-3xl active:scale-95 shadow-xl transition-all uppercase tracking-widest text-[11px] mt-4">Atualizar Agora</button>
-                 <button onClick={() => setShowPasswordModal(false)} className="w-full py-2 text-slate-600 font-bold text-xs uppercase">Cancelar</button>
-              </div>
-           </div>
-        </div>
-      )}
-
-      {/* MODAL: NOVO ALUNO */}
-      {showAddAlunoModal && (
-        <div className="fixed inset-0 bg-black/98 z-[600] flex items-center justify-center p-6 backdrop-blur-md animate-fade-in">
+      {/* MODAIS: INCLUIR E EDITAR ALUNO */}
+      {(showAddAlunoModal || showEditAlunoModal) && (
+        <div className="fixed inset-0 bg-black/98 z-[600] flex items-center justify-center p-6 backdrop-blur-md animate-fade-in text-slate-50">
            <div className="bg-slate-900 border border-slate-800 p-10 rounded-[4rem] w-full max-w-2xl max-h-[90vh] overflow-y-auto custom-scrollbar shadow-2xl relative">
-              <div className="flex justify-between items-center mb-10 pb-6 border-b border-slate-800"><h3 className="text-3xl font-black text-white italic tracking-tighter uppercase">Incluir Aluno</h3><button onClick={() => setShowAddAlunoModal(false)} className="p-3 bg-slate-800 rounded-2xl text-slate-400 hover:text-white transition-all"><X size={28}/></button></div>
-              <form onSubmit={createAluno} className="space-y-6">
+              <div className="flex justify-between items-center mb-10 pb-6 border-b border-slate-800"><h3 className="text-3xl font-black text-white italic tracking-tighter uppercase">{showAddAlunoModal ? 'Incluir Aluno' : 'Editar Aluno'}</h3><button onClick={() => { setShowAddAlunoModal(false); setShowEditAlunoModal(false); }} className="p-3 bg-slate-800 rounded-2xl text-slate-400 hover:text-white transition-all"><X size={28}/></button></div>
+              <form onSubmit={showAddAlunoModal ? createAluno : updateAluno} className="space-y-6">
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <input type="text" placeholder="Nome Completo" required className="p-6 rounded-3xl bg-slate-950 border border-slate-800 text-white font-bold" value={formAluno.name} onChange={e => setFormAluno({...formAluno, name: e.target.value})} />
-                    <input type="email" placeholder="E-mail de Login" required className="p-6 rounded-3xl bg-slate-950 border border-slate-800 text-white" value={formAluno.email} onChange={e => setFormAluno({...formAluno, email: e.target.value})} />
+                    <input type="text" placeholder="Nome Completo" required className="p-6 rounded-3xl bg-slate-950 border border-slate-800 text-white font-bold outline-none" value={formAluno.name} onChange={e => setFormAluno({...formAluno, name: e.target.value})} />
+                    <input type="email" placeholder="E-mail de Login" required className="p-6 rounded-3xl bg-slate-950 border border-slate-800 text-white font-bold outline-none" value={formAluno.email} onChange={e => setFormAluno({...formAluno, email: e.target.value})} />
                  </div>
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <input type="tel" placeholder="WhatsApp (DDD + Número)" required className="p-6 rounded-3xl bg-slate-950 border border-slate-800 text-white font-bold" value={formAluno.phone} onChange={e => setFormAluno({...formAluno, phone: e.target.value})} />
+                    <input type="tel" placeholder="WhatsApp (DDD + Número)" required className="p-6 rounded-3xl bg-slate-950 border border-slate-800 text-white font-bold outline-none" value={formAluno.phone} onChange={e => setFormAluno({...formAluno, phone: e.target.value})} />
                     <select className="p-6 rounded-3xl bg-slate-950 border border-slate-800 text-white font-black" value={formAluno.level} onChange={e => setFormAluno({...formAluno, level: e.target.value})}><option>Iniciante</option><option>Intermediário</option><option>Avançado</option></select>
                  </div>
-                 <textarea placeholder="Anamnese / Histórico Médico / Restrições Médicas para a IA..." className="w-full p-8 bg-slate-950 border border-slate-800 rounded-[2.5rem] text-white min-h-[150px] outline-none" value={formAluno.anamnese} onChange={e => setFormAluno({...formAluno, anamnese: e.target.value})}></textarea>
-                 <button type="submit" className="w-full py-7 bg-blue-600 text-white font-black rounded-[2rem] shadow-2xl uppercase tracking-widest text-[12px]">Salvar e Integrar IA</button>
+                 <textarea placeholder="Anamnese / Histórico Médico / Restrições para a IA..." className="w-full p-8 bg-slate-950 border border-slate-800 rounded-[2.5rem] text-white min-h-[150px] outline-none" value={formAluno.anamnese} onChange={e => setFormAluno({...formAluno, anamnese: e.target.value})}></textarea>
+                 <button type="submit" className="w-full py-7 bg-blue-600 text-white font-black rounded-[2rem] shadow-2xl uppercase tracking-widest text-[12px]">{showAddAlunoModal ? 'Salvar e Integrar IA' : 'Atualizar Dados'}</button>
               </form>
            </div>
         </div>
       )}
 
-      {/* MODAL: GERENCIAR ALUNO */}
+      {/* MODAL: GERENCIAR ALUNO (DOSSIÊ) */}
       {showGerenciarTreinosModal && alunoSelecionado && (
-        <div className="fixed inset-0 bg-black/98 z-[600] flex items-center justify-center p-6 backdrop-blur-md">
+        <div className="fixed inset-0 bg-black/98 z-[600] flex items-center justify-center p-6 backdrop-blur-md animate-fade-in text-slate-50">
            <div className="bg-slate-900 border border-slate-800 p-12 rounded-[4rem] w-full max-w-lg shadow-2xl">
               <div className="flex justify-between items-center mb-10 border-b border-slate-800 pb-8">
                 <div><h3 className="text-3xl font-black text-white tracking-tight uppercase italic">{alunoSelecionado.name}</h3><p className="text-[10px] text-blue-500 font-black uppercase mt-2 tracking-widest">Dossiê de Fichas</p></div>
@@ -330,8 +288,8 @@ export default function App() {
                     <div key={w.id} className="bg-slate-950 p-6 rounded-[2.5rem] border border-slate-800 flex justify-between items-center group hover:border-blue-500/50 transition-all shadow-inner">
                       <p className="font-black text-blue-400 uppercase text-sm tracking-tight">{w.title}</p>
                       <div className="flex gap-2">
-                        <button onClick={() => exportarPDF(w, alunoSelecionado)} className="p-4 bg-blue-600 text-white rounded-xl shadow-xl active:scale-90 shadow-blue-600/20"><Download size={18}/></button>
-                        <button onClick={() => enviarWhatsApp(alunoSelecionado, w.title)} className="p-4 bg-emerald-600 text-white rounded-xl shadow-xl active:scale-90 shadow-emerald-600/20"><MessageCircle size={18}/></button>
+                        <button onClick={() => exportarPDF(w, alunoSelecionado)} className="p-4 bg-blue-600 text-white rounded-xl shadow-xl active:scale-90"><Download size={18}/></button>
+                        <button onClick={() => enviarWhatsApp(alunoSelecionado, w.title)} className="p-4 bg-emerald-600 text-white rounded-xl shadow-xl active:scale-90"><MessageCircle size={18}/></button>
                       </div>
                     </div>
                   ))

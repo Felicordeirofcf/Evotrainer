@@ -24,26 +24,32 @@ const authenticateToken = (req, res, next) => {
 };
 
 const isSuperAdmin = (req, res, next) => {
-  if (req.user.role !== 'SUPERADMIN') return res.status(403).json({ error: "Acesso Master negado." });
+  if (req.user?.role !== 'SUPERADMIN') return res.status(403).json({ error: "Acesso Master negado." });
   next();
 };
 
 const isAdminOrMaster = (req, res, next) => {
-  if (req.user.role !== 'ADMIN' && req.user.role !== 'SUPERADMIN') return res.status(403).json({ error: "Restrito." });
+  if (req.user?.role !== 'ADMIN' && req.user?.role !== 'SUPERADMIN') return res.status(403).json({ error: "Restrito." });
   next();
 };
 
-// --- EVOINTELLIGENCE™: GERAÇÃO AUTÔNOMA ---
+// --- EVOINTELLIGENCE™: GERAÇÃO SEMANAL AUTÔNOMA ---
 app.post('/api/ai/gerar-autonomo', authenticateToken, isAdminOrMaster, async (req, res) => {
-  const { alunoId, comandoPersonal } = req.body;
+  const { alunoId, comandoPersonal, frequencia } = req.body;
   try {
     const aluno = await prisma.user.findUnique({ where: { id: parseInt(alunoId) } });
     if (!aluno) return res.status(404).json({ error: "Aluno não encontrado." });
 
-    const systemPrompt = `Você é a Engine EvoIntelligence™, especialista em biomecânica. 
-    Monte um treino técnico em JSON para o aluno ${aluno.name}. 
-    Nível: ${aluno.level}. Prontuário: ${aluno.anamnese || 'Sem restrições'}.
-    Responda APENAS o JSON no formato: {"title": "Nome do Treino", "exercises": [{"name": "Exercicio", "sets": "3x12", "weight": "Moderado", "youtubeId": ""}]}`;
+    const systemPrompt = `Você é a Engine EvoIntelligence™. Monte uma PERIODIZAÇÃO COMPLETA DE TREINO.
+    DADOS: Aluno ${aluno.name}, Nível ${aluno.level}, Prontuário: ${aluno.anamnese || 'Sem restrições'}.
+    FREQUÊNCIA: O aluno treina ${frequencia} dias por semana.
+    
+    TAREFA: Divida o treino em fichas (Ex: Treino A, Treino B...) condizentes com a frequência de ${frequencia} dias.
+    REGRAS TÉCNICAS: Responda APENAS o JSON no formato: 
+    {"planilha": [
+      {"title": "Treino A - Peito e Tríceps", "exercises": [{"name": "Supino", "sets": "4x10", "weight": "Moderado", "youtubeId": ""}]},
+      {"title": "Treino B - Costas e Bíceps", "exercises": [...]}
+    ]}`;
 
     const aiRes = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -56,22 +62,27 @@ app.post('/api/ai/gerar-autonomo', authenticateToken, isAdminOrMaster, async (re
     });
 
     const aiData = await aiRes.json();
-    const treinoJson = JSON.parse(aiData.choices[0].message.content);
+    const result = JSON.parse(aiData.choices[0].message.content);
 
-    const novoTreino = await prisma.workoutTemplate.create({
-      data: {
-        title: treinoJson.title,
-        userId: aluno.id,
-        duration: "60 min",
-        exercises: { create: treinoJson.exercises }
-      }
-    });
+    // Salva cada ficha da planilha no banco
+    const treinosSalvos = [];
+    for (const ficha of result.planilha) {
+      const novoTreino = await prisma.workoutTemplate.create({
+        data: {
+          title: ficha.title,
+          userId: aluno.id,
+          duration: "60 min",
+          exercises: { create: ficha.exercises }
+        }
+      });
+      treinosSalvos.push(novoTreino);
+    }
 
-    res.json({ message: "Treino salvo com sucesso!", treino: novoTreino });
-  } catch (e) { res.status(500).json({ error: "Falha na Engine EvoIntelligence." }); }
+    res.json({ message: `${treinosSalvos.length} treinos gerados e salvos!`, treinos: treinosSalvos });
+  } catch (e) { res.status(500).json({ error: "Falha na Engine IA Semanal." }); }
 });
 
-// --- GESTÃO DE ALUNOS (COACH) ---
+// --- GESTÃO DE ALUNOS ---
 app.post('/api/alunos', authenticateToken, isAdminOrMaster, async (req, res) => {
   const { name, email, phone, weight, height, level, anamnese } = req.body;
   try {
@@ -80,7 +91,7 @@ app.post('/api/alunos', authenticateToken, isAdminOrMaster, async (req, res) => 
       data: { name, email, phone, weight, height, level, anamnese, password: hashed, role: 'STUDENT', trainerId: req.user.id, status: 'Ativo' }
     });
     res.status(201).json(novo);
-  } catch (e) { res.status(400).json({ error: "E-mail já cadastrado." }); }
+  } catch (e) { res.status(400).json({ error: "E-mail duplicado." }); }
 });
 
 app.get('/api/alunos', authenticateToken, isAdminOrMaster, async (req, res) => {
@@ -94,58 +105,32 @@ app.get('/api/alunos', authenticateToken, isAdminOrMaster, async (req, res) => {
   } catch (e) { res.status(500).json({ error: "Erro na busca." }); }
 });
 
-// --- GESTÃO MASTER (SUPERADMIN) ---
-app.get('/api/superadmin/trainers', authenticateToken, isSuperAdmin, async (req, res) => {
+app.put('/api/alunos/:id', authenticateToken, isAdminOrMaster, async (req, res) => {
   try {
-    const trainers = await prisma.user.findMany({
-      where: { role: 'ADMIN' }, include: { _count: { select: { alunos: true } } }, orderBy: { createdAt: 'desc' }
-    });
-    res.json(trainers);
-  } catch (e) { res.status(500).json({ error: "Erro." }); }
+    const updated = await prisma.user.update({ where: { id: parseInt(req.params.id) }, data: req.body });
+    res.json(updated);
+  } catch (e) { res.status(500).json({ error: "Erro ao editar." }); }
 });
 
-app.put('/api/superadmin/trainers/:id/plano', authenticateToken, isSuperAdmin, async (req, res) => {
+app.delete('/api/alunos/:id', authenticateToken, isAdminOrMaster, async (req, res) => {
   try {
-    await prisma.user.update({ where: { id: parseInt(req.params.id) }, data: { plano: req.body.plano } });
-    res.json({ message: "Plano atualizado!" });
-  } catch (e) { res.status(500).json({ error: "Erro." }); }
+    await prisma.user.delete({ where: { id: parseInt(req.params.id) } });
+    res.json({ message: "Removido." });
+  } catch (e) { res.status(500).json({ error: "Erro ao excluir." }); }
 });
 
-app.post('/api/superadmin/trainers', authenticateToken, isSuperAdmin, async (req, res) => {
-    const { name, email, password, phone, plano } = req.body;
-    try {
-      const hashedPassword = await bcrypt.hash(password, 10);
-      await prisma.user.create({
-        data: { name, email, phone, plano, password: hashedPassword, role: 'ADMIN', status: 'Ativo' }
-      });
-      res.status(201).json({ message: "Criado!" });
-    } catch (e) { res.status(400).json({ error: "Erro ao criar." }); }
-});
-
-// --- PERFIL E LOGIN ---
+// --- MASTER & LOGIN ---
 app.post('/api/login', async (req, res) => {
   const { email, password } = req.body;
   try {
     const user = await prisma.user.findUnique({ where: { email } });
-    if (!user) return res.status(404).json({ error: "E-mail não encontrado." });
+    if (!user) return res.status(404).json({ error: "Não encontrado." });
     const valid = await bcrypt.compare(password, user.password);
     if (!valid && user.password !== "") return res.status(401).json({ error: "Senha inválida." });
     const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '30d' });
     res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role } });
-  } catch (e) { res.status(500).json({ error: "Erro interno." }); }
-});
-
-app.put('/api/perfil/senha', authenticateToken, async (req, res) => {
-  const { currentPassword, newPassword } = req.body;
-  try {
-    const user = await prisma.user.findUnique({ where: { id: req.user.id } });
-    const valid = await bcrypt.compare(currentPassword, user.password);
-    if (!valid) return res.status(401).json({ error: "Senha atual incorreta." });
-    const hashed = await bcrypt.hash(newPassword, 10);
-    await prisma.user.update({ where: { id: req.user.id }, data: { password: hashed } });
-    res.json({ message: "Senha alterada!" });
   } catch (e) { res.status(500).json({ error: "Erro." }); }
 });
 
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => console.log(`🚀 EvoCore rodando em: ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 EvoCore Semanal ativa: ${PORT}`));
