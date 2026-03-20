@@ -12,50 +12,8 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: '10mb' })); 
 
-const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY; 
 const JWT_SECRET = process.env.JWT_SECRET || "fallback-secreto-apenas-para-desenvolvimento";
-
-// ==========================================
-// CONFIGURAÇÃO DE E-MAIL (GMAIL)
-// ==========================================
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || "smtp.gmail.com",
-  port: process.env.SMTP_PORT || 587,
-  secure: false, 
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-});
-
-// ==========================================
-// INTEGRAÇÃO EVOLUTION API (WHATSAPP)
-// ==========================================
-const enviarWhatsAppBoasVindas = async (telefone, nomePersonal) => {
-  try {
-    const evolutionUrl = process.env.EVOLUTION_API_URL;
-    const instanceName = process.env.EVOLUTION_INSTANCE_NAME;
-    const apiKey = process.env.EVOLUTION_API_KEY;
-
-    if (!evolutionUrl || !instanceName || !apiKey || !telefone) return;
-
-    let number = telefone.replace(/\D/g, '');
-    if (!number.startsWith('55')) number = '55' + number;
-
-    const mensagem = `Olá, *${nomePersonal.split(' ')[0]}*! 🚀\n\nBem-vindo(a) ao *EvoTrainer*! Sou o assistente virtual do CEO e vi que acabou de criar a sua conta.\n\nPara começar a escalar a sua consultoria, o seu primeiro passo é aceder ao painel e adicionar o seu primeiro aluno na aba 'Alunos'.\nDepois, use a Inteligência Artificial para gerar o treino em 10 segundos.\n\nQualquer dúvida, é só responder a esta mensagem. Bora esmagar! 🔥`;
-
-    await fetch(`${evolutionUrl}/message/sendText/${instanceName}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'apikey': apiKey },
-      body: JSON.stringify({
-        number: number,
-        options: { delay: 2500, presence: 'composing' },
-        textMessage: { text: mensagem }
-      })
-    });
-  } catch (error) { console.error("[EVOLUTION] Erro", error.message); }
-};
+const MASTER_KEY = "evotrainer2026"; // Chave para criar o primeiro SuperAdmin
 
 // ==========================================
 // MIDDLEWARES DE SEGURANÇA
@@ -73,159 +31,129 @@ const authenticateToken = (req, res, next) => {
 };
 
 const isAdmin = (req, res, next) => {
-  if (req.user.role !== 'ADMIN' && req.user.role !== 'SUPERADMIN') return res.status(403).json({ error: "Acesso restrito." });
+  if (req.user.role !== 'ADMIN' && req.user.role !== 'SUPERADMIN') {
+    return res.status(403).json({ error: "Acesso restrito a treinadores." });
+  }
   next();
 };
 
 const isSuperAdmin = (req, res, next) => {
-  if (req.user.role !== 'SUPERADMIN') return res.status(403).json({ error: "Acesso exclusivo ao Master." });
+  if (req.user.role !== 'SUPERADMIN') {
+    return res.status(403).json({ error: "Acesso exclusivo ao Master." });
+  }
   next();
 };
 
 // ==========================================
-// 🚀 ROTAS MASTER (SUPERADMIN) - GESTÃO DO SaaS
+// 👑 ROTAS MASTER (SUPERADMIN)
 // ==========================================
 
-// Dashboard Master: Estatísticas Globais
-app.get('/api/superadmin/stats', authenticateToken, isSuperAdmin, async (req, res) => {
-    try {
-      const totalTrainers = await prisma.user.count({ where: { role: 'ADMIN' } });
-      const totalStudents = await prisma.user.count({ where: { role: 'STUDENT' } });
-      const trainersPorPlano = await prisma.user.groupBy({
-        by: ['plano'],
-        where: { role: 'ADMIN' },
-        _count: true
-      });
-      
-      // Cálculo de faturamento aproximado (exemplo)
-      const faturamentoTotal = trainersPorPlano.reduce((acc, curr) => {
-         if (curr.plano === 'START') return acc + (curr._count * 30);
-         if (curr.plano === 'PRO') return acc + (curr._count * 60);
-         if (curr.plano === 'ELITE') return acc + (curr._count * 100);
-         return acc;
-      }, 0);
+// Criar o primeiro SuperAdmin (Master)
+app.post('/api/setup-master', async (req, res) => {
+  const { name, email, password, secret_key } = req.body;
+  if (secret_key !== MASTER_KEY) return res.status(403).json({ error: "Chave mestre inválida." });
 
-      res.json({ totalTrainers, totalStudents, faturamentoTotal, trainersPorPlano });
-    } catch (e) { res.status(500).json({ error: "Erro ao carregar métricas master." }); }
+  try {
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const master = await prisma.user.create({
+      data: { name, email, password: hashedPassword, role: 'SUPERADMIN', plano: 'ELITE', status: 'Ativo' }
+    });
+    res.json({ message: "SuperAdmin criado com sucesso!", master: { name: master.name, email: master.email } });
+  } catch (e) { res.status(400).json({ error: "E-mail já cadastrado." }); }
 });
 
+// Listar todos os Personais
 app.get('/api/superadmin/trainers', authenticateToken, isSuperAdmin, async (req, res) => {
   try {
-    const trainers = await prisma.user.findMany({ 
-      where: { role: 'ADMIN' }, 
-      orderBy: { createdAt: 'desc' }, 
-      include: { _count: { select: { alunos: true } } } 
+    const trainers = await prisma.user.findMany({
+      where: { role: 'ADMIN' },
+      include: { _count: { select: { alunos: true } } },
+      orderBy: { createdAt: 'desc' }
     });
     res.json(trainers);
-  } catch (error) { res.status(500).json({ error: "Erro" }); }
+  } catch (e) { res.status(500).json({ error: "Erro ao buscar personais." }); }
+});
+
+// Criar Personal Manualmente (Por você, o Master)
+app.post('/api/superadmin/trainers', authenticateToken, isSuperAdmin, async (req, res) => {
+  const { name, email, password, phone, plano } = req.body;
+  try {
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const trainer = await prisma.user.create({
+      data: { name, email, phone, plano, password: hashedPassword, role: 'ADMIN', status: 'Ativo' }
+    });
+    res.status(201).json(trainer);
+  } catch (e) { res.status(400).json({ error: "Erro ao criar personal." }); }
+});
+
+// Editar Plano do Personal
+app.put('/api/superadmin/trainers/:id/plano', authenticateToken, isSuperAdmin, async (req, res) => {
+  try {
+    const updated = await prisma.user.update({
+      where: { id: parseInt(req.params.id) },
+      data: { plano: req.body.plano }
+    });
+    res.json({ message: "Plano atualizado!", user: updated });
+  } catch (e) { res.status(500).json({ error: "Erro ao atualizar plano." }); }
 });
 
 // ==========================================
-// 🏋️ ROTAS PERSONAL (ADMIN) - GESTÃO DA CONSULTORIA
+// 🏋️ ROTAS PERSONAL (ADMIN)
 // ==========================================
 
-// Dashboard Personal: Estatísticas da Consultoria
-app.get('/api/admin/stats', authenticateToken, isAdmin, async (req, res) => {
-    try {
-        const alunoCount = await prisma.user.count({ where: { trainerId: req.user.id } });
-        const treinosNoBanco = await prisma.workoutTemplate.count({
-            where: { user: { trainerId: req.user.id } }
-        });
-        const treinosMes = await prisma.workoutHistory.count({
-            where: { user: { trainerId: req.user.id } }
-        });
-
-        res.json({ alunoCount, treinosNoBanco, treinosMes });
-    } catch (e) { res.status(500).json({ error: "Erro ao carregar dashboard." }); }
+// Criar Aluno com Prontuário Completo (Contexto para IA)
+app.post('/api/alunos', authenticateToken, isAdmin, async (req, res) => {
+  const { name, email, password, phone, age, weight, height, goal, level, anamnese, restricoes } = req.body;
+  try {
+    const hashedPassword = await bcrypt.hash(password || "123456", 10);
+    const novoAluno = await prisma.user.create({
+      data: {
+        name, email, phone, age, weight, height, goal, level, anamnese, restricoes,
+        password: hashedPassword,
+        role: 'STUDENT',
+        trainerId: req.user.id,
+        status: 'Ativo'
+      }
+    });
+    res.status(201).json(novoAluno);
+  } catch (e) { res.status(400).json({ error: "Erro ao criar aluno. E-mail duplicado?" }); }
 });
 
+// Listar Alunos do Personal logado
 app.get('/api/alunos', authenticateToken, isAdmin, async (req, res) => {
   try {
-    const alunos = await prisma.user.findMany({ 
-      where: { role: 'STUDENT', trainerId: req.user.id }, 
-      orderBy: { createdAt: 'desc' }, 
-      include: { 
-        workouts: { include: { exercises: true } }, 
-        history: { orderBy: { completedAt: 'desc' }, take: 1 }, 
-        _count: { select: { workouts: true } } 
-      } 
+    const alunos = await prisma.user.findMany({
+      where: { trainerId: req.user.id },
+      include: { _count: { select: { workouts: true } } },
+      orderBy: { name: 'asc' }
     });
     res.json(alunos);
-  } catch (error) { res.status(500).json({ error: "Erro ao buscar alunos." }); }
+  } catch (e) { res.status(500).json({ error: "Erro ao buscar alunos." }); }
 });
 
 // ==========================================
-// 🧠 MÁGICO DE IA (OPENAI GPT-4o-mini)
+// 🔐 AUTENTICAÇÃO
 // ==========================================
-app.post('/api/ai/gerar-treino', authenticateToken, isAdmin, async (req, res) => {
-  const { alunoId, split, frequencia, prompt, metodologia, localTreino } = req.body;
-  try {
-    const trainer = await prisma.user.findUnique({ where: { id: req.user.id } });
-    const limits = { 'GRATIS': 0, 'START': 10, 'PRO': 40, 'ELITE': 9999 };
-    
-    if (trainer.iaUsadaMes >= (limits[trainer.plano] || 0)) {
-      return res.status(403).json({ error: "Limite de IA atingido para o seu plano." });
-    }
 
-    const aluno = await prisma.user.findUnique({ where: { id: parseInt(alunoId) } });
-
-    const systemPrompt = `Você é um Personal Trainer de Elite. Monte um treino em JSON.
-    Regras: 
-    1. Retorne APENAS o JSON. 
-    2. Estrutura: {"fichas": [{"title": "Treino A", "duration": "60 min", "exercises": [{"name": "Puxada Alta", "sets": "3x12", "weight": "Moderado"}]}]}`;
-
-    const userPrompt = `Aluno: ${aluno.name}. Objetivo: ${prompt}. Local: ${localTreino}. Frequência: ${frequencia}. Metodologia: ${metodologia}.`;
-
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${OPENAI_API_KEY}` },
-      body: JSON.stringify({ 
-        model: 'gpt-4o-mini', 
-        messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }], 
-        response_format: { type: "json_object" }
-      })
-    });
-
-    const aiData = await response.json();
-    const content = JSON.parse(aiData.choices[0].message.content);
-
-    // Salva automaticamente no banco de dados para o aluno
-    for (const ficha of content.fichas) {
-      await prisma.workoutTemplate.create({
-        data: {
-          title: ficha.title,
-          duration: ficha.duration,
-          userId: aluno.id,
-          dayOfWeek: "Segunda", // Placeholder
-          exercises: { create: ficha.exercises }
-        }
-      });
-    }
-
-    await prisma.user.update({ where: { id: req.user.id }, data: { iaUsadaMes: { increment: 1 } } });
-    res.json({ message: "Treinos gerados e salvos no banco!" });
-
-  } catch (error) { res.status(500).json({ error: "Falha na IA." }); }
-});
-
-// ==========================================
-// AUTENTICAÇÃO E CONFIG
-// ==========================================
 app.post('/api/login', async (req, res) => {
   const { email, password } = req.body;
   try {
     const user = await prisma.user.findUnique({ where: { email } });
-    if (!user) return res.status(404).json({ error: "E-mail não encontrado." });
+    if (!user) return res.status(404).json({ error: "Usuário não encontrado." });
+    if (user.status === 'Bloqueado') return res.status(403).json({ error: "Conta suspensa." });
 
     const validPassword = await bcrypt.compare(password, user.password);
-    if (!validPassword) return res.status(401).json({ error: "Senha incorreta." });
+    if (!validPassword && user.password !== "") return res.status(401).json({ error: "Senha incorreta." });
 
     const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '30d' });
     const { password: _, ...userWithoutPassword } = user;
+
     res.json({ token, user: userWithoutPassword });
-  } catch (error) { res.status(500).json({ error: "Erro interno." }); }
+  } catch (error) { res.status(500).json({ error: "Erro interno no servidor." }); }
 });
 
-// Inicialização
+// Rota de teste
+app.get('/api/health', (req, res) => res.json({ status: "OK", timestamp: new Date() }));
+
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => console.log(`🚀 Backend EvoTrainer Rodando: ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 EvoTrainer Server rodando na porta ${PORT}`));
