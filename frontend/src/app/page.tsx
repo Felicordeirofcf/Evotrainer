@@ -950,7 +950,7 @@ export default function App() {
             <div className={`bg-gradient-to-br ${iaOffline ? 'from-red-700 to-red-950 border-red-500/30' : 'from-indigo-700 to-blue-900 border-white/10'} p-16 rounded-[4rem] shadow-2xl relative overflow-hidden border text-center transition-all`}>
               {iaOffline ? <Lock size={100} className="mx-auto text-red-200 mb-8" /> : <Sparkles size={100} className="mx-auto text-white mb-8 animate-pulse" />}
               <h2 className="text-5xl font-black text-white italic tracking-tighter uppercase">EvoIntelligence™</h2>
-              <p className="text-white/80 mt-4 leading-relaxed italic text-lg">{iaOffline ? "Você atingiu o limite de testes. Faça o upgrade para continuar." : "Engine Autônoma de Periodização Semanal"}</p>
+              <p className="text-white/80 mt-4 leading-relaxed italic text-lg">{iaOffline ? "Você atingiu o limite de testes. Faça o upgrade para continuar." : "Sintetizando ciência, dados e alta performance para criar o treino perfeito com um clique."}</p>
             </div>
 
             <div className="bg-slate-900 border border-slate-800 p-10 rounded-[3.5rem] shadow-2xl text-left space-y-8">
