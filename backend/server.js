@@ -516,7 +516,54 @@ app.put('/api/perfil/senha', authenticateToken, async (req, res) => {
     const hashed = await bcrypt.hash(newPassword, 10);
     await prisma.user.update({ where: { id: req.user.id }, data: { password: hashed } });
     res.json({ message: 'Senha alterada!' });
-  } catch (e) { res.status(500).json({ error: 'Erro.' }); }
+  } catch (e) { 
+    res.status(500).json({ error: 'Erro.' }); 
+  }
+}); // <-- A ROTA DA SENHA AGORA FECHA AQUI CORRETAMENTE
+
+// --- ROTA DE EDIÇÃO DE PLANILHA (AGORA LIVRE E CORRIGIDA PARA O PRISMA) ---
+app.put('/api/treinos/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, duration, exercises } = req.body;
+
+    if (!id) {
+      return res.status(400).json({ error: 'ID do treino não fornecido.' });
+    }
+
+    // Atualiza a ficha no banco de dados usando workoutTemplate
+    const treinoAtualizado = await prisma.workoutTemplate.update({
+      where: { 
+        id: parseInt(id, 10) 
+      },
+      data: {
+        title,
+        duration,
+        // Limpa os exercícios antigos da ficha e salva os novos editados
+        exercises: {
+          deleteMany: {}, 
+          create: exercises.map(ex => ({
+            name: ex.name,
+            sets: ex.sets,
+            weight: ex.weight,
+            youtubeId: ex.youtubeId || null
+          }))
+        }
+      },
+      include: {
+        exercises: true // Retorna os exercícios novos para o frontend
+      }
+    });
+
+    res.status(200).json({ 
+      message: 'Planilha atualizada com sucesso!', 
+      treino: treinoAtualizado 
+    });
+
+  } catch (error) {
+    console.error('Erro ao atualizar treino:', error);
+    res.status(500).json({ error: 'Erro interno ao salvar as alterações da ficha.' });
+  }
 });
 
 const PORT = process.env.PORT || 3001;
