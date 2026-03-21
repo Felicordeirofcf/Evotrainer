@@ -152,6 +152,9 @@ export default function App() {
   const [showSignupModal, setShowSignupModal] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
 
+  const [showCpfModal, setShowCpfModal] = useState(false);
+  const [cpfInput, setCpfInput] = useState('');
+
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [recoverEmail, setRecoverEmail] = useState('');
@@ -220,7 +223,33 @@ export default function App() {
     }, 5000);
   };
 
- const abrirCheckoutAsaas = async () => {
+  const abrirCheckoutAsaas = async () => {
+    const cleanCpf = cpfInput.replace(/\D/g, '');
+    if (cleanCpf.length < 11) return showToast("Digite um CPF/CNPJ válido.");
+    
+    setIsCreatingCharge(true);
+    try {
+      const res = await fetch(`${API_URL}/asaas/criar-cobranca`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ cpfCnpj: cleanCpf })
+      });
+      const data = await res.json();
+      
+      if (res.ok && data.checkoutUrl) {
+        window.open(data.checkoutUrl, '_blank');
+        setShowCpfModal(false);
+        showToast("Escaneie o Pix! Aguardando pagamento...");
+        iniciarMonitoramentoPlano();
+      } else {
+        showToast(data.error || "Erro ao gerar cobrança.");
+      }
+    } catch (e) {
+      showToast("Erro de conexão ao gerar Pix.");
+    } finally {
+      setIsCreatingCharge(false);
+    }
+  };
 
   const faturamentoAtletas = alunos.reduce((acc, aluno) => acc + (parseFloat(aluno.price) || 0), 0);
   const faturamentoMaster = trainers.reduce((acc, t) => {
@@ -961,7 +990,7 @@ export default function App() {
               </div>
 
               <button
-                onClick={iaOffline ? abrirCheckoutAsaas : gerarSemanaIA}
+                onClick={iaOffline ? () => setShowCpfModal(true) : gerarSemanaIA}
                 disabled={isLoading || isCreatingCharge}
                 className={`w-full py-10 font-black rounded-[2.5rem] shadow-2xl active:scale-95 transition-all uppercase tracking-widest text-sm flex items-center justify-center gap-4 ${iaOffline ? 'bg-red-600 text-white hover:bg-red-500' : 'bg-white text-blue-900 hover:bg-blue-50'} disabled:opacity-60`}
               >
@@ -1021,7 +1050,7 @@ export default function App() {
                           <div className="text-center">
                             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4">Você está usando a versão de teste (Acesso Limitado).</p>
                             <button
-                              onClick={abrirCheckoutAsaas}
+                              onClick={() => setShowCpfModal(true)}
                               disabled={isCreatingCharge}
                               className="w-full py-4 bg-emerald-600 text-white font-black rounded-2xl active:scale-95 transition-all text-xs uppercase tracking-widest hover:bg-emerald-500 disabled:opacity-60"
                             >
@@ -1086,6 +1115,7 @@ export default function App() {
         ))}
       </nav>
 
+      {/* MODAL: EDITAR TRAINER (SUPERADMIN) */}
       {showEditTrainerModal && isMaster && trainerSelecionado && (
         <div className="fixed inset-0 bg-black/98 z-[600] flex items-center justify-center p-6 backdrop-blur-md animate-fade-in text-slate-50">
           <div className="bg-slate-900 border border-slate-800 p-10 rounded-[4rem] w-full max-w-2xl shadow-2xl relative">
@@ -1120,6 +1150,7 @@ export default function App() {
         </div>
       )}
 
+      {/* MODAL: EDITAR PLANO (SUPERADMIN) */}
       {showEditPlanModal && isMaster && trainerSelecionado && (
         <div className="fixed inset-0 bg-black/98 z-[600] flex items-center justify-center p-6 backdrop-blur-md animate-fade-in text-slate-50">
           <div className="bg-slate-900 border border-slate-800 p-12 rounded-[4rem] w-full max-w-md shadow-2xl text-center relative">
@@ -1141,11 +1172,12 @@ export default function App() {
         </div>
       )}
 
+      {/* MODAL: INCLUIR / EDITAR ALUNO */}
       {(showAddAlunoModal || showEditAlunoModal) && !isMaster && (
         <div className="fixed inset-0 bg-black/98 z-[600] flex items-center justify-center p-6 backdrop-blur-md animate-fade-in text-slate-50">
           <div className="bg-slate-900 border border-slate-800 p-10 rounded-[4rem] w-full max-w-3xl max-h-[90vh] overflow-y-auto custom-scrollbar shadow-2xl relative">
             <div className="flex justify-between items-center mb-8 pb-6 border-b border-slate-800">
-              <h3 className="text-3xl font-black text-white italic tracking-tighters uppercase">{showAddAlunoModal ? 'Incluir Aluno' : 'Editar Aluno'}</h3>
+              <h3 className="text-3xl font-black text-white italic tracking-tighter uppercase">{showAddAlunoModal ? 'Incluir Aluno' : 'Editar Aluno'}</h3>
               <button onClick={() => { setShowAddAlunoModal(false); setShowEditAlunoModal(false); }} className="p-3 bg-slate-800 rounded-2xl text-slate-400 hover:text-white transition-all"><X size={28} /></button>
             </div>
 
@@ -1199,6 +1231,7 @@ export default function App() {
         </div>
       )}
 
+      {/* MODAL: MUDAR SENHA */}
       {showPasswordModal && (
         <div className="fixed inset-0 bg-black/98 z-[800] flex items-center justify-center p-6 backdrop-blur-md text-slate-50">
           <div className="bg-slate-900 border border-slate-800 p-12 rounded-[3rem] w-full max-w-md shadow-2xl text-center relative">
@@ -1226,6 +1259,7 @@ export default function App() {
         </div>
       )}
 
+      {/* MODAL: GERENCIAR TREINOS (DOSSIÊ) */}
       {showGerenciarTreinosModal && !isMaster && alunoSelecionado && (
         <div className="fixed inset-0 bg-black/98 z-[600] flex items-center justify-center p-6 backdrop-blur-md animate-fade-in text-slate-50">
           <div className="bg-slate-900 border border-slate-800 p-12 rounded-[4rem] w-full max-w-2xl shadow-2xl">
@@ -1266,6 +1300,38 @@ export default function App() {
                   );
                 })
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* NOVO MODAL: CPF E GERAR COBRANÇA */}
+      {showCpfModal && (
+        <div className="fixed inset-0 bg-black/98 z-[900] flex items-center justify-center p-6 backdrop-blur-md animate-fade-in text-slate-50">
+          <div className="bg-slate-900 border border-slate-800 p-12 rounded-[3rem] w-full max-w-md shadow-2xl relative text-center">
+            <button onClick={() => setShowCpfModal(false)} className="absolute top-8 right-8 text-slate-400 hover:text-white transition-all"><X size={24} /></button>
+            <h3 className="text-2xl font-black italic uppercase tracking-tighter mb-2">Plano Pro</h3>
+            <p className="text-slate-500 mb-8 text-[10px] font-black uppercase tracking-widest leading-relaxed">Para gerar sua cobrança segura via PIX, informe seu documento.</p>
+
+            <div className="space-y-4 text-left">
+              <div>
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4 mb-2 block">CPF ou CNPJ</label>
+                <input
+                  type="text"
+                  placeholder="000.000.000-00"
+                  required
+                  className="w-full p-5 rounded-2xl bg-slate-950 border border-slate-800 text-white outline-none focus:border-blue-500 font-bold tracking-widest text-center"
+                  value={cpfInput}
+                  onChange={e => setCpfInput(e.target.value)}
+                />
+              </div>
+              <button
+                onClick={abrirCheckoutAsaas}
+                disabled={isGeneratingCheckout}
+                className="w-full py-6 bg-emerald-600 text-white font-black rounded-3xl active:scale-95 shadow-xl transition-all uppercase tracking-widest text-[11px] mt-4 hover:bg-emerald-500 flex justify-center items-center gap-3 disabled:opacity-60"
+              >
+                {isGeneratingCheckout ? <Activity className="animate-spin" size={20} /> : <><ShieldCheck size={18} /> Gerar PIX Seguro</>}
+              </button>
             </div>
           </div>
         </div>
