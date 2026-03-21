@@ -220,9 +220,17 @@ export default function App() {
     }, 5000);
   };
 
-  const abrirCheckoutAsaas = async () => {
+ const abrirCheckoutAsaas = async () => {
   if (!token) {
     setShowLoginModal(true);
+    return;
+  }
+
+  const cpfCnpjInput = window.prompt('Informe seu CPF ou CNPJ para gerar a cobrança:');
+  const cpfCnpj = (cpfCnpjInput || '').replace(/\D/g, '');
+
+  if (!cpfCnpj) {
+    showToast('Informe CPF ou CNPJ.');
     return;
   }
 
@@ -232,6 +240,7 @@ export default function App() {
     const res = await fetch(`${API_URL}/asaas/criar-cobranca`, {
       method: 'POST',
       headers: getAuthHeaders(),
+      body: JSON.stringify({ cpfCnpj }),
     });
 
     const rawText = await res.text();

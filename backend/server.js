@@ -289,6 +289,13 @@ app.post('/api/asaas/criar-cobranca', authenticateToken, async (req, res) => {
       return res.status(500).json({ error: 'ASAAS_API_KEY não configurada.' });
     }
 
+    const { cpfCnpj } = req.body;
+    const documento = String(cpfCnpj || '').replace(/\D/g, '');
+
+    if (!documento) {
+      return res.status(400).json({ error: 'Informe CPF ou CNPJ para gerar a cobrança.' });
+    }
+
     const user = await prisma.user.findUnique({
       where: { id: req.user.id },
       select: {
@@ -313,6 +320,7 @@ app.post('/api/asaas/criar-cobranca', authenticateToken, async (req, res) => {
       nome,
       email,
       phone: celular,
+      documento,
       plano: user.plano,
     });
 
@@ -334,16 +342,43 @@ app.post('/api/asaas/criar-cobranca', authenticateToken, async (req, res) => {
     if (searchCustomerRes.ok && Array.isArray(searchCustomerData.data) && searchCustomerData.data.length > 0) {
       customerId = searchCustomerData.data[0].id;
       console.log('👤 [ASAAS] Customer existente encontrado:', customerId);
+
+      const updatePayload = {
+        name: nome,
+        email,
+        cpfCnpj: documento,
+        externalReference: String(user.id),
+      };
+
+      if (celular) updatePayload.mobilePhone = celular;
+
+      const updateCustomerRes = await fetch(`https://api.asaas.com/v3/customers/${customerId}`, {
+        method: 'PUT',
+        headers: {
+          access_token: process.env.ASAAS_API_KEY,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updatePayload),
+      });
+
+      const updateCustomerData = await updateCustomerRes.json();
+
+      if (!updateCustomerRes.ok) {
+        console.error('🔥 [ASAAS] Erro ao atualizar customer:', updateCustomerData);
+        return res.status(500).json({
+          error: updateCustomerData?.errors?.[0]?.description || updateCustomerData?.message || 'Erro ao atualizar cliente no Asaas.',
+          details: updateCustomerData,
+        });
+      }
     } else {
       const customerPayload = {
         name: nome,
         email,
+        cpfCnpj: documento,
         externalReference: String(user.id),
       };
 
-      if (celular) {
-        customerPayload.mobilePhone = celular;
-      }
+      if (celular) customerPayload.mobilePhone = celular;
 
       const customerRes = await fetch('https://api.asaas.com/v3/customers', {
         method: 'POST',
