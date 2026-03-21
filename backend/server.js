@@ -282,22 +282,57 @@ async function processAsaasWebhook(payload) {
 // ==========================================
 // 💸 WEBHOOK ASAAS
 // ==========================================
-app.post(['/api/webhook/asaas', '/api/webhooks/asaas'], async (req, res) => {
-  const payload = req.body || {};
-
-  // responde na hora
-  res.status(200).json({ status: 'received' });
-
-  // processa em background
-  setImmediate(async () => {
+app.post(
+  ['/api/webhook/asaas', '/api/webhooks/asaas'],
+  express.json({ type: ['application/json', 'application/*+json'] }),
+  async (req, res) => {
     try {
+      console.log('📥 [ASAAS] headers:', {
+        contentType: req.headers['content-type'],
+        userAgent: req.headers['user-agent'],
+        authToken: req.headers['asaas-access-token'] ? 'presente' : 'ausente',
+      });
+
+      let payload = req.body;
+
+      if (typeof payload === 'string') {
+        try {
+          payload = JSON.parse(payload);
+        } catch (e) {
+          console.error('🔥 [ASAAS] Body string inválido:', payload);
+          return res.status(400).json({
+            status: 'invalid_json',
+            error: 'Webhook recebido, mas body não é JSON válido.',
+          });
+        }
+      }
+
+      if (!payload || typeof payload !== 'object' || !payload.event) {
+        console.error('🔥 [ASAAS] Payload inválido ou vazio:', payload);
+        return res.status(400).json({
+          status: 'invalid_payload',
+          receivedType: typeof payload,
+          payload,
+        });
+      }
+
       const result = await processAsaasWebhook(payload);
+
       console.log('📦 [ASAAS] Resultado do processamento:', result);
+
+      return res.status(200).json({
+        status: 'processed',
+        result,
+      });
     } catch (e) {
-      console.error('🔥 [ASAAS] Erro crítico no processamento do webhook:', e);
+      console.error('🔥 [ASAAS] Erro crítico no webhook:', e);
+      return res.status(500).json({
+        status: 'error',
+        error: e.message || 'Erro interno no webhook.',
+      });
     }
-  });
-});
+  }
+);
 
 // ==========================================
 // 💳 CRIAR COBRANÇA ASAAS PARA O USUÁRIO LOGADO
