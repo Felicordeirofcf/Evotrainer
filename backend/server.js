@@ -101,9 +101,7 @@ async function findUserByPhone(phone) {
 
   const candidatos = await prisma.user.findMany({
     where: {
-      phone: {
-        not: null,
-      },
+      phone: { not: null },
     },
     select: {
       id: true,
@@ -171,7 +169,7 @@ async function processAsaasWebhook(payload) {
 
   let user = null;
 
-  // 1) Tenta localizar por externalReference primeiro
+  // 1) externalReference tem prioridade total
   if (externalReference) {
     user = await findUserByReference(externalReference);
     if (user) {
@@ -181,7 +179,7 @@ async function processAsaasWebhook(payload) {
     console.log('⚠️ [ASAAS] externalReference não encontrou usuário.');
   }
 
-  // 2) Busca cliente no Asaas para obter email/telefone
+  // 2) fallback por customer do Asaas
   if (!customerId) {
     console.log('⚠️ [ASAAS] customerId ausente no payload.');
     return { ok: false, reason: 'customer_missing' };
@@ -231,7 +229,6 @@ async function processAsaasWebhook(payload) {
   console.log('📧 [ASAAS] emailPagador:', emailPagador || 'sem email');
   console.log('📱 [ASAAS] phonePagador:', phonePagador || 'sem telefone');
 
-  // 3) Tenta por e-mail
   if (emailPagador) {
     user = await findUserByEmail(emailPagador);
     if (user) {
@@ -240,7 +237,6 @@ async function processAsaasWebhook(payload) {
     }
   }
 
-  // 4) Tenta por telefone
   if (phonePagador) {
     user = await findUserByPhone(phonePagador);
     if (user) {
@@ -270,7 +266,7 @@ async function processAsaasWebhook(payload) {
 app.post(['/api/webhook/asaas', '/api/webhooks/asaas'], async (req, res) => {
   const payload = req.body || {};
 
-  // responde imediatamente para o Asaas parar de penalizar
+  // responde na hora
   res.status(200).json({ status: 'received' });
 
   // processa em background
@@ -284,7 +280,94 @@ app.post(['/api/webhook/asaas', '/api/webhooks/asaas'], async (req, res) => {
   });
 });
 
-// --- HEALTHCHECK OPCIONAL ---
+// ==========================================
+// 💳 CRIAR COBRANÇA ASAAS PARA O USUÁRIO LOGADO
+// ==========================================
+app.post('/api/asaas/criar-cobranca', authenticateToken, async (req, res) => {
+  try {
+    if (!process.env.ASAAS_API_KEY) {
+      return res.status(500).json({ error: 'ASAAS_API_KEY não configurada.' });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        plano: true,
+      },
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'Usuário não encontrado.' });
+    }
+
+    const nome = user.name || 'Cliente EvoTrainer';
+    const email = normalizeEmail(user.email || '');
+    const celular = String(user.phone || '').trim();
+
+    const customerRes = await fetch('https://api.asaas.com/v3/customers', {
+      method: 'POST',
+      headers: {
+        access_token: process.env.ASAAS_API_KEY,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        name: nome,
+        email,
+        mobilePhone: celular,
+        externalReference: String(user.id),
+      }),
+    });
+
+    const customerData = await customerRes.json();
+
+    if (!customerRes.ok) {
+      console.error('🔥 [ASAAS] Erro ao criar customer:', customerData);
+      return res.status(500).json({ error: 'Erro ao criar cliente no Asaas.' });
+    }
+
+    const customerId = customerData.id;
+
+    const dueDate = addDays(new Date(), 1).toISOString().slice(0, 10);
+
+    const paymentRes = await fetch('https://api.asaas.com/v3/payments', {
+      method: 'POST',
+      headers: {
+        access_token: process.env.ASAAS_API_KEY,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        customer: customerId,
+        billingType: 'UNDEFINED',
+        value: 39.90,
+        dueDate,
+        description: 'Plano PRO EvoTrainer',
+        externalReference: String(user.id),
+      }),
+    });
+
+    const paymentData = await paymentRes.json();
+
+    if (!paymentRes.ok) {
+      console.error('🔥 [ASAAS] Erro ao criar cobrança:', paymentData);
+      return res.status(500).json({ error: 'Erro ao criar cobrança.' });
+    }
+
+    return res.json({
+      paymentId: paymentData.id,
+      checkoutUrl: paymentData.invoiceUrl || null,
+      invoiceUrl: paymentData.invoiceUrl || null,
+    });
+  } catch (e) {
+    console.error('🔥 /api/asaas/criar-cobranca:', e);
+    return res.status(500).json({ error: 'Erro interno ao criar cobrança.' });
+  }
+});
+
+// --- HEALTHCHECK ---
 app.get('/health', (req, res) => {
   res.json({ ok: true });
 });
