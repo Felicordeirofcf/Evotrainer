@@ -8,30 +8,23 @@ const prisma = new PrismaClient();
 const app = express();
 
 app.use(cors());
+app.use(express.json({ limit: '15mb' }));
+// A MÁGICA AQUI: Isso permite ler o formato 'x-www-form-urlencoded' que o Asaas está enviando!
+app.use(express.urlencoded({ extended: true, limit: '15mb' }));
 
 const JWT_SECRET = process.env.JWT_SECRET || 'secreto-evotrainer-2026';
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
 
 const normalizeEmail = (value = '') => String(value).trim().toLowerCase();
 const normalizePhone = (value = '') => String(value).replace(/\D/g, '');
-const normalizeCpfCnpj = (value = '') => String(value).replace(/\D/g, '');
-
 const addDays = (date, days) => {
   const d = new Date(date);
   d.setDate(d.getDate() + days);
   return d;
 };
-
 const isNumericString = (value) => /^\d+$/.test(String(value || '').trim());
 
-const isCpfOrCnpjValidLength = (value) => {
-  const doc = normalizeCpfCnpj(value);
-  return doc.length === 11 || doc.length === 14;
-};
-
-// ==========================================
 // --- MIDDLEWARES DE SEGURANÇA ---
-// ==========================================
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers.authorization;
   const token = authHeader && authHeader.split(' ')[1];
@@ -60,58 +53,8 @@ const isAdminOrMaster = (req, res, next) => {
 };
 
 // ==========================================
-// --- HELPERS ASAAS ---
+// HELPERS ASAAS
 // ==========================================
-function tryParseJson(value) {
-  if (!value) return null;
-  if (typeof value === 'object') return value;
-
-  if (typeof value === 'string') {
-    try {
-      return JSON.parse(value);
-    } catch {
-      return null;
-    }
-  }
-
-  return null;
-}
-
-function extractPayload(req) {
-  const parsed = tryParseJson(req.body);
-
-  if (parsed && typeof parsed === 'object') return parsed;
-
-  if (typeof req.body === 'string') {
-    const fallback = tryParseJson(req.body);
-    if (fallback) return fallback;
-  }
-
-  return {};
-}
-
-function inferWebhookEvent(payload) {
-  if (payload?.event) return payload.event;
-
-  const payment = payload?.payment && typeof payload.payment === 'object'
-    ? payload.payment
-    : payload;
-
-  const status = String(payment?.status || payload?.status || '').toUpperCase();
-
-  if (status === 'RECEIVED') return 'PAYMENT_RECEIVED';
-  if (status === 'CONFIRMED') return 'PAYMENT_CONFIRMED';
-
-  return null;
-}
-
-function extractPaymentObject(payload) {
-  if (payload?.payment && typeof payload.payment === 'object') {
-    return payload.payment;
-  }
-  return payload || {};
-}
-
 async function findUserByReference(externalReference) {
   if (!externalReference) return null;
 
@@ -124,12 +67,12 @@ async function findUserByReference(externalReference) {
     if (byId) return byId;
   }
 
-  const refEmail = normalizeEmail(ref);
-  if (refEmail) {
+  const emailRef = normalizeEmail(ref);
+  if (emailRef) {
     const byEmail = await prisma.user.findFirst({
       where: {
         email: {
-          equals: refEmail,
+          equals: emailRef,
           mode: 'insensitive',
         },
       },
@@ -204,11 +147,10 @@ async function liberarPlanoPro(user, origem = 'webhook') {
 }
 
 async function processAsaasWebhook(payload) {
-  const payment = extractPaymentObject(payload);
-  const event = inferWebhookEvent(payload);
-  const paymentId = payment?.id || payload?.id || null;
-  const customerId = payment?.customer || payload?.customer || null;
-
+  const event = payload?.event || null;
+  const payment = payload?.payment || {};
+  const paymentId = payment?.id || null;
+  const customerId = payment?.customer || null;
   const externalReference =
     payment?.externalReference ||
     payload?.externalReference ||
@@ -242,56 +184,16 @@ async function processAsaasWebhook(payload) {
         plano: updated.plano,
       };
     }
-
     console.log('⚠️ [ASAAS] externalReference não encontrou usuário.');
-  }
-
-  const emailNoPayload =
-    normalizeEmail(payment?.customerEmail || payload?.customerEmail || '');
-  const phoneNoPayload =
-    normalizePhone(payment?.customerPhone || payload?.customerPhone || '');
-
-  if (emailNoPayload) {
-    user = await findUserByEmail(emailNoPayload);
-    if (user) {
-      const updated = await liberarPlanoPro(user, 'email_payload');
-      return {
-        ok: true,
-        reason: 'updated_by_email_payload',
-        userId: updated.id,
-        email: updated.email,
-        plano: updated.plano,
-      };
-    }
-  }
-
-  if (phoneNoPayload) {
-    user = await findUserByPhone(phoneNoPayload);
-    if (user) {
-      const updated = await liberarPlanoPro(user, 'phone_payload');
-      return {
-        ok: true,
-        reason: 'updated_by_phone_payload',
-        userId: updated.id,
-        email: updated.email,
-        plano: updated.plano,
-      };
-    }
   }
 
   if (!customerId) {
     console.log('⚠️ [ASAAS] customerId ausente no payload.');
-    return {
-      ok: false,
-      reason: 'customer_missing',
-      event,
-      paymentId,
-      externalReference,
-    };
+    return { ok: false, reason: 'customer_missing' };
   }
 
   if (!process.env.ASAAS_API_KEY) {
-    console.log('❌ [ASAAS] ASAAS_API_KEY não configurada.');
+    console.log('❌ [ASAAS] ASAAS_API_KEY não configurada no Render.');
     return { ok: false, reason: 'asaas_key_missing' };
   }
 
@@ -307,9 +209,7 @@ async function processAsaasWebhook(payload) {
     });
 
     const raw = await asaasRes.text();
-
-    console.log('📡 [ASAAS] status customer fetch:', asaasRes.status);
-
+    
     if (!asaasRes.ok) {
       console.log('❌ [ASAAS] Falha ao consultar cliente no Asaas:', raw);
       return { ok: false, reason: 'asaas_customer_fetch_failed', status: asaasRes.status };
@@ -328,11 +228,10 @@ async function processAsaasWebhook(payload) {
 
   const emailPagador = normalizeEmail(customerData?.email || '');
   const phonePagador = normalizePhone(
-    customerData?.mobilePhone || customerData?.phone || ''
+    customerData?.mobilePhone || customerData?.phone || payment?.phone || ''
   );
 
   console.log('📧 [ASAAS] emailPagador:', emailPagador || 'sem email');
-  console.log('📱 [ASAAS] phonePagador:', phonePagador || 'sem telefone');
 
   if (emailPagador) {
     user = await findUserByEmail(emailPagador);
@@ -362,53 +261,47 @@ async function processAsaasWebhook(payload) {
     }
   }
 
-  console.log('⚠️ [ASAAS] Nenhum usuário encontrado para este pagamento.', {
-    emailPagador: emailPagador || null,
-    phonePagador: phonePagador || null,
-    externalReference: externalReference || null,
-    paymentId: paymentId || null,
-  });
-
-  return {
-    ok: false,
-    reason: 'user_not_found',
-    emailPagador: emailPagador || null,
-    phonePagador: phonePagador || null,
-    externalReference: externalReference || null,
-    paymentId: paymentId || null,
-  };
+  console.log('⚠️ [ASAAS] Nenhum usuário encontrado para este pagamento.');
+  return { ok: false, reason: 'user_not_found' };
 }
 
 // ==========================================
-// --- WEBHOOK ASAAS ---
-// IMPORTANTE: vem ANTES do express.json global
+// 💸 WEBHOOK ASAAS
 // ==========================================
 app.post(
   ['/api/webhook/asaas', '/api/webhooks/asaas'],
-  express.text({ type: '*/*', limit: '2mb' }),
   async (req, res) => {
     try {
       console.log('📥 [ASAAS] headers:', {
         contentType: req.headers['content-type'],
-        userAgent: req.headers['user-agent'],
-        webhookToken: req.headers['asaas-access-token'] ? 'presente' : 'ausente',
+        userAgent: req.headers['user-agent']
       });
 
-      if (process.env.ASAAS_WEBHOOK_TOKEN) {
-        const tokenRecebido = req.headers['asaas-access-token'];
-        if (tokenRecebido !== process.env.ASAAS_WEBHOOK_TOKEN) {
-          console.error('❌ [ASAAS] Token do webhook inválido.');
-          return res.status(200).json({
-            status: 'ignored',
-            reason: 'invalid_webhook_token',
-          });
+      let payload = req.body;
+
+      // Tratativa de resgate para caso o Asaas mande um JSON dentro de uma string URL Encoded
+      if (payload && typeof payload === 'object' && Object.keys(payload).length > 0) {
+         const primeiraChave = Object.keys(payload)[0];
+         if (primeiraChave.startsWith('{"event"')) {
+             try {
+                 payload = JSON.parse(primeiraChave);
+             } catch(e) {}
+         }
+      }
+
+      if (typeof payload === 'string') {
+        try {
+          payload = JSON.parse(payload);
+        } catch (e) {
+          console.error('🔥 [ASAAS] Body string inválido:', payload);
+          return res.status(400).json({ status: 'invalid_json' });
         }
       }
 
-      const payload = extractPayload(req);
-
-      console.log('📥 [ASAAS] raw body length:', typeof req.body === 'string' ? req.body.length : 0);
-      console.log('📥 [ASAAS] payload keys:', payload && typeof payload === 'object' ? Object.keys(payload) : []);
+      if (!payload || typeof payload !== 'object' || !payload.event) {
+        console.error('🔥 [ASAAS] Payload inválido ou vazio:', payload);
+        return res.status(200).json({ status: 'ignored_payload' }); // Retornar 200 pra n tomar ban
+      }
 
       const result = await processAsaasWebhook(payload);
 
@@ -420,28 +313,13 @@ app.post(
       });
     } catch (e) {
       console.error('🔥 [ASAAS] Erro crítico no webhook:', e);
-      return res.status(200).json({
-        status: 'error_handled',
-        error: e.message || 'Erro interno no webhook.',
-      });
+      return res.status(200).json({ status: 'error_handled' });
     }
   }
 );
 
 // ==========================================
-// --- PARSER GLOBAL RESTANTE DA API ---
-// ==========================================
-app.use(express.json({ limit: '15mb', type: ['application/json', 'application/*+json'] }));
-
-// ==========================================
-// --- HEALTHCHECK ---
-// ==========================================
-app.get('/health', (req, res) => {
-  res.json({ ok: true });
-});
-
-// ==========================================
-// --- CRIAR COBRANÇA ASAAS ---
+// 💳 CRIAR COBRANÇA ASAAS PARA O USUÁRIO LOGADO
 // ==========================================
 app.post('/api/asaas/criar-cobranca', authenticateToken, async (req, res) => {
   try {
@@ -450,10 +328,10 @@ app.post('/api/asaas/criar-cobranca', authenticateToken, async (req, res) => {
     }
 
     const { cpfCnpj } = req.body;
-    const documento = normalizeCpfCnpj(cpfCnpj);
+    const documento = String(cpfCnpj || '').replace(/\D/g, '');
 
-    if (!isCpfOrCnpjValidLength(documento)) {
-      return res.status(400).json({ error: 'Informe um CPF ou CNPJ válido para gerar a cobrança.' });
+    if (!documento) {
+      return res.status(400).json({ error: 'Informe CPF ou CNPJ para gerar a cobrança.' });
     }
 
     const user = await prisma.user.findUnique({
@@ -597,7 +475,6 @@ app.post('/api/asaas/criar-cobranca', authenticateToken, async (req, res) => {
       paymentId: paymentData.id,
       customer: customerId,
       invoiceUrl: paymentData.invoiceUrl,
-      externalReference: paymentPayload.externalReference,
     });
 
     return res.json({
@@ -613,9 +490,12 @@ app.post('/api/asaas/criar-cobranca', authenticateToken, async (req, res) => {
   }
 });
 
-// ==========================================
-// --- DADOS DO USUÁRIO ---
-// ==========================================
+// --- HEALTHCHECK ---
+app.get('/health', (req, res) => {
+  res.json({ ok: true });
+});
+
+// --- DADOS DO USUÁRIO EM TEMPO REAL ---
 app.get('/api/me', authenticateToken, async (req, res) => {
   try {
     const user = await prisma.user.findUnique({
@@ -641,9 +521,7 @@ app.get('/api/me', authenticateToken, async (req, res) => {
   }
 });
 
-// ==========================================
-// --- REGISTRO ---
-// ==========================================
+// --- ROTA PÚBLICA DE REGISTRO ---
 app.post('/api/register', async (req, res) => {
   const { name, email, phone, password } = req.body;
 
@@ -700,7 +578,7 @@ app.post('/api/recover-password', async (req, res) => {
 });
 
 // ==========================================
-// --- IA ---
+// 🧠 EVOINTELLIGENCE™
 // ==========================================
 app.post('/api/ai/gerar-autonomo', authenticateToken, isAdminOrMaster, async (req, res) => {
   const { alunoId, comandoPersonal, frequencia, ciclo, semanas } = req.body;
@@ -750,12 +628,14 @@ FORMATO JSON OBRIGATÓRIO: {"planilha": [{"title": "Ficha A - ...", "exercises":
     }
 
     const rawContent = aiData?.choices?.[0]?.message?.content;
+
     if (!rawContent) {
       console.error('🔥 OpenAI sem conteúdo:', aiData);
       return res.status(500).json({ error: 'Resposta inválida da Engine IA.' });
     }
 
     const result = JSON.parse(rawContent);
+
     if (!Array.isArray(result.planilha)) {
       return res.status(500).json({ error: 'Formato inválido retornado pela IA.' });
     }
@@ -800,9 +680,7 @@ app.delete('/api/treinos/:id', authenticateToken, isAdminOrMaster, async (req, r
   }
 });
 
-// ==========================================
 // --- GESTÃO DE ALUNOS ---
-// ==========================================
 app.post('/api/alunos', authenticateToken, isAdminOrMaster, async (req, res) => {
   const { name, email, phone, weight, height, level, anamnese, price } = req.body;
 
@@ -898,9 +776,7 @@ app.delete('/api/alunos/:id', authenticateToken, isAdminOrMaster, async (req, re
   }
 });
 
-// ==========================================
 // --- GESTÃO MASTER ---
-// ==========================================
 app.get('/api/superadmin/trainers', authenticateToken, isSuperAdmin, async (req, res) => {
   try {
     const trainers = await prisma.user.findMany({
@@ -971,9 +847,7 @@ app.delete('/api/superadmin/trainers/:id', authenticateToken, isSuperAdmin, asyn
   }
 });
 
-// ==========================================
 // --- LOGIN & SEGURANÇA ---
-// ==========================================
 app.post('/api/login', async (req, res) => {
   const { email, password } = req.body;
 
@@ -1025,7 +899,6 @@ app.put('/api/perfil/senha', authenticateToken, async (req, res) => {
 
   try {
     const user = await prisma.user.findUnique({ where: { id: req.user.id } });
-
     if (!user) return res.status(404).json({ error: 'Usuário não encontrado.' });
 
     const valid = await bcrypt.compare(currentPassword, user.password);
