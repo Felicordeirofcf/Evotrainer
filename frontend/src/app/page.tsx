@@ -151,6 +151,10 @@ export default function App() {
   const [showEditTrainerModal, setShowEditTrainerModal] = useState(false);
   const [showEditPlanModal, setShowEditPlanModal] = useState(false);
   const [trainerSelecionado, setTrainerSelecionado] = useState<any>(null);
+  
+  // ESTADOS DE EDIÇÃO DE PLANILHA
+  const [showEditWorkoutModal, setShowEditWorkoutModal] = useState(false);
+  const [workoutEditForm, setWorkoutEditForm] = useState<any>({ id: null, title: '', duration: '', exercises: [] });
 
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [showRecoverModal, setShowRecoverModal] = useState(false);
@@ -497,11 +501,63 @@ export default function App() {
       method: 'DELETE',
       headers: getAuthHeaders()
     });
-
+    
     if (res.ok) {
       showToast("Planilha Excluída!");
       setAlunoSelecionado((prev: any) => ({ ...prev, workouts: prev.workouts.filter((w: any) => w.id !== planilhaId) }));
       fetchData();
+    }
+  };
+
+  // --- FUNÇÕES DE EDIÇÃO DE PLANILHA ---
+  const openEditWorkout = (workout: any) => {
+    setWorkoutEditForm({
+      id: workout.id,
+      title: workout.title,
+      duration: workout.duration || '4 Semanas',
+      exercises: workout.exercises ? [...workout.exercises] : []
+    });
+    setShowEditWorkoutModal(true);
+  };
+
+  const handleExerciseChange = (index: number, field: string, value: string) => {
+    const newExercises = [...workoutEditForm.exercises];
+    newExercises[index] = { ...newExercises[index], [field]: value };
+    setWorkoutEditForm({ ...workoutEditForm, exercises: newExercises });
+  };
+
+  const addExerciseRow = () => {
+    setWorkoutEditForm({
+      ...workoutEditForm,
+      exercises: [...workoutEditForm.exercises, { name: '', sets: '', weight: '', youtubeId: '' }]
+    });
+  };
+
+  const removeExerciseRow = (index: number) => {
+    const newExercises = workoutEditForm.exercises.filter((_: any, i: number) => i !== index);
+    setWorkoutEditForm({ ...workoutEditForm, exercises: newExercises });
+  };
+
+  const saveWorkoutChanges = async () => {
+    setIsLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/treinos/${workoutEditForm.id}`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(workoutEditForm)
+      });
+
+      if (res.ok) {
+        showToast("Planilha atualizada com sucesso!");
+        setShowEditWorkoutModal(false);
+        fetchData(); 
+      } else {
+        showToast("Erro ao salvar alterações.");
+      }
+    } catch (e) {
+      showToast("Erro de conexão.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -1297,6 +1353,9 @@ export default function App() {
                       </div>
 
                       <div className="flex gap-2">
+                        {/* 🎯 AQUI: BOTÃO DE EDITAR ADICIONADO! */}
+                        <button onClick={() => openEditWorkout(w)} className="p-4 bg-amber-600/20 text-amber-500 rounded-xl shadow-xl active:scale-90 hover:bg-amber-600 hover:text-white transition-all" title="Editar Manualmente"><Edit2 size={18} /></button>
+                        
                         <button onClick={() => exportarPDF(w, alunoSelecionado)} className="p-4 bg-blue-600 text-white rounded-xl shadow-xl active:scale-90 hover:bg-blue-500 transition-all" title="Baixar PDF"><Download size={18} /></button>
                         <button onClick={() => enviarWhatsApp(alunoSelecionado, w)} className="p-4 bg-emerald-600 text-white rounded-xl shadow-xl active:scale-90 hover:bg-emerald-500 transition-all" title="Avisar no WhatsApp"><MessageCircle size={18} /></button>
                         <button onClick={() => deletePlanilha(w.id)} className="p-4 bg-red-600/20 text-red-500 rounded-xl shadow-xl active:scale-90 hover:bg-red-600 hover:text-white transition-all" title="Excluir"><Trash2 size={18} /></button>
@@ -1336,6 +1395,73 @@ export default function App() {
                 className="w-full py-6 bg-emerald-600 text-white font-black rounded-3xl active:scale-95 shadow-xl transition-all uppercase tracking-widest text-[11px] mt-4 hover:bg-emerald-500 flex justify-center items-center gap-3 disabled:opacity-60"
               >
                 {isCreatingCharge ? <Activity className="animate-spin" size={20} /> : <><ShieldCheck size={18} /> Gerar PIX Seguro</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: EDITAR PLANILHA MANUAL */}
+      {showEditWorkoutModal && (
+        <div className="fixed inset-0 bg-black/98 z-[700] flex items-center justify-center p-6 backdrop-blur-md animate-fade-in text-slate-50">
+          <div className="bg-slate-900 border border-slate-800 p-8 md:p-12 rounded-[4rem] w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl relative">
+            <div className="flex justify-between items-center mb-8 border-b border-slate-800 pb-6">
+              <div>
+                <h3 className="text-2xl font-black text-white italic tracking-tighter uppercase">Editar Planilha Manual</h3>
+                <p className="text-[10px] text-amber-500 font-black uppercase mt-1 tracking-widest">Ajuste fino de exercícios</p>
+              </div>
+              <button onClick={() => setShowEditWorkoutModal(false)} className="p-3 bg-slate-800 rounded-2xl text-slate-400 hover:text-white transition-all"><X size={24} /></button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4 mb-2 block">Título da Ficha</label>
+                  <input className="w-full p-4 bg-slate-950 border border-slate-800 rounded-2xl text-white font-bold outline-none focus:border-blue-500" value={workoutEditForm.title} onChange={e => setWorkoutEditForm({...workoutEditForm, title: e.target.value})} />
+                </div>
+                <div>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4 mb-2 block">Duração (Semanas)</label>
+                  <input className="w-full p-4 bg-slate-950 border border-slate-800 rounded-2xl text-white font-bold outline-none focus:border-blue-500" value={workoutEditForm.duration} onChange={e => setWorkoutEditForm({...workoutEditForm, duration: e.target.value})} />
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex justify-between items-center mb-4">
+                  <h4 className="text-xs font-black uppercase text-slate-400 tracking-widest">Lista de Exercícios</h4>
+                  <button onClick={addExerciseRow} className="flex items-center gap-2 text-[10px] font-black bg-blue-600/20 text-blue-400 px-4 py-2 rounded-xl hover:bg-blue-600 hover:text-white transition-all">
+                    <Plus size={14} /> ADICIONAR EXERCÍCIO
+                  </button>
+                </div>
+
+                {workoutEditForm.exercises.map((ex: any, idx: number) => (
+                  <div key={idx} className="bg-slate-950 p-4 rounded-3xl border border-slate-800 flex flex-wrap md:flex-nowrap items-end gap-3 animate-slide-up">
+                    <div className="flex-1 min-w-[150px]">
+                      <label className="text-[9px] font-black text-slate-600 uppercase mb-1 block">Nome do Exercício</label>
+                      <input className="w-full p-3 bg-slate-900 border border-slate-800 rounded-xl text-white text-sm outline-none" value={ex.name} onChange={e => handleExerciseChange(idx, 'name', e.target.value)} />
+                    </div>
+                    <div className="w-24">
+                      <label className="text-[9px] font-black text-slate-600 uppercase mb-1 block">Séries</label>
+                      <input className="w-full p-3 bg-slate-900 border border-slate-800 rounded-xl text-white text-sm text-center outline-none" value={ex.sets} onChange={e => handleExerciseChange(idx, 'sets', e.target.value)} />
+                    </div>
+                    <div className="w-28">
+                      <label className="text-[9px] font-black text-slate-600 uppercase mb-1 block">Carga/Obs</label>
+                      <input className="w-full p-3 bg-slate-900 border border-slate-800 rounded-xl text-white text-sm text-center outline-none" value={ex.weight} onChange={e => handleExerciseChange(idx, 'weight', e.target.value)} />
+                    </div>
+                    <button onClick={() => removeExerciseRow(idx)} className="p-3 bg-red-600/10 text-red-500 rounded-xl hover:bg-red-600 hover:text-white transition-all mb-[2px]">
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-8 pt-6 border-t border-slate-800">
+              <button 
+                onClick={saveWorkoutChanges}
+                disabled={isLoading}
+                className="w-full py-6 bg-emerald-600 text-white font-black rounded-[2rem] shadow-2xl uppercase tracking-widest text-xs active:scale-95 transition-all hover:bg-emerald-500 disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isLoading ? <Activity className="animate-spin" size={20} /> : 'Salvar Alterações na Ficha'}
               </button>
             </div>
           </div>
