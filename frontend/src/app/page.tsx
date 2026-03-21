@@ -221,41 +221,50 @@ export default function App() {
   };
 
   const abrirCheckoutAsaas = async () => {
-    if (!token) {
-      setShowLoginModal(true);
+  if (!token) {
+    setShowLoginModal(true);
+    return;
+  }
+
+  setIsCreatingCharge(true);
+
+  try {
+    const res = await fetch(`${API_URL}/asaas/criar-cobranca`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+    });
+
+    const rawText = await res.text();
+    console.log('ASAAS RAW RESPONSE:', rawText);
+
+    let data: any = {};
+    try {
+      data = rawText ? JSON.parse(rawText) : {};
+    } catch {
+      data = { error: rawText || 'Resposta inválida do servidor.' };
+    }
+
+    if (!res.ok) {
+      console.error('ASAAS ERROR RESPONSE:', data);
+      showToast(data.error || 'Erro ao gerar cobrança.');
       return;
     }
 
-    setIsCreatingCharge(true);
-
-    try {
-      const res = await fetch(`${API_URL}/asaas/criar-cobranca`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        showToast(data.error || 'Erro ao gerar cobrança.');
-        return;
-      }
-
-      if (data.checkoutUrl) {
-        window.open(data.checkoutUrl, '_blank');
-        showToast('Cobrança gerada! Finalize o pagamento.');
-        iniciarMonitoramentoPlano();
-        return;
-      }
-
-      showToast('Cobrança criada, mas sem link de pagamento.');
-    } catch (e) {
-      console.error(e);
-      showToast('Erro ao conectar com pagamento.');
-    } finally {
-      setIsCreatingCharge(false);
+    if (data.checkoutUrl) {
+      window.open(data.checkoutUrl, '_blank');
+      showToast('Cobrança gerada! Finalize o pagamento.');
+      iniciarMonitoramentoPlano();
+      return;
     }
-  };
+
+    showToast('Cobrança criada, mas sem link de pagamento.');
+  } catch (e: any) {
+    console.error('ASAAS REQUEST ERROR:', e);
+    showToast('Erro ao conectar com pagamento.');
+  } finally {
+    setIsCreatingCharge(false);
+  }
+};
 
   const faturamentoAtletas = alunos.reduce((acc, aluno) => acc + (parseFloat(aluno.price) || 0), 0);
   const faturamentoMaster = trainers.reduce((acc, t) => {

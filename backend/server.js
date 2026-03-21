@@ -304,12 +304,13 @@ app.post('/api/asaas/criar-cobranca', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Usuário não encontrado.' });
     }
 
-    const nome = user.name || 'Cliente EvoTrainer';
+    const nome = String(user.name || 'Cliente EvoTrainer').trim();
     const email = normalizeEmail(user.email || '');
     const celular = String(user.phone || '').trim();
 
     console.log('🧾 [ASAAS] Criando cobrança para:', {
       id: user.id,
+      nome,
       email,
       phone: celular,
       plano: user.plano,
@@ -317,14 +318,16 @@ app.post('/api/asaas/criar-cobranca', authenticateToken, async (req, res) => {
 
     let customerId = null;
 
-    // 1) tenta achar customer existente por email
-    const searchCustomerRes = await fetch(`https://api.asaas.com/v3/customers?email=${encodeURIComponent(email)}`, {
-      method: 'GET',
-      headers: {
-        access_token: process.env.ASAAS_API_KEY,
-        'Content-Type': 'application/json',
-      },
-    });
+    const searchCustomerRes = await fetch(
+      `https://api.asaas.com/v3/customers?email=${encodeURIComponent(email)}`,
+      {
+        method: 'GET',
+        headers: {
+          access_token: process.env.ASAAS_API_KEY,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
 
     const searchCustomerData = await searchCustomerRes.json();
 
@@ -332,19 +335,23 @@ app.post('/api/asaas/criar-cobranca', authenticateToken, async (req, res) => {
       customerId = searchCustomerData.data[0].id;
       console.log('👤 [ASAAS] Customer existente encontrado:', customerId);
     } else {
-      // 2) cria customer se não existir
+      const customerPayload = {
+        name: nome,
+        email,
+        externalReference: String(user.id),
+      };
+
+      if (celular) {
+        customerPayload.mobilePhone = celular;
+      }
+
       const customerRes = await fetch('https://api.asaas.com/v3/customers', {
         method: 'POST',
         headers: {
           access_token: process.env.ASAAS_API_KEY,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          name: nome,
-          email,
-          mobilePhone: celular,
-          externalReference: String(user.id),
-        }),
+        body: JSON.stringify(customerPayload),
       });
 
       const customerData = await customerRes.json();
@@ -363,21 +370,22 @@ app.post('/api/asaas/criar-cobranca', authenticateToken, async (req, res) => {
 
     const dueDate = addDays(new Date(), 1).toISOString().slice(0, 10);
 
-    // 3) cria cobrança
+    const paymentPayload = {
+      customer: customerId,
+      billingType: 'PIX',
+      value: 39.90,
+      dueDate,
+      description: 'Plano PRO EvoTrainer',
+      externalReference: String(user.id),
+    };
+
     const paymentRes = await fetch('https://api.asaas.com/v3/payments', {
       method: 'POST',
       headers: {
         access_token: process.env.ASAAS_API_KEY,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        customer: customerId,
-        billingType: 'PIX',
-        value: 39.90,
-        dueDate,
-        description: 'Plano PRO EvoTrainer',
-        externalReference: String(user.id),
-      }),
+      body: JSON.stringify(paymentPayload),
     });
 
     const paymentData = await paymentRes.json();
