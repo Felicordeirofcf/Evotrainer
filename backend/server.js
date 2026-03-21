@@ -164,22 +164,28 @@ async function processAsaasWebhook(payload) {
 
   if (!eventosAceitos.includes(event)) {
     console.log('ℹ️ [ASAAS] Evento ignorado:', event);
-    return { ok: true, reason: 'ignored_event' };
+    return { ok: true, reason: 'ignored_event', event };
   }
 
   let user = null;
 
-  // 1) externalReference tem prioridade total
   if (externalReference) {
     user = await findUserByReference(externalReference);
+
     if (user) {
-      await liberarPlanoPro(user, 'externalReference');
-      return { ok: true, reason: 'updated_by_external_reference', userId: user.id };
+      const updated = await liberarPlanoPro(user, 'externalReference');
+      return {
+        ok: true,
+        reason: 'updated_by_external_reference',
+        userId: updated.id,
+        email: updated.email,
+        plano: updated.plano,
+      };
     }
+
     console.log('⚠️ [ASAAS] externalReference não encontrou usuário.');
   }
 
-  // 2) fallback por customer do Asaas
   if (!customerId) {
     console.log('⚠️ [ASAAS] customerId ausente no payload.');
     return { ok: false, reason: 'customer_missing' };
@@ -202,7 +208,6 @@ async function processAsaasWebhook(payload) {
     });
 
     const raw = await asaasRes.text();
-
     console.log('📡 [ASAAS] status customer fetch:', asaasRes.status);
 
     if (!asaasRes.ok) {
@@ -212,7 +217,7 @@ async function processAsaasWebhook(payload) {
 
     try {
       customerData = JSON.parse(raw);
-    } catch (parseErr) {
+    } catch {
       console.log('❌ [ASAAS] Resposta inválida do Asaas:', raw);
       return { ok: false, reason: 'asaas_invalid_json' };
     }
@@ -232,16 +237,28 @@ async function processAsaasWebhook(payload) {
   if (emailPagador) {
     user = await findUserByEmail(emailPagador);
     if (user) {
-      await liberarPlanoPro(user, 'email');
-      return { ok: true, reason: 'updated_by_email', userId: user.id };
+      const updated = await liberarPlanoPro(user, 'email');
+      return {
+        ok: true,
+        reason: 'updated_by_email',
+        userId: updated.id,
+        email: updated.email,
+        plano: updated.plano,
+      };
     }
   }
 
   if (phonePagador) {
     user = await findUserByPhone(phonePagador);
     if (user) {
-      await liberarPlanoPro(user, 'phone');
-      return { ok: true, reason: 'updated_by_phone', userId: user.id };
+      const updated = await liberarPlanoPro(user, 'phone');
+      return {
+        ok: true,
+        reason: 'updated_by_phone',
+        userId: updated.id,
+        email: updated.email,
+        plano: updated.plano,
+      };
     }
   }
 
@@ -257,6 +274,8 @@ async function processAsaasWebhook(payload) {
     reason: 'user_not_found',
     emailPagador: emailPagador || null,
     phonePagador: phonePagador || null,
+    externalReference: externalReference || null,
+    paymentId: paymentId || null,
   };
 }
 
