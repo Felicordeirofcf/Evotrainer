@@ -308,31 +308,62 @@ app.post('/api/asaas/criar-cobranca', authenticateToken, async (req, res) => {
     const email = normalizeEmail(user.email || '');
     const celular = String(user.phone || '').trim();
 
-    const customerRes = await fetch('https://api.asaas.com/v3/customers', {
-      method: 'POST',
+    console.log('🧾 [ASAAS] Criando cobrança para:', {
+      id: user.id,
+      email,
+      phone: celular,
+      plano: user.plano,
+    });
+
+    let customerId = null;
+
+    // 1) tenta achar customer existente por email
+    const searchCustomerRes = await fetch(`https://api.asaas.com/v3/customers?email=${encodeURIComponent(email)}`, {
+      method: 'GET',
       headers: {
         access_token: process.env.ASAAS_API_KEY,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        name: nome,
-        email,
-        mobilePhone: celular,
-        externalReference: String(user.id),
-      }),
     });
 
-    const customerData = await customerRes.json();
+    const searchCustomerData = await searchCustomerRes.json();
 
-    if (!customerRes.ok) {
-      console.error('🔥 [ASAAS] Erro ao criar customer:', customerData);
-      return res.status(500).json({ error: 'Erro ao criar cliente no Asaas.' });
+    if (searchCustomerRes.ok && Array.isArray(searchCustomerData.data) && searchCustomerData.data.length > 0) {
+      customerId = searchCustomerData.data[0].id;
+      console.log('👤 [ASAAS] Customer existente encontrado:', customerId);
+    } else {
+      // 2) cria customer se não existir
+      const customerRes = await fetch('https://api.asaas.com/v3/customers', {
+        method: 'POST',
+        headers: {
+          access_token: process.env.ASAAS_API_KEY,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: nome,
+          email,
+          mobilePhone: celular,
+          externalReference: String(user.id),
+        }),
+      });
+
+      const customerData = await customerRes.json();
+
+      if (!customerRes.ok) {
+        console.error('🔥 [ASAAS] Erro ao criar customer:', customerData);
+        return res.status(500).json({
+          error: customerData?.errors?.[0]?.description || customerData?.message || 'Erro ao criar cliente no Asaas.',
+          details: customerData,
+        });
+      }
+
+      customerId = customerData.id;
+      console.log('👤 [ASAAS] Customer criado:', customerId);
     }
-
-    const customerId = customerData.id;
 
     const dueDate = addDays(new Date(), 1).toISOString().slice(0, 10);
 
+    // 3) cria cobrança
     const paymentRes = await fetch('https://api.asaas.com/v3/payments', {
       method: 'POST',
       headers: {
@@ -341,7 +372,7 @@ app.post('/api/asaas/criar-cobranca', authenticateToken, async (req, res) => {
       },
       body: JSON.stringify({
         customer: customerId,
-        billingType: 'UNDEFINED',
+        billingType: 'PIX',
         value: 39.90,
         dueDate,
         description: 'Plano PRO EvoTrainer',
@@ -353,8 +384,17 @@ app.post('/api/asaas/criar-cobranca', authenticateToken, async (req, res) => {
 
     if (!paymentRes.ok) {
       console.error('🔥 [ASAAS] Erro ao criar cobrança:', paymentData);
-      return res.status(500).json({ error: 'Erro ao criar cobrança.' });
+      return res.status(500).json({
+        error: paymentData?.errors?.[0]?.description || paymentData?.message || 'Erro ao criar cobrança.',
+        details: paymentData,
+      });
     }
+
+    console.log('✅ [ASAAS] Cobrança criada com sucesso:', {
+      paymentId: paymentData.id,
+      customer: customerId,
+      invoiceUrl: paymentData.invoiceUrl,
+    });
 
     return res.json({
       paymentId: paymentData.id,
@@ -363,7 +403,9 @@ app.post('/api/asaas/criar-cobranca', authenticateToken, async (req, res) => {
     });
   } catch (e) {
     console.error('🔥 /api/asaas/criar-cobranca:', e);
-    return res.status(500).json({ error: 'Erro interno ao criar cobrança.' });
+    return res.status(500).json({
+      error: e.message || 'Erro interno ao criar cobrança.',
+    });
   }
 });
 
