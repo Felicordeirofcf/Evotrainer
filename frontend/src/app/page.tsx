@@ -1,9 +1,9 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import {
-  Users, LogOut, X, User as UserIcon, Plus, Activity, Dumbbell, Trash2, Settings, List,
-  Search, Download, Sparkles, Youtube, ChevronRight, MessageCircle, Crown, Zap,
+import { 
+  Users, LogOut, X, User as UserIcon, Plus, Activity, Dumbbell, Trash2, Settings, List, 
+  Search, Download, Sparkles, Youtube, ChevronRight, MessageCircle, Crown, Zap, 
   DollarSign, Target, Lock, Camera, BarChart3, Globe, Phone, CheckCircle2, Edit2, Calendar,
   ShieldCheck, FileText, TrendingUp, Play, Menu, CreditCard, Clock
 } from 'lucide-react';
@@ -15,6 +15,7 @@ const getBaseUrl = () => {
 
 const API_URL = getBaseUrl().endsWith('/') ? `${getBaseUrl()}api` : `${getBaseUrl()}/api`;
 const APP_URL = "https://evotrainer.vercel.app";
+const ASAAS_LINK = "https://www.asaas.com/c/sql5glydf5g3gvxs"; 
 
 const StatCard = ({ title, value, icon: Icon, color }: any) => (
   <div className="bg-slate-900/50 backdrop-blur-md border border-slate-800 p-6 rounded-[2.5rem] shadow-xl transition-all">
@@ -26,6 +27,7 @@ const StatCard = ({ title, value, icon: Icon, color }: any) => (
   </div>
 );
 
+// --- COMPONENTES DA LANDING PAGE ---
 const Navbar = ({ onOpenSignup, onOpenLogin }: any) => {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -120,6 +122,9 @@ const PlanCard = ({ title, price, subPrice, features, highlighted = false, onAct
   </div>
 );
 
+// ==========================================
+// APLICAÇÃO PRINCIPAL (APP)
+// ==========================================
 export default function App() {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [token, setToken] = useState<string | null>(null);
@@ -1327,10 +1332,10 @@ export default function App() {
               </div>
               <button
                 onClick={abrirCheckoutAsaas}
-                disabled={isGeneratingCheckout}
+                disabled={isCreatingCharge}
                 className="w-full py-6 bg-emerald-600 text-white font-black rounded-3xl active:scale-95 shadow-xl transition-all uppercase tracking-widest text-[11px] mt-4 hover:bg-emerald-500 flex justify-center items-center gap-3 disabled:opacity-60"
               >
-                {isGeneratingCheckout ? <Activity className="animate-spin" size={20} /> : <><ShieldCheck size={18} /> Gerar PIX Seguro</>}
+                {isCreatingCharge ? <Activity className="animate-spin" size={20} /> : <><ShieldCheck size={18} /> Gerar PIX Seguro</>}
               </button>
             </div>
           </div>
