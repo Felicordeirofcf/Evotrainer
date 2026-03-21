@@ -10,7 +10,6 @@ const app = express();
 app.use(cors());
 
 // --- LEITURA PADRÃO E UNIVERSAL ---
-// Voltamos ao padrão da indústria para garantir que o Asaas não se engasgue.
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
@@ -106,7 +105,7 @@ async function liberarPlanoPro(user, origem = 'webhook') {
     },
   });
 
-  console.log(`✅ [ASAAS] Plano PRO liberado via ${origem} para o usuário: ${updated.email}`);
+  console.log(`✅ [ASAAS] SUCESSO ABSOLUTO! Plano PRO liberado via ${origem} para o usuário: ${updated.email}`);
   return updated;
 }
 
@@ -116,7 +115,7 @@ async function processAsaasWebhook(payload) {
   const customerId = payment?.customer || null;
   const externalReference = payment?.externalReference || payload?.externalReference || null;
 
-  console.log(`🔔 [ASAAS] Evento processado: ${event}`);
+  console.log(`🔔 [ASAAS] Processando Evento: ${event}`);
 
   const eventosAceitos = ['PAYMENT_RECEIVED', 'PAYMENT_CONFIRMED'];
   if (!eventosAceitos.includes(event)) {
@@ -166,37 +165,41 @@ async function processAsaasWebhook(payload) {
 }
 
 // ==========================================
-// 💸 WEBHOOK ASAAS (VERSÃO BLINDADA)
+// 💸 WEBHOOK ASAAS (A INTERCEPTAÇÃO SUPREMA)
 // ==========================================
 app.post(['/api/webhook/asaas', '/api/webhooks/asaas'], async (req, res) => {
   try {
     let payload = req.body;
-    console.log("📥 [ASAAS RAW] Payload recebido:", JSON.stringify(payload).substring(0, 300));
+    console.log("📥 [ASAAS RAW] Payload recebido. Desempacotando...");
 
-    // Se veio vazio
-    if (!payload || Object.keys(payload).length === 0) {
-       console.log('⚠️ [ASAAS] Payload totalmente vazio recebido.');
-       return res.status(200).json({ status: "ignored_empty_payload" });
+    // Se o Asaas mandou o objeto seguro envelopado no "data"
+    if (payload && payload.data && typeof payload.data === 'string') {
+      console.log("🔓 [ASAAS] Envelope seguro detectado (token). Abrindo...");
+      try {
+        payload = JSON.parse(payload.data);
+      } catch(e) {
+        console.log("⚠️ [ASAAS] Falha ao converter payload.data em JSON.");
+      }
     }
 
-    // Desempacotador à prova de balas
-    if (!payload.event) {
-       console.log('⚠️ [ASAAS] Objeto não possui chave "event" direta. Tentando desempacotar...');
-       const keys = Object.keys(payload);
-       for (const key of keys) {
-          if (key.includes('"event"')) {
-             try {
-                payload = JSON.parse(key);
-                console.log("🛠️ [ASAAS] Objeto resgatado com sucesso da chave mal formatada!");
-                break;
-             } catch(e) {}
-          }
-       }
+    // Se veio como string pura
+    if (typeof payload === 'string') {
+      try { payload = JSON.parse(payload); } catch (e) {}
     }
 
-    // Se no final das contas ele não tem o 'event', nós ignoramos com segurança
+    // Se o Asaas mandou URL Encoded que virou uma chave gigante
+    if (payload && typeof payload === 'object' && !payload.event && Object.keys(payload).length > 0) {
+      const keys = Object.keys(payload);
+      if (keys.length === 1 && keys[0].includes('"event"')) {
+        try {
+          payload = JSON.parse(keys[0]);
+          console.log("🛠️ [ASAAS] JSON desempacotado da chave form-urlencoded com sucesso!");
+        } catch (e) {}
+      }
+    }
+
     if (!payload || !payload.event) {
-      console.log('⚠️ [ASAAS] Impossível processar: Payload sem chave de evento. Conteúdo:', payload);
+      console.log('⚠️ [ASAAS] Impossível processar: Payload final sem chave "event". Ignorando.');
       return res.status(200).json({ status: "ignored_payload_no_event" }); 
     }
 
