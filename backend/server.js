@@ -3,6 +3,7 @@ const cors = require('cors');
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const nodemailer = require('nodemailer'); // <-- ADICIONADO AQUI
 
 const prisma = new PrismaClient();
 const app = express();
@@ -323,7 +324,7 @@ app.get('/api/me', authenticateToken, async (req, res) => {
   } catch (e) { res.status(500).json({ error: 'Erro ao buscar dados.' }); }
 });
 
-// --- ROTA PÚBLICA DE REGISTRO ---
+// --- ROTA PÚBLICA DE REGISTRO E E-MAIL ---
 app.post('/api/register', async (req, res) => {
   const { name, email, phone, password } = req.body;
   try {
@@ -339,6 +340,50 @@ app.post('/api/register', async (req, res) => {
     const novoPersonal = await prisma.user.create({
       data: { name, email: emailNormalizado, phone: phoneNormalizado, password: hashedPassword, role: 'ADMIN', status: 'Ativo', plano: 'GRATIS' },
     });
+
+    // --- DISPARO DE E-MAIL DE BOAS-VINDAS ---
+    try {
+      const transporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST || 'smtp.hostinger.com',
+        port: process.env.SMTP_PORT || 465,
+        secure: true, 
+        auth: {
+          user: process.env.SMTP_USER, // adminevotrainer@evotrainer.com.br
+          pass: process.env.SMTP_PASS, // A senha do email
+        },
+      });
+
+      const primeiroNome = name.split(' ')[0];
+
+      await transporter.sendMail({
+        from: '"Equipe EvoTrainer" <adminevotrainer@evotrainer.com.br>',
+        to: emailNormalizado,
+        subject: "Bem-vindo ao EvoTrainer! 🚀 Sua conta foi ativada.",
+        html: `
+          <div style="font-family: 'Helvetica Neue', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 30px; background-color: #f8fafc; border-radius: 16px; border: 1px solid #e2e8f0;">
+            <div style="text-align: center; margin-bottom: 30px;">
+              <h2 style="color: #2563eb; font-style: italic; font-weight: 900; margin: 0; font-size: 28px; text-transform: uppercase;">EVOTRAINER</h2>
+              <p style="color: #64748b; font-size: 12px; text-transform: uppercase; font-weight: bold; letter-spacing: 2px; margin-top: 5px;">Periodização de Elite</p>
+            </div>
+            
+            <p style="color: #1e293b; font-size: 16px;">Fala <strong>${primeiroNome}</strong>! Tudo bem?</p>
+            <p style="color: #475569; font-size: 16px; line-height: 1.6;">Sua conta de Personal Trainer foi criada com sucesso e seu ambiente já está liberado. Estamos muito felizes em ter você com a gente!</p>
+            <p style="color: #475569; font-size: 16px; line-height: 1.6;">Com nossa plataforma, você vai abandonar as planilhas manuais, gerar treinos com Inteligência Artificial Biomecânica e escalar o seu faturamento.</p>
+            
+            <div style="text-align: center; margin: 40px 0;">
+              <a href="https://evotrainer.com.br" style="background-color: #2563eb; color: #ffffff; padding: 16px 32px; text-decoration: none; border-radius: 12px; font-weight: bold; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;">Acessar Meu Painel</a>
+            </div>
+            
+            <p style="color: #475569; font-size: 14px;">Ficou com alguma dúvida ou tem alguma sugestão de melhoria? Responda este e-mail! Queremos construir o sistema ideal para você. 🛠️</p>
+            <p style="color: #1e293b; font-weight: bold; margin-top: 30px;">Bora esmagar! 💪</p>
+          </div>
+        `
+      });
+      console.log(`✉️ E-mail de boas-vindas enviado para: ${emailNormalizado}`);
+    } catch (mailError) {
+      console.error('⚠️ Falha ao enviar e-mail de boas-vindas:', mailError);
+    }
+    // ----------------------------------------
 
     res.status(201).json({ message: 'Conta criada!', user: { id: novoPersonal.id, email: novoPersonal.email } });
   } catch (e) { res.status(500).json({ error: 'Erro interno.' }); }
@@ -519,7 +564,7 @@ app.put('/api/perfil/senha', authenticateToken, async (req, res) => {
   } catch (e) { 
     res.status(500).json({ error: 'Erro.' }); 
   }
-}); // <-- A ROTA DA SENHA AGORA FECHA AQUI CORRETAMENTE
+}); 
 
 // --- ROTA DE EDIÇÃO DE PLANILHA (AGORA LIVRE E CORRIGIDA PARA O PRISMA) ---
 app.put('/api/treinos/:id', authenticateToken, async (req, res) => {
