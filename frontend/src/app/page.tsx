@@ -1046,8 +1046,13 @@ export default function App() {
                     </div>
                     <div>
                       <h3 className="font-black text-xl leading-none pr-12">{item.name}</h3>
-                      <p className="text-xs text-slate-500 mt-2">{item.email}</p>
-                      {isMaster && <p className="text-[10px] font-bold text-blue-500 mt-1 uppercase tracking-widest">Plano: {item.plano}</p>}
+                      <p className="text-xs text-slate-500 mt-1">{item.email}</p>
+                      {isMaster && (
+                        <div className="flex gap-4 mt-2">
+                          <p className="text-[10px] font-bold text-blue-500 uppercase tracking-widest">Plano: {item.plano}</p>
+                          <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Alunos: {item._count?.alunos || 0}</p>
+                        </div>
+                      )}
                     </div>
                   </div>
 

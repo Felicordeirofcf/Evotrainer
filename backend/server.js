@@ -408,10 +408,38 @@ app.post('/api/ai/gerar-autonomo', authenticateToken, isAdminOrMaster, async (re
     const aluno = await prisma.user.findUnique({ where: { id: parseInt(alunoId, 10) } });
     if (!aluno) return res.status(404).json({ error: 'Aluno não encontrado.' });
 
-    const systemPrompt = `Você é a Engine EvoIntelligence™ de Elite especializada em biomecânica.
-TAREFA: Gere EXATAMENTE ${frequencia} fichas de treino diferentes (Ficha A, B, C...).
-DADOS: Aluno ${aluno.name}, Nível ${aluno.level}. Prontuário: ${aluno.anamnese || 'Sem restrições'}.
-FORMATO JSON OBRIGATÓRIO: {"planilha": [{"title": "Ficha A - ...", "exercises": [{"name": "...", "sets": "...", "weight": "...", "youtubeId": ""}]}]}`;
+    // 🔥 NOVO PROMPT DE ALTA PERFORMANCE 🔥
+    const systemPrompt = `Você é a Engine EvoIntelligence™ de Elite, um sistema avançado de periodização, fisiologia do exercício e biomecânica.
+
+TAREFA: Gere EXATAMENTE ${frequencia} fichas de treino diferentes (ex: Ficha A, Ficha B, etc.) compondo a rotina do aluno.
+
+DADOS DO ALUNO:
+- Nome: ${aluno.name}
+- Nível: ${aluno.level}
+- Fase/Ciclo: ${ciclo}
+- Frequência: ${frequencia} dias na semana
+- Prontuário Médico/Restrições: ${aluno.anamnese || 'Nenhuma restrição relatada.'}
+
+REGRAS DE VOLUME E INTENSIDADE (MUITO IMPORTANTE):
+1. Calcule o volume de treino (séries e repetições) adequado para o nível "${aluno.level}".
+2. NUNCA crie treinos curtos de 3 ou 4 exercícios. Um treino completo e eficiente deve ter, em média, de 6 a 9 exercícios por sessão.
+3. No campo "sets", retorne o número de séries e repetições exatas (ex: "4x 10-12", "3x 15", "Rest-Pause").
+4. No campo "weight", sugira a carga ou percepção de esforço (ex: "Moderado (RIR 2)", "Pesado até a falha").
+5. Distribua os grupamentos musculares logicamente ao longo da frequência solicitada.
+6. Obedeça estritamente às restrições do prontuário médico.
+
+FORMATO JSON OBRIGATÓRIO:
+{
+  "planilha": [
+    {
+      "title": "Ficha A - Peito, Ombro e Tríceps",
+      "exercises": [
+        {"name": "Supino Reto com Barra", "sets": "4x 10-12", "weight": "Pesado (RIR 2)", "youtubeId": ""},
+        {"name": "Crucifixo Inclinado Halteres", "sets": "3x 12", "weight": "Moderado", "youtubeId": ""}
+      ]
+    }
+  ]
+}`;
 
     const aiRes = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
