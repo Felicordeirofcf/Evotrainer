@@ -621,25 +621,93 @@ export default function App() {
     return data.toLocaleDateString('pt-BR');
   };
 
+  // --- NOVA FUNÇÃO DE EXPORTAR PDF E FECHAR A ABA ---
   const exportarPDF = (treino: any, aluno: any) => {
     const primaryColor = "#2563eb";
     const dataCriado = new Date(treino.createdAt).toLocaleDateString('pt-BR');
     const dataRevisao = calcularDataRevisao(treino.createdAt, treino.duration || '4 Semanas');
+
+    // 1. GERA UM NOME DE ARQUIVO INTELIGENTE E SEM ESPAÇOS
+    const safeAlunoName = aluno.name.trim().replace(/\s+/g, '_');
+    const safeTreinoTitle = treino.title.trim().replace(/\s+/g, '_');
+    const documentTitle = `EvoTrainer_${safeAlunoName}_${safeTreinoTitle}`;
 
     const rows = treino.exercises?.map((ex: any, i: number) => {
       const youtubeLink = ex.youtubeId
         ? `https://www.youtube.com/watch?v=${ex.youtubeId}`
         : `https://www.youtube.com/results?search_query=${encodeURIComponent(ex.name + ' execução biomecânica')}`;
 
-      return `<tr style="border-bottom: 1px solid #e2e8f0;"><td style="padding: 16px; font-weight: 800; color: ${primaryColor}; font-size: 18px;">${String(i + 1).padStart(2, '0')}</td><td style="padding: 16px;"><div style="font-weight: 800; color: #1e293b; font-size: 16px; text-transform: uppercase;">${ex.name}</div><div style="color: #64748b; font-size: 13px; margin-top: 4px;">Séries: ${ex.sets} | Carga: ${ex.weight}</div></td><td style="padding: 16px; text-align: right;"><a href="${youtubeLink}" target="_blank" style="background: #ff0000; color: white; padding: 10px 15px; border-radius: 8px; text-decoration: none; font-weight: 900; font-size: 10px;">VÍDEO 🎬</a></td></tr>`;
+      // CSS simplificado no link para garantir que o PDF reconheça como clicável
+      return `<tr style="border-bottom: 1px solid #e2e8f0;">
+                <td style="padding: 16px; font-weight: 800; color: ${primaryColor}; font-size: 18px;">${String(i + 1).padStart(2, '0')}</td>
+                <td style="padding: 16px;">
+                  <div style="font-weight: 800; color: #1e293b; font-size: 16px; text-transform: uppercase;">${ex.name}</div>
+                  <div style="color: #64748b; font-size: 13px; margin-top: 4px;">Séries: ${ex.sets} | Carga: ${ex.weight}</div>
+                </td>
+                <td style="padding: 16px; text-align: right;">
+                  <a href="${youtubeLink}" target="_blank" style="background: #ff0000; color: white; padding: 10px 15px; border-radius: 8px; text-decoration: none; font-weight: 900; font-size: 10px; display: inline-block;">VÍDEO 🎬</a>
+                </td>
+              </tr>`;
     }).join('');
 
-    const html = `<html><head><style>@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap'); body { font-family: 'Inter', sans-serif; margin: 0; background: #f8fafc; } .header { background: ${primaryColor}; color: white; padding: 40px; border-bottom-left-radius: 40px; border-bottom-right-radius: 40px; } .container { max-width: 800px; margin: -20px auto 40px; background: white; border-radius: 30px; box-shadow: 0 20px 25px rgba(0,0,0,0.1); overflow: hidden; } table { width: 100%; border-collapse: collapse; }</style></head>
+    const html = `<html>
+      <head>
+        <title>${documentTitle}</title>
+        <style>
+          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap'); 
+          body { font-family: 'Inter', sans-serif; margin: 0; background: #f8fafc; } 
+          .header { background: ${primaryColor}; color: white; padding: 40px; border-bottom-left-radius: 40px; border-bottom-right-radius: 40px; } 
+          .container { max-width: 800px; margin: -20px auto 40px; background: white; border-radius: 30px; box-shadow: 0 20px 25px rgba(0,0,0,0.1); overflow: hidden; } 
+          table { width: 100%; border-collapse: collapse; }
+          
+          /* Esconde a barra de navegação quando for salvar o PDF de fato */
+          @media print {
+            .no-print { display: none !important; }
+            .container { box-shadow: none; margin-top: 20px; }
+            body { background: white; }
+          }
+        </style>
+      </head>
       <body>
-        <div class="header"><div style="display:flex; justify-content:space-between; align-items:center;"><div><h1 style="margin:0; font-weight:900; font-style:italic;">EVOTRAINER</h1><p style="margin:5px 0 0; font-weight:700; text-transform:uppercase; font-size:12px;">Periodização de Elite</p></div><div style="text-align:right;"><div style="font-weight:900; font-size:20px;">${aluno.name.toUpperCase()}</div><div style="font-size:12px;">Ficha: ${treino.title}</div></div></div></div>
-        <div class="container"><div style="padding:20px 30px; background: #eff6ff; display:flex; gap:20px; border-bottom: 1px solid #e2e8f0;"><div style="flex:1"><span style="font-size:10px; font-weight:900; color:#3b82f6; text-transform:uppercase;">Enviado em</span><br/><strong style="color:#1e3a8a">${dataCriado}</strong></div><div style="flex:1"><span style="font-size:10px; font-weight:900; color:#ef4444; text-transform:uppercase;">Data de Revisão</span><br/><strong style="color:#991b1b">${dataRevisao}</strong></div></div><div style="padding:20px 30px; border-bottom:2px solid #f1f5f9; display:flex; gap:20px;"><div style="flex:1; background:#f8fafc; padding:15px; border-radius:15px; border:1px solid #e2e8f0;"><span style="font-size:10px; font-weight:900; color:#64748b; display:block; text-transform:uppercase;">Nível</span><span style="font-weight:800; color:${primaryColor};">${aluno.level}</span></div><div style="flex:1; background:#f8fafc; padding:15px; border-radius:15px; border:1px solid #e2e8f0;"><span style="font-size:10px; font-weight:900; color:#64748b; display:block; text-transform:uppercase;">Peso</span><span style="font-weight:800; color:${primaryColor};">${aluno.weight || '--'}kg</span></div></div><table><tbody>${rows}</tbody></table></div>
+        <div class="no-print" style="background: #0f172a; padding: 20px; text-align: center; color: white;">
+          <h3 style="margin: 0 0 10px 0; font-style: italic;">Página de Impressão e PDF</h3>
+          <p style="font-size: 12px; color: #94a3b8; margin-bottom: 15px;">Quando terminar de salvar, clique abaixo para retornar.</p>
+          <button onclick="window.close()" style="background: #3b82f6; color: white; border: none; padding: 12px 24px; border-radius: 12px; font-weight: 900; cursor: pointer; text-transform: uppercase;">🔙 Voltar para o EvoTrainer</button>
+          <button onclick="window.print()" style="background: #10b981; color: white; border: none; padding: 12px 24px; border-radius: 12px; font-weight: 900; cursor: pointer; text-transform: uppercase; margin-left: 10px;">🖨️ Imprimir Novamente</button>
+        </div>
+
+        <div class="header">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <h1 style="margin:0; font-weight:900; font-style:italic;">EVOTRAINER</h1>
+              <p style="margin:5px 0 0; font-weight:700; text-transform:uppercase; font-size:12px;">Periodização de Elite</p>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-weight:900; font-size:20px;">${aluno.name.toUpperCase()}</div>
+              <div style="font-size:12px;">Ficha: ${treino.title}</div>
+            </div>
+          </div>
+        </div>
+        <div class="container">
+          <div style="padding:20px 30px; background: #eff6ff; display:flex; gap:20px; border-bottom: 1px solid #e2e8f0;">
+            <div style="flex:1"><span style="font-size:10px; font-weight:900; color:#3b82f6; text-transform:uppercase;">Enviado em</span><br/><strong style="color:#1e3a8a">${dataCriado}</strong></div>
+            <div style="flex:1"><span style="font-size:10px; font-weight:900; color:#ef4444; text-transform:uppercase;">Data de Revisão</span><br/><strong style="color:#991b1b">${dataRevisao}</strong></div>
+          </div>
+          <div style="padding:20px 30px; border-bottom:2px solid #f1f5f9; display:flex; gap:20px;">
+            <div style="flex:1; background:#f8fafc; padding:15px; border-radius:15px; border:1px solid #e2e8f0;"><span style="font-size:10px; font-weight:900; color:#64748b; display:block; text-transform:uppercase;">Nível</span><span style="font-weight:800; color:${primaryColor};">${aluno.level}</span></div>
+            <div style="flex:1; background:#f8fafc; padding:15px; border-radius:15px; border:1px solid #e2e8f0;"><span style="font-size:10px; font-weight:900; color:#64748b; display:block; text-transform:uppercase;">Peso</span><span style="font-weight:800; color:${primaryColor};">${aluno.weight || '--'}kg</span></div>
+          </div>
+          <table><tbody>${rows}</tbody></table>
+        </div>
         <div style="text-align:center; padding: 20px; font-size:12px; color: #64748b;"><strong>EVOTRAINER™</strong> - Ciência e Resultado</div>
-        <script>window.onload=()=>window.print()</script>
+        
+        <script>
+          window.onload = () => {
+            setTimeout(() => {
+              window.print();
+            }, 500);
+          }
+        </script>
       </body></html>`;
 
     const win = window.open('', '_blank');
@@ -650,7 +718,10 @@ export default function App() {
   const enviarWhatsApp = (aluno: any, treino: any) => {
     const cleanPhone = aluno.phone?.replace(/\D/g, '');
     const dataRev = calcularDataRevisao(treino.createdAt, treino.duration || '4 Semanas');
-    const msg = encodeURIComponent(`Fala ${aluno.name.split(' ')[0]}! 💪 Seu novo protocolo "${treino.title}" já está disponível no EvoTrainer.\n\n📅 Nossa próxima revisão de treino será em: *${dataRev}*.\nBora esmagar!`);
+    
+    // 3. TEXTO ADAPTADO PARA O FLUXO REAL DO WHATSAPP (com anexo manual)
+    const msg = encodeURIComponent(`Fala ${aluno.name.split(' ')[0]}! 💪 Seu novo protocolo "${treino.title}" já está disponível. \n\n📄 *Estou enviando o seu PDF logo abaixo!*\n\n📅 Nossa próxima revisão de treino será em: *${dataRev}*.\nBora esmagar!`);
+    
     window.open(`https://wa.me/55${cleanPhone}?text=${msg}`, '_blank');
   };
 
@@ -1371,7 +1442,7 @@ export default function App() {
 
       {/* NOVO MODAL: CPF E GERAR COBRANÇA */}
       {showCpfModal && (
-        <div className="fixed inset-0 bg-black/98 z-[900] flex items-center justify-center p-6 backdrop-blur-md animate-fade-in text-slate-50">
+        <div className="fixed inset-0 bg-black/900 z-[900] flex items-center justify-center p-6 backdrop-blur-md animate-fade-in text-slate-50">
           <div className="bg-slate-900 border border-slate-800 p-12 rounded-[3rem] w-full max-w-md shadow-2xl relative text-center">
             <button onClick={() => setShowCpfModal(false)} className="absolute top-8 right-8 text-slate-400 hover:text-white transition-all"><X size={24} /></button>
             <h3 className="text-2xl font-black italic uppercase tracking-tighter mb-2">Plano Pro</h3>
