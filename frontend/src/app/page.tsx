@@ -152,9 +152,10 @@ export default function App() {
   const [showEditPlanModal, setShowEditPlanModal] = useState(false);
   const [trainerSelecionado, setTrainerSelecionado] = useState<any>(null);
   
-  // ESTADOS DE EDIÇÃO DE PLANILHA
+  // ESTADOS DE EDIÇÃO DE PLANILHA E APP INSTALL
   const [showEditWorkoutModal, setShowEditWorkoutModal] = useState(false);
   const [workoutEditForm, setWorkoutEditForm] = useState<any>({ id: null, title: '', duration: '', exercises: [] });
+  const [showInstallPrompt, setShowInstallPrompt] = useState(false);
 
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [showRecoverModal, setShowRecoverModal] = useState(false);
@@ -621,13 +622,11 @@ export default function App() {
     return data.toLocaleDateString('pt-BR');
   };
 
-  // --- NOVA FUNÇÃO DE EXPORTAR PDF E FECHAR A ABA ---
   const exportarPDF = (treino: any, aluno: any) => {
     const primaryColor = "#2563eb";
     const dataCriado = new Date(treino.createdAt).toLocaleDateString('pt-BR');
     const dataRevisao = calcularDataRevisao(treino.createdAt, treino.duration || '4 Semanas');
 
-    // 1. GERA UM NOME DE ARQUIVO INTELIGENTE E SEM ESPAÇOS
     const safeAlunoName = aluno.name.trim().replace(/\s+/g, '_');
     const safeTreinoTitle = treino.title.trim().replace(/\s+/g, '_');
     const documentTitle = `EvoTrainer_${safeAlunoName}_${safeTreinoTitle}`;
@@ -637,7 +636,6 @@ export default function App() {
         ? `https://www.youtube.com/watch?v=${ex.youtubeId}`
         : `https://www.youtube.com/results?search_query=${encodeURIComponent(ex.name + ' execução biomecânica')}`;
 
-      // CSS simplificado no link para garantir que o PDF reconheça como clicável
       return `<tr style="border-bottom: 1px solid #e2e8f0;">
                 <td style="padding: 16px; font-weight: 800; color: ${primaryColor}; font-size: 18px;">${String(i + 1).padStart(2, '0')}</td>
                 <td style="padding: 16px;">
@@ -660,7 +658,6 @@ export default function App() {
           .container { max-width: 800px; margin: -20px auto 40px; background: white; border-radius: 30px; box-shadow: 0 20px 25px rgba(0,0,0,0.1); overflow: hidden; } 
           table { width: 100%; border-collapse: collapse; }
           
-          /* Esconde a barra de navegação quando for salvar o PDF de fato */
           @media print {
             .no-print { display: none !important; }
             .container { box-shadow: none; margin-top: 20px; }
@@ -719,8 +716,7 @@ export default function App() {
     const cleanPhone = aluno.phone?.replace(/\D/g, '');
     const dataRev = calcularDataRevisao(treino.createdAt, treino.duration || '4 Semanas');
     
-    // 3. TEXTO ADAPTADO PARA O FLUXO REAL DO WHATSAPP (com anexo manual)
-    const msg = encodeURIComponent(`Fala ${aluno.name.split(' ')[0]}! 💪 Seu novo protocolo "${treino.title}" já está disponível. \n\n📄 *Estou enviando o seu PDF logo abaixo!*\n\n📅 Nossa próxima revisão de treino será em: *${dataRev}*.\nBora esmagar!`);
+    const msg = encodeURIComponent(`Fala ${aluno.name.split(' ')[0]}! Seu novo protocolo "${treino.title}" ja esta disponivel.\n\nEstou enviando o seu PDF logo abaixo!\n\nNossa proxima revisao de treino sera em: ${dataRev}.\nBora esmagar!`);
     
     window.open(`https://wa.me/55${cleanPhone}?text=${msg}`, '_blank');
   };
@@ -731,6 +727,14 @@ export default function App() {
   };
 
   useEffect(() => {
+    // Verifica se está no celular e se NÃO está instalado
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone;
+    
+    if (isMobile && !isStandalone) {
+      setShowInstallPrompt(true);
+    }
+
     const t = localStorage.getItem('treino_ai_token');
     const u = localStorage.getItem('treino_ai_user');
 
@@ -981,7 +985,27 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-50 flex flex-col font-sans">
+    <div className="min-h-screen bg-slate-950 text-slate-50 flex flex-col font-sans relative">
+      {/* BARRA DE INCENTIVO PARA INSTALAR O APP */}
+      {showInstallPrompt && (
+        <div className="bg-blue-600 text-white p-4 flex flex-col md:flex-row items-center justify-between gap-3 shadow-lg z-40 relative">
+          <div className="flex items-center gap-3">
+            <div className="bg-white p-2 rounded-xl"><Dumbbell size={20} className="text-blue-600" /></div>
+            <div>
+              <p className="font-black text-sm uppercase tracking-tight">Instale o App EvoTrainer</p>
+              <p className="text-[10px] text-blue-100">Tenha acesso rápido na tela inicial do seu celular.</p>
+            </div>
+          </div>
+          <button 
+            onClick={() => alert("No Android: Clique nos 3 pontinhos do Chrome > 'Adicionar à tela inicial'.\n\nNo iPhone: Clique no ícone de Compartilhar (quadrado com setinha) > 'Adicionar à Tela de Início'.")}
+            className="bg-white text-blue-600 px-4 py-2 rounded-xl font-black text-[10px] uppercase shadow-md active:scale-95"
+          >
+            Como Instalar?
+          </button>
+          <button onClick={() => setShowInstallPrompt(false)} className="absolute top-2 right-2 text-blue-300 hover:text-white"><X size={16}/></button>
+        </div>
+      )}
+
       <header className="p-6 bg-slate-900/50 backdrop-blur-xl border-b border-slate-800 flex justify-between items-center sticky top-0 z-50">
         <h1 className="font-black text-xl italic tracking-tighter uppercase leading-none">
           EVO<span className={isMaster ? 'text-red-500' : 'text-blue-500'}>{isMaster ? 'MASTER' : 'TRAINER'}</span>
