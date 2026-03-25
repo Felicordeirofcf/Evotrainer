@@ -531,8 +531,8 @@ export default function App() {
   const addExerciseRow = () => {
     setWorkoutEditForm({
       ...workoutEditForm,
-      // 🎯 ATUALIZADO: Inclusão dos novos campos na matriz
-      exercises: [...workoutEditForm.exercises, { name: '', sets: '', reps: '', weight: '', rest: '', technical_tip: '', youtubeId: '' }]
+      // 🎯 ATUALIZADO: Inclusão do campo ficha na matriz
+      exercises: [...workoutEditForm.exercises, { ficha: '', name: '', sets: '', reps: '', weight: '', rest: '', technical_tip: '', youtubeId: '' }]
     });
   };
 
@@ -633,24 +633,50 @@ export default function App() {
     const safeTreinoTitle = treino.title.trim().replace(/\s+/g, '_');
     const documentTitle = `EvoTrainer_${safeAlunoName}_${safeTreinoTitle}`;
 
-    // 🎯 ATUALIZADO: PDF com os novos campos (reps, descanso, dica técnica)
-    const rows = treino.exercises?.map((ex: any, i: number) => {
-      const youtubeLink = ex.youtubeId
-        ? `https://www.youtube.com/watch?v=${ex.youtubeId}`
-        : `https://www.youtube.com/results?search_query=${encodeURIComponent(ex.name + ' execução biomecânica')}`;
+    // 🎯 SEPARA OS EXERCÍCIOS POR DIA/FICHA
+    const exerciciosPorFicha = treino.exercises?.reduce((acc: any, ex: any) => {
+      const fichaNome = ex.ficha || 'Treino Geral';
+      if (!acc[fichaNome]) acc[fichaNome] = [];
+      acc[fichaNome].push(ex);
+      return acc;
+    }, {});
 
-      return `<tr style="border-bottom: 1px solid #e2e8f0;">
-                <td style="padding: 16px; font-weight: 800; color: ${primaryColor}; font-size: 18px; vertical-align: top;">${String(i + 1).padStart(2, '0')}</td>
-                <td style="padding: 16px;">
-                  <div style="font-weight: 800; color: #1e293b; font-size: 16px; text-transform: uppercase;">${ex.name}</div>
-                  <div style="color: #64748b; font-size: 13px; margin-top: 4px;">Séries: <b>${ex.sets}</b> | Reps: <b>${ex.reps || '--'}</b> | Carga: <b>${ex.weight}</b> | Rest: <b>${ex.rest || '--'}</b></div>
-                  ${ex.technical_tip ? `<div style="color: #059669; font-size: 11px; margin-top: 6px; font-weight: bold; background: #d1fae5; padding: 4px 8px; border-radius: 6px; display: inline-block;">💡 DICA: ${ex.technical_tip}</div>` : ''}
-                </td>
-                <td style="padding: 16px; text-align: right; vertical-align: middle;">
-                  <a href="${youtubeLink}" target="_blank" style="background: #ff0000; color: white; padding: 10px 15px; border-radius: 8px; text-decoration: none; font-weight: 900; font-size: 10px; display: inline-block;">VÍDEO 🎬</a>
-                </td>
-              </tr>`;
-    }).join('');
+    let rows = '';
+    if (exerciciosPorFicha) {
+      Object.entries(exerciciosPorFicha).forEach(([fichaNome, exs]: [string, any]) => {
+        // CABEÇALHO DIVISOR DO DIA
+        rows += `
+          <tr style="background-color: #1e293b;">
+            <td colspan="3" style="padding: 12px 20px; color: #ffffff; font-weight: 900; font-size: 13px; text-transform: uppercase; letter-spacing: 2px; border-top: 4px solid #fff;">
+              🏋️ ${fichaNome}
+            </td>
+          </tr>
+        `;
+
+        // LINHAS DOS EXERCÍCIOS DAQUELE DIA
+        exs.forEach((ex: any, i: number) => {
+          // OTIMIZAÇÃO DE BUSCA NO YOUTUBE
+          const searchQ = encodeURIComponent(ex.name + ' execução correta biomecânica');
+          const youtubeLink = ex.youtubeId
+            ? `https://www.youtube.com/watch?v=${ex.youtubeId}`
+            : `https://www.youtube.com/results?search_query=${searchQ}`;
+
+          rows += `
+            <tr style="border-bottom: 1px solid #e2e8f0; background-color: #ffffff;">
+              <td style="padding: 16px; font-weight: 900; color: ${primaryColor}; font-size: 16px; vertical-align: top; width: 40px; text-align: center;">${String(i + 1).padStart(2, '0')}</td>
+              <td style="padding: 16px;">
+                <div style="font-weight: 900; color: #0f172a; font-size: 15px; text-transform: uppercase;">${ex.name}</div>
+                <div style="color: #475569; font-size: 12px; margin-top: 4px; font-weight: 600;">Séries: <span style="color:#0f172a">${ex.sets}</span> | Reps: <span style="color:#0f172a">${ex.reps || '--'}</span> | Carga: <span style="color:#0f172a">${ex.weight}</span> | Rest: <span style="color:#0f172a">${ex.rest || '--'}</span></div>
+                ${ex.technical_tip ? `<div style="color: #059669; font-size: 11px; margin-top: 6px; font-weight: 800; background: #d1fae5; padding: 6px 10px; border-radius: 6px; display: inline-block;">💡 DICA: ${ex.technical_tip}</div>` : ''}
+              </td>
+              <td style="padding: 16px; text-align: right; vertical-align: middle; width: 90px;">
+                <a href="${youtubeLink}" target="_blank" style="background: #ef4444; color: white; padding: 8px 12px; border-radius: 8px; text-decoration: none; font-weight: 900; font-size: 10px; display: inline-block; text-transform: uppercase;">VÍDEO 🎬</a>
+              </td>
+            </tr>
+          `;
+        });
+      });
+    }
 
     const html = `<html>
       <head>
@@ -1152,7 +1178,6 @@ export default function App() {
 
               <div className="space-y-4">
                 <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest ml-4">5. Comando da Periodização</label>
-                {/* 🎯 ATUALIZADO: Placeholder dinâmico e focado */}
                 <textarea disabled={iaOffline} id="comandoIA" placeholder="Ex: Focar no fortalecimento de core e glúteos devido à dor lombar, evitar saltos. Priorizar mobilidade no final do treino." className="w-full p-8 bg-slate-950 border-2 border-slate-800 rounded-[3rem] text-white font-medium text-lg min-h-[200px] outline-none shadow-inner" />
               </div>
 
@@ -1339,7 +1364,7 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL: INCLUIR / EDITAR ALUNO (ATUALIZADO) */}
+      {/* MODAL: INCLUIR / EDITAR ALUNO */}
       {(showAddAlunoModal || showEditAlunoModal) && !isMaster && (
         <div className="fixed inset-0 bg-black/98 z-[600] flex items-center justify-center p-6 backdrop-blur-md animate-fade-in text-slate-50">
           <div className="bg-slate-900 border border-slate-800 p-10 rounded-[4rem] w-full max-w-3xl max-h-[90vh] overflow-y-auto custom-scrollbar shadow-2xl relative">
@@ -1361,7 +1386,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* 🎯 ATUALIZADO: Nova linha com Idade e Objetivo */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4 mb-2 block">Idade</label>
@@ -1529,7 +1553,7 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL: EDITAR PLANILHA MANUAL (ATUALIZADO PARA SUPORTAR A ENGINE ELITE) */}
+      {/* MODAL: EDITAR PLANILHA MANUAL */}
       {showEditWorkoutModal && (
         <div className="fixed inset-0 bg-black/98 z-[700] flex items-center justify-center p-6 backdrop-blur-md animate-fade-in text-slate-50">
           <div className="bg-slate-900 border border-slate-800 p-8 md:p-12 rounded-[4rem] w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl relative">
@@ -1561,11 +1585,14 @@ export default function App() {
                   </button>
                 </div>
 
-                {/* 🎯 ATUALIZADO: Renderizando os novos campos Reps, Rest e Technical Tip */}
                 {workoutEditForm.exercises.map((ex: any, idx: number) => (
-                  <div key={idx} className="bg-slate-950 p-4 rounded-3xl border border-slate-800 flex flex-col gap-3 animate-slide-up">
+                  <div key={idx} className="bg-slate-950 p-4 rounded-3xl border border-slate-800 flex flex-col gap-3 animate-slide-up relative">
                     <div className="flex flex-wrap md:flex-nowrap items-end gap-3">
-                      <div className="flex-1 min-w-[150px]">
+                      <div className="w-24">
+                        <label className="text-[9px] font-black text-slate-600 uppercase mb-1 block">Ficha/Dia</label>
+                        <input className="w-full p-3 bg-slate-900 border border-slate-800 rounded-xl text-white text-sm outline-none" placeholder="Ex: Treino A" value={ex.ficha || ''} onChange={e => handleExerciseChange(idx, 'ficha', e.target.value)} />
+                      </div>
+                      <div className="flex-1 min-w-[120px]">
                         <label className="text-[9px] font-black text-slate-600 uppercase mb-1 block">Exercício</label>
                         <input className="w-full p-3 bg-slate-900 border border-slate-800 rounded-xl text-white text-sm outline-none" value={ex.name || ''} onChange={e => handleExerciseChange(idx, 'name', e.target.value)} />
                       </div>

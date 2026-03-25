@@ -398,63 +398,39 @@ app.post('/api/ai/gerar-autonomo', authenticateToken, isAdminOrMaster, async (re
     if (!aluno) return res.status(404).json({ error: 'Aluno não encontrado.' });
 
     // 🔥 PROMPT SUPER PROFISSIONAL OMNIFORMA ELITE 🔥
-    const systemPrompt = `### ROLE E DIRETRIZ MASTER
-Você é o EvoIntelligence™ Core, um sistema de inteligência artificial de elite especializado em Fisiologia do Exercício, Gerontologia, Reabilitação e Alto Rendimento. 
-Sua missão é criar uma periodização absolutamente segura, empática e cientificamente embasada para o aluno descrito, adaptando a complexidade, o volume e a nomenclatura ao perfil exato dele.
+    const systemPrompt = `Vocę é o EvoIntelligence™ Core, Diretor Técnico de Alto Rendimento. Sua missāo é gerar UM ÚNICO PROTOCOLO DE TREINO COMPLETO (planilha única) contendo todos os dias de treino da semana.
 
-### 👤 PERFIL BIOMÉTRICO DO ALUNO
-- Nome: ${aluno.name}
-- Idade: ${aluno.age || 'Não informada'}
-- Objetivo Principal: ${aluno.goal || 'Saúde e Condicionamento'}
-- Nível de Experiência: ${aluno.level}
-- Fase/Ciclo de Treino: ${ciclo}
-- Frequência Semanal: ${frequencia} dias
-- Prontuário Médico/Anamnese: ${aluno.anamnese || 'Nenhuma restrição relatada.'}
+👤 ALUNO: ${aluno.name} | Idade: ${aluno.age || 'N/A'} | Objetivo: ${aluno.goal || 'Saúde'} | Nível: ${aluno.level} | Frequência: ${frequencia} dias | Fase: ${ciclo}
+Prontuário/Restrições: ${aluno.anamnese || 'Nenhuma'}
 
-### 🧠 MOTOR DE ADAPTAÇÃO DINÂMICA (REGRA DE OURO)
-Antes de gerar o treino, classifique mentalmente o aluno em um destes 3 arquétipos e aplique as regras correspondentes:
+### ⚠️ REGRA DE VOLUME (ANTI-PREGUIÇA)
+Você DEVE prescrever entre 6 e 9 exercícios para CADA DIA de treino. Se a frequência for de ${frequencia} dias, o total de exercícios no JSON deve ser de aproximadamente ${frequencia * 7} exercícios. Não resuma.
 
-1. ARQUÉTIPO CLÍNICO/SÊNIOR (Idosos, Iniciantes Absolutos, Gestantes ou Pessoas com Lesões Graves):
-   - Foco: Funcionalidade, mobilidade, Atividades de Vida Diária (AVDs) e segurança articular.
-   - Vocabulário: Acolhedor e simples. Não use jargões complexos.
-   - Variável de Intensidade: Use a Escala de Borg (RPE 0-10) com descrições claras (ex: "Esforço leve", "Cansaço moderado").
-   - Seleção: Priorize máquinas seguras, isometria, elásticos e peso corporal apoiado. PROIBIDO exercícios de alto impacto ou compressão axial extrema.
+### 🎥 NOMENCLATURA SEO PARA YOUTUBE (OBRIGATÓRIO)
+NUNCA use gírias (ex: "Puxador", "Voador", "Posterior de coxa").
+Você deve EXCLUSIVAMENTE usar os nomes biomecânicos oficiais em Português do Brasil para garantir resultados exatos no YouTube.
+EXEMPLOS CORRETOS: "Puxada Frontal na Polia Alta", "Crucifixo Invertido na Máquina", "Cadeira Flexora", "Agachamento Livre com Barra".
 
-2. ARQUÉTIPO FITNESS/ESTÉTICA (Intermediários, Emagrecimento, Hipertrofia Padrão):
-   - Foco: Composição corporal, progressão de carga e volume adequado.
-   - Vocabulário: Motivador e instrutivo.
-   - Variável de Intensidade: Misture RPE com faixas de repetições claras (ex: "Moderado a Difícil - 3x 10 a 12").
-
-3. ARQUÉTIPO ALTO RENDIMENTO (Avançados, Atletas, Força Máxima):
-   - Foco: Sobrecarga progressiva, tempo sob tensão, controle de fadiga periférica.
-   - Vocabulário: Estritamente técnico.
-   - Variável de Intensidade: Exija RIR (Repetições em Reserva) e, se aplicável, cadência de execução.
-
-### 🛠 DIRETRIZES DE PRESCRIÇÃO
-- O treino DEVE conter exatamente ${frequencia} fichas bem distribuídas.
-- O volume e a escolha de exercícios DEVEM respeitar o nível "${aluno.level}" e a anamnese.
-- Adapte o tempo de descanso (rest). Idosos e iniciantes precisam de mais tempo de recuperação entre séries.
-
-### 📦 FORMATO DE SAÍDA EXIGIDO (JSON STRICT)
-Retorne APENAS um objeto JSON válido, seguindo o contrato abaixo. O campo "technical_tip" deve falar DIRETAMENTE com o aluno, no tom correto para o arquétipo dele.
-
+### 📦 FORMATO JSON (RETORNE APENAS O JSON)
 {
-  "planilha": [
-    {
-      "title": "Ficha [LETRA] - [Foco da Sessão] (Fase: ${ciclo})",
-      "exercises": [
-        {
-          "name": "Nome Claro do Exercício",
-          "sets": "Número de Séries",
-          "reps": "Faixa de Repetições ou Tempo",
-          "weight_or_intensity": "Intensidade adaptada (Borg, RIR ou Descrição de Carga)",
-          "rest": "Descanso em segundos/minutos",
-          "technical_tip": "Dica de ouro focada em segurança ou postura para este perfil",
-          "youtubeId": ""
-        }
-      ]
-    }
-  ]
+  "protocolo": {
+    "title": "Protocolo Elite - Fase: ${ciclo}",
+    "dias": [
+      {
+        "nome_dia": "Treino A - Dorsal e Bíceps",
+        "exercicios": [
+          {
+            "name": "Nomenclatura Técnica e Correta (SEO)",
+            "sets": "Séries",
+            "reps": "Repetições",
+            "weight_or_intensity": "Carga ou RIR/Borg",
+            "rest": "Descanso",
+            "technical_tip": "Dica avançada e segura focada na biomecânica e nas restrições"
+          }
+        ]
+      }
+    ]
+  }
 }`;
 
     const aiRes = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -466,7 +442,8 @@ Retorne APENAS um objeto JSON válido, seguindo o contrato abaixo. O campo "tech
           { role: 'system', content: systemPrompt }, 
           { role: 'user', content: comandoPersonal }
         ], 
-        response_format: { type: 'json_object' } 
+        response_format: { type: 'json_object' },
+        temperature: 0.6
       }),
     });
 
@@ -477,34 +454,42 @@ Retorne APENAS um objeto JSON válido, seguindo o contrato abaixo. O campo "tech
     if (!rawContent) return res.status(500).json({ error: 'Resposta inválida da Engine IA.' });
 
     const result = JSON.parse(rawContent);
-    if (!Array.isArray(result.planilha)) return res.status(500).json({ error: 'Formato inválido retornado pela IA.' });
 
-    // 🔥 MAPEMENTO ATUALIZADO PARA O NOVO MODELO 🔥
-    const treinosSalvos = [];
-    for (const ficha of result.planilha) {
-      const novoTreino = await prisma.workoutTemplate.create({
-        data: { 
-          title: ficha.title, 
-          userId: aluno.id, 
-          duration: `${semanas} Semanas`, 
-          exercises: { 
-            create: Array.isArray(ficha.exercises) ? ficha.exercises.map(ex => ({
+    // Achatar (Flatten) todos os dias em uma única Array de Exercícios
+    const todosExercicios = [];
+    if (result.protocolo?.dias) {
+      result.protocolo.dias.forEach(dia => {
+        if (dia.exercicios) {
+          dia.exercicios.forEach(ex => {
+            todosExercicios.push({
+              ficha: dia.nome_dia || 'Geral', // Salva a qual dia ele pertence
               name: ex.name,
               sets: String(ex.sets || ''),
               reps: String(ex.reps || ''),
               weight: String(ex.weight_or_intensity || ex.weight || ''), 
               rest: String(ex.rest || ''),
-              technical_tip: String(ex.technical_tip || ''),
-              youtubeId: ex.youtubeId || null
-            })) : [] 
-          } 
-        },
+              technical_tip: String(ex.technical_tip || '')
+            });
+          });
+        }
       });
-      treinosSalvos.push(novoTreino);
     }
 
+    if (todosExercicios.length === 0) return res.status(500).json({ error: 'Erro de parse da IA.' });
+
+    // Cria UMA planilha e insere todos os exercícios
+    const novoTreino = await prisma.workoutTemplate.create({
+      data: { 
+        title: result.protocolo.title || `Protocolo Completo`, 
+        userId: aluno.id, 
+        duration: `${semanas} Semanas`, 
+        exercises: { create: todosExercicios } 
+      },
+      include: { exercises: true }
+    });
+
     await prisma.user.update({ where: { id: req.user.id }, data: { iaUsadaMes: { increment: 1 } } });
-    res.json({ message: 'Periodização salva!', treinos: treinosSalvos });
+    res.json({ message: 'Periodização salva!', treinos: [novoTreino] });
   } catch (e) { 
     console.error('🔥 Erro na Engine:', e);
     res.status(500).json({ error: 'Falha na Engine IA.' }); 
@@ -520,7 +505,6 @@ app.delete('/api/treinos/:id', authenticateToken, isAdminOrMaster, async (req, r
 
 // --- GESTÃO DE ALUNOS ---
 app.post('/api/alunos', authenticateToken, isAdminOrMaster, async (req, res) => {
-  // 🔥 ADICIONADO AGE E GOAL PARA PREPARAR O BACKEND PARA O NOVO FRONTEND
   const { name, email, phone, age, goal, weight, height, level, anamnese, price } = req.body;
   try {
     const emailNormalizado = normalizeEmail(email);
@@ -669,10 +653,11 @@ app.put('/api/treinos/:id', authenticateToken, async (req, res) => {
       data: {
         title,
         duration,
-        // 🔥 MAPEAMENTO ATUALIZADO PARA SUPORTAR EDIÇÃO DOS NOVOS CAMPOS 🔥
+        // 🔥 MAPEAMENTO ATUALIZADO PARA SUPORTAR A EDIÇÃO DO CAMPO FICHA 🔥
         exercises: {
           deleteMany: {}, 
           create: exercises.map(ex => ({
+            ficha: ex.ficha || 'Treino Geral',
             name: ex.name,
             sets: ex.sets || '',
             reps: ex.reps || '',

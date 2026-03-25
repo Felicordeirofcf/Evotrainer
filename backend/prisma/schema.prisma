@@ -1,4 +1,4 @@
-// Configuração para PostgreSQL (Neon)
+// Configuração para PostgreSQL
 generator client {
   provider = "prisma-client-js"
 }
@@ -9,53 +9,42 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-// ==========================================
-// MODELO DE USUÁRIO (Hiearquia SaaS)
-// ==========================================
 model User {
   id           Int       @id @default(autoincrement())
   name         String
   email        String    @unique
   password     String    @default("")
   
-  // Níveis: SUPERADMIN (Dono), ADMIN (Personal), STUDENT (Aluno)
   role         String    @default("STUDENT") 
-  status       String    @default("Ativo") // Ativo, Bloqueado, Inadimplente
+  status       String    @default("Ativo") 
   
-  // Dados Biométricos (Contexto para EvoIntelligence™)
   phone        String?
   age          String?
   weight       String?
   height       String?
-  goal         String?   @default("Hipertrofia")
+  goal         String?   @default("Saúde e Condicionamento")
   level        String?   @default("Intermediário") 
   
-  // Prontuário Técnico
   anamnese     String?   @db.Text 
-  restricoes   String?   @db.Text // Ex: "Hérnia L4-L5, Condromalácia"
-  
+  restricoes   String?   @db.Text 
   notes        String?   @db.Text
   avatar       String?   @db.Text
   streak       Int       @default(0)
   
-  // Segurança
   resetToken   String?
   resetExpires DateTime?
 
-  // Lógica de Assinatura e Financeiro (SaaS)
-  plano          String    @default("GRATIS") // GRATIS, START, PRO, ELITE
+  plano          String    @default("GRATIS")
   planExpiresAt  DateTime? 
   iaUsadaMes     Int       @default(0)
-  price          String?   // NOVO: Valor cobrado daquele aluno específico (Gestão Financeira)
+  price          String?   
   
-  // White Label (Exclusivo ELITE)
   brandName    String?
   brandColor   String?   @default("#2563eb")
   brandLogo    String?   @db.Text
 
-  // Relacionamentos (Auto-relacionamento para hiearquia)
   trainerId    Int?
-  trainer      User?     @relation("TrainerToStudent", fields: [trainerId], references: [id])
+  trainer      User?     @relation("TrainerToStudent", fields: [trainerId], references: [id], onDelete: SetNull)
   alunos       User[]    @relation("TrainerToStudent")
 
   createdAt    DateTime  @default(now())
@@ -64,18 +53,15 @@ model User {
   history      WorkoutHistory[]
   workouts     WorkoutTemplate[]
 
-  @@index([trainerId]) // Otimiza a busca de alunos por personal
-  @@index([email])     // Otimiza o login
+  @@index([trainerId])
+  @@index([email])    
 }
 
-// ==========================================
-// MODELO DE FICHA DE TREINO
-// ==========================================
 model WorkoutTemplate {
   id          Int        @id @default(autoincrement())
   title       String     
-  duration    String?    @default("60 min")
-  dayOfWeek   String?    @default("Segunda")
+  duration    String?    @default("4 Semanas")
+  dayOfWeek   String?    @default("Geral")
   pdfUrl      String?    @db.Text 
   
   userId      Int?       
@@ -85,25 +71,20 @@ model WorkoutTemplate {
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 
-  @@index([userId]) // Otimiza a abertura do app do aluno
+  @@index([userId])
 }
 
-// ==========================================
-// MODELO DE EXERCÍCIO
-// ==========================================
 model Exercise {
   id            Int             @id @default(autoincrement())
+  ficha         String?         @default("Treino Diário") // Separa o dia no PDF
   name          String
   sets          String          
-  weight        String?         // Ajustado para opcional para blindar contra falhas da IA
-  youtubeId     String?
-  
-  // 🔥 CAMPOS NOVOS PARA A IA DE ELITE 🔥
   reps          String?
+  weight        String?         
   rest          String?
   technical_tip String?         @db.Text
+  youtubeId     String?
   
-  // Lógica de Bi-set / Tri-set
   isConjugado   Boolean         @default(false)
   conjugadoCom  String?         
   
@@ -113,33 +94,23 @@ model Exercise {
   @@index([workoutId])
 }
 
-// ==========================================
-// HISTÓRICO E MÉTRICAS DE ADESÃO
-// ==========================================
 model WorkoutHistory {
   id          Int      @id @default(autoincrement())
   userId      Int
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
   workoutName String
   rating      Int?     
   comment     String?  @db.Text
-  
   completedAt DateTime @default(now())
 
   @@index([userId])
 }
 
-// ==========================================
-// PAINEL DE CONTROLE GLOBAL (SUPERADMIN)
-// ==========================================
 model SystemConfig {
   id           Int      @id @default(1)
   maintenance  Boolean  @default(false) 
   promoActive  Boolean  @default(false)
   promoTitle   String?  @default("🔥 OFERTA DE LANÇAMENTO 🔥")
-  
-  // Gestão de Preços SaaS
   startPrice   String   @default("30")
   proPrice     String   @default("60")
   elitePrice   String   @default("100")
