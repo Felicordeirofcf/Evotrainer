@@ -397,14 +397,18 @@ app.post('/api/ai/gerar-autonomo', authenticateToken, isAdminOrMaster, async (re
     const aluno = await prisma.user.findUnique({ where: { id: parseInt(alunoId, 10) } });
     if (!aluno) return res.status(404).json({ error: 'Aluno não encontrado.' });
 
-    // 🔥 PROMPT SUPER PROFISSIONAL OMNIFORMA ELITE 🔥
+    // 🔥 PROMPT SUPER PROFISSIONAL OMNIFORMA ELITE COM DIRETRIZ DE GÊNERO 🔥
     const systemPrompt = `Vocę é o EvoIntelligence™ Core, Diretor Técnico de Alto Rendimento. Sua missāo é gerar UM ÚNICO PROTOCOLO DE TREINO COMPLETO (planilha única) contendo todos os dias de treino da semana.
 
-👤 ALUNO: ${aluno.name} | Idade: ${aluno.age || 'N/A'} | Objetivo: ${aluno.goal || 'Saúde'} | Nível: ${aluno.level} | Frequência: ${frequencia} dias | Fase: ${ciclo}
+👤 ALUNO: ${aluno.name} | Sexo: ${aluno.gender || 'Não informado'} | Idade: ${aluno.age || 'N/A'} | Objetivo: ${aluno.goal || 'Saúde'} | Nível: ${aluno.level} | Frequência: ${frequencia} dias | Fase: ${ciclo}
 Prontuário/Restrições: ${aluno.anamnese || 'Nenhuma'}
 
+### 🧬 DIRETRIZES DE GÊNERO E BIOMECÂNICA (MUITO IMPORTANTE)
+- Se o sexo for FEMININO (ou o nome indicar feminino): Exceto se o comando do Personal pedir o contrário, a divisão de treino DEVE ter ênfase clara em Membros Inferiores (foco absoluto em Glúteos, Posteriores e Quadríceps). O volume de Membros Superiores deve ser focado em tonificação e postura, sem exageros em peito ou braços pesados.
+- Se o sexo for MASCULINO: Distribuição clássica focada em hipertrofia global, com ênfase em Membros Superiores (Peitoral, Dorsal, Ombros, Braços) e volume proporcional e pesado de pernas.
+
 ### ⚠️ REGRA DE VOLUME (ANTI-PREGUIÇA)
-Você DEVE prescrever entre 6 e 9 exercícios para CADA DIA de treino. Se a frequência for de ${frequencia} dias, o total de exercícios no JSON deve ser de aproximadamente ${frequencia * 7} exercícios. Não resuma.
+Você DEVE prescrever entre 6 e 9 exercícios para CADA DIA de treino. Se a frequência for de ${frequencia} dias, o total de exercícios no JSON deve ser de aproximadamente ${frequencia * 7} exercícios. Não resuma e não entregue menos que isso.
 
 ### 🎥 NOMENCLATURA SEO PARA YOUTUBE (OBRIGATÓRIO)
 NUNCA use gírias (ex: "Puxador", "Voador", "Posterior de coxa").
@@ -505,7 +509,7 @@ app.delete('/api/treinos/:id', authenticateToken, isAdminOrMaster, async (req, r
 
 // --- GESTÃO DE ALUNOS ---
 app.post('/api/alunos', authenticateToken, isAdminOrMaster, async (req, res) => {
-  const { name, email, phone, age, goal, weight, height, level, anamnese, price } = req.body;
+  const { name, email, phone, age, gender, goal, weight, height, level, anamnese, price } = req.body;
   try {
     const emailNormalizado = normalizeEmail(email);
     const emailExists = await prisma.user.findFirst({ where: { email: { equals: emailNormalizado, mode: 'insensitive' } } });
@@ -518,6 +522,7 @@ app.post('/api/alunos', authenticateToken, isAdminOrMaster, async (req, res) => 
         email: emailNormalizado, 
         phone: String(phone || '').trim(), 
         age: age ? String(age) : null,
+        gender: gender || null,
         goal: goal || null,
         weight, 
         height, 
@@ -653,7 +658,6 @@ app.put('/api/treinos/:id', authenticateToken, async (req, res) => {
       data: {
         title,
         duration,
-        // 🔥 MAPEAMENTO ATUALIZADO PARA SUPORTAR A EDIÇÃO DO CAMPO FICHA 🔥
         exercises: {
           deleteMany: {}, 
           create: exercises.map(ex => ({

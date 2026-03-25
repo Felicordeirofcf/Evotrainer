@@ -20,6 +20,7 @@ model User {
   
   phone        String?
   age          String?
+  gender       String?   @default("Não informado") // <-- NOVO CAMPO: Sexo/Gênero para a IA
   weight       String?
   height       String?
   goal         String?   @default("Saúde e Condicionamento")

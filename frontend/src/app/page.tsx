@@ -171,8 +171,8 @@ export default function App() {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // 🎯 ATUALIZADO: Estado com Age e Goal
-  const [formAluno, setFormAluno] = useState({ name: '', email: '', phone: '', age: '', goal: 'Saúde e Condicionamento', weight: '', height: '', level: 'Intermediário', anamnese: '', price: '' });
+  // 🎯 ATUALIZADO: Estado com Age e Goal + Gender
+  const [formAluno, setFormAluno] = useState({ name: '', email: '', phone: '', age: '', gender: 'Feminino', goal: 'Saúde e Condicionamento', weight: '', height: '', level: 'Intermediário', anamnese: '', price: '' });
   const [formTrainer, setFormTrainer] = useState({ name: '', email: '', phone: '', plano: '' });
   const [formReg, setFormReg] = useState({ name: '', email: '', phone: '', password: '' });
   const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '' });
@@ -531,7 +531,6 @@ export default function App() {
   const addExerciseRow = () => {
     setWorkoutEditForm({
       ...workoutEditForm,
-      // 🎯 ATUALIZADO: Inclusão do campo ficha na matriz
       exercises: [...workoutEditForm.exercises, { ficha: '', name: '', sets: '', reps: '', weight: '', rest: '', technical_tip: '', youtubeId: '' }]
     });
   };
@@ -712,7 +711,7 @@ export default function App() {
             <div style="text-align:right;">
               <div style="font-weight:900; font-size:20px;">${aluno.name.toUpperCase()}</div>
               <div style="font-size:12px;">Ficha: ${treino.title}</div>
-              <div style="font-size:12px; margin-top:4px;">Objetivo: ${aluno.goal || 'Saúde'}</div>
+              <div style="font-size:12px; margin-top:4px;">${aluno.gender || 'Sexo M/F'} | ${aluno.goal || 'Saúde'}</div>
             </div>
           </div>
         </div>
@@ -1076,7 +1075,7 @@ export default function App() {
               {!isMaster && (
                 <button
                   onClick={() => {
-                    setFormAluno({ name: '', email: '', phone: '', age: '', goal: 'Saúde e Condicionamento', weight: '', height: '', level: 'Intermediário', anamnese: '', price: '' });
+                    setFormAluno({ name: '', email: '', phone: '', age: '', gender: 'Feminino', goal: 'Saúde e Condicionamento', weight: '', height: '', level: 'Intermediário', anamnese: '', price: '' });
                     setShowAddAlunoModal(true);
                   }}
                   className="bg-blue-600 px-8 py-5 rounded-2xl font-black text-[10px] uppercase shadow-lg active:scale-95 transition-all"
@@ -1108,6 +1107,9 @@ export default function App() {
                           <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Alunos: {item._count?.alunos || 0}</p>
                         </div>
                       )}
+                      {!isMaster && (
+                        <p className="text-xs text-slate-500 mt-1">{item.gender || 'Não informado'} | {item.goal}</p>
+                      )}
                     </div>
                   </div>
 
@@ -1121,7 +1123,7 @@ export default function App() {
                     ) : (
                       <>
                         <button onClick={() => { setAlunoSelecionado(item); setShowGerenciarTreinosModal(true); }} className="flex-1 bg-blue-600 text-white p-5 rounded-2xl font-black text-[10px] uppercase shadow-xl active:scale-95 hover:bg-blue-500 transition-all">Gerenciar Treino</button>
-                        <button onClick={() => { setAlunoSelecionado(item); setFormAluno({ name: item.name, email: item.email, phone: item.phone || '', age: item.age || '', goal: item.goal || 'Saúde e Condicionamento', weight: item.weight || '', height: item.height || '', level: item.level || 'Intermediário', anamnese: item.anamnese || '', price: item.price || '' }); setShowEditAlunoModal(true); }} className="p-5 bg-blue-600/10 text-blue-500 rounded-2xl shadow-xl hover:bg-blue-600 hover:text-white transition-all"><Edit2 size={22} /></button>
+                        <button onClick={() => { setAlunoSelecionado(item); setFormAluno({ name: item.name, email: item.email, phone: item.phone || '', age: item.age || '', gender: item.gender || 'Feminino', goal: item.goal || 'Saúde e Condicionamento', weight: item.weight || '', height: item.height || '', level: item.level || 'Intermediário', anamnese: item.anamnese || '', price: item.price || '' }); setShowEditAlunoModal(true); }} className="p-5 bg-blue-600/10 text-blue-500 rounded-2xl shadow-xl hover:bg-blue-600 hover:text-white transition-all"><Edit2 size={22} /></button>
                         <button onClick={() => deleteAluno(item.id)} className="p-5 bg-red-600/10 text-red-500 rounded-2xl shadow-xl hover:bg-red-600 hover:text-white transition-all"><Trash2 size={22} /></button>
                       </>
                     )}
@@ -1146,7 +1148,7 @@ export default function App() {
                   <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest ml-4">1. Selecionar Aluno</label>
                   <select disabled={iaOffline} value={iaAlunoId} onChange={e => setIaAlunoId(e.target.value)} className="w-full p-8 bg-slate-950 border-2 border-slate-800 rounded-[2rem] text-white font-black text-xl outline-none focus:border-blue-500 cursor-pointer appearance-none">
                     <option value="">Acessar lista...</option>
-                    {alunos.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                    {alunos.map(a => <option key={a.id} value={a.id}>{a.name} ({a.gender || 'Não informado'})</option>)}
                   </select>
                 </div>
 
@@ -1386,10 +1388,18 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
                   <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4 mb-2 block">Idade</label>
                   <input type="number" placeholder="Ex: 35" className="w-full p-6 rounded-3xl bg-slate-950 border border-slate-800 text-white font-bold outline-none focus:border-blue-500" value={formAluno.age} onChange={e => setFormAluno({ ...formAluno, age: e.target.value })} />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4 mb-2 block">Sexo</label>
+                  <select className="w-full p-6 rounded-3xl bg-slate-950 border border-slate-800 text-white font-black outline-none focus:border-blue-500 appearance-none cursor-pointer" value={formAluno.gender} onChange={e => setFormAluno({ ...formAluno, gender: e.target.value })}>
+                    <option value="Feminino">Feminino</option>
+                    <option value="Masculino">Masculino</option>
+                  </select>
                 </div>
 
                 <div>
@@ -1399,7 +1409,7 @@ export default function App() {
                     <option value="Emagrecimento">Emagrecimento</option>
                     <option value="Hipertrofia">Hipertrofia</option>
                     <option value="Força/Performance">Força/Performance</option>
-                    <option value="Reabilitação">Reabilitaçao</option>
+                    <option value="Reabilitação">Reabilitação</option>
                   </select>
                 </div>
               </div>
