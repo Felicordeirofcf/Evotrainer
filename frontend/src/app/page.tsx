@@ -1375,7 +1375,7 @@ export default function App() {
                     <option value="Emagrecimento">Emagrecimento</option>
                     <option value="Hipertrofia">Hipertrofia</option>
                     <option value="Força/Performance">Força/Performance</option>
-                    <option value="Reabilitação">Reabilitação</option>
+                    <option value="Reabilitação">Reabilitaçao</option>
                   </select>
                 </div>
               </div>
