@@ -92,18 +92,23 @@ model WorkoutTemplate {
 // MODELO DE EXERCÍCIO
 // ==========================================
 model Exercise {
-  id           Int             @id @default(autoincrement())
-  name         String
-  sets         String          
-  weight       String          
-  youtubeId    String?
+  id            Int             @id @default(autoincrement())
+  name          String
+  sets          String          
+  weight        String?         // Ajustado para opcional para blindar contra falhas da IA
+  youtubeId     String?
+  
+  // 🔥 CAMPOS NOVOS PARA A IA DE ELITE 🔥
+  reps          String?
+  rest          String?
+  technical_tip String?         @db.Text
   
   // Lógica de Bi-set / Tri-set
-  isConjugado  Boolean         @default(false)
-  conjugadoCom String?         
+  isConjugado   Boolean         @default(false)
+  conjugadoCom  String?         
   
-  workoutId    Int
-  workout      WorkoutTemplate @relation(fields: [workoutId], references: [id], onDelete: Cascade)
+  workoutId     Int
+  workout       WorkoutTemplate @relation(fields: [workoutId], references: [id], onDelete: Cascade)
 
   @@index([workoutId])
 }
@@ -112,15 +117,15 @@ model Exercise {
 // HISTÓRICO E MÉTRICAS DE ADESÃO
 // ==========================================
 model WorkoutHistory {
-  id           Int      @id @default(autoincrement())
-  userId       Int
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   
-  workoutName  String
-  rating       Int?     
-  comment      String?  @db.Text
+  workoutName String
+  rating      Int?     
+  comment     String?  @db.Text
   
-  completedAt  DateTime @default(now())
+  completedAt DateTime @default(now())
 
   @@index([userId])
 }
