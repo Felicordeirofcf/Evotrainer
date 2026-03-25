@@ -3,7 +3,7 @@ const cors = require('cors');
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const nodemailer = require('nodemailer'); // <-- ADICIONADO AQUI
+const nodemailer = require('nodemailer');
 
 const prisma = new PrismaClient();
 const app = express();
@@ -173,7 +173,6 @@ app.post(['/api/webhook/asaas', '/api/webhooks/asaas'], async (req, res) => {
     let payload = req.body;
     console.log("📥 [ASAAS RAW] Payload recebido. Desempacotando...");
 
-    // Se o Asaas mandou o objeto seguro envelopado no "data"
     if (payload && payload.data && typeof payload.data === 'string') {
       console.log("🔓 [ASAAS] Envelope seguro detectado (token). Abrindo...");
       try {
@@ -183,12 +182,10 @@ app.post(['/api/webhook/asaas', '/api/webhooks/asaas'], async (req, res) => {
       }
     }
 
-    // Se veio como string pura
     if (typeof payload === 'string') {
       try { payload = JSON.parse(payload); } catch (e) {}
     }
 
-    // Se o Asaas mandou URL Encoded que virou uma chave gigante
     if (payload && typeof payload === 'object' && !payload.event && Object.keys(payload).length > 0) {
       const keys = Object.keys(payload);
       if (keys.length === 1 && keys[0].includes('"event"')) {
@@ -292,7 +289,6 @@ app.post('/api/asaas/criar-cobranca', authenticateToken, async (req, res) => {
   }
 });
 
-// --- ROTA STATUS DO PAGAMENTO ---
 app.get('/api/asaas/status-pagamento/:paymentId', authenticateToken, async (req, res) => {
   try {
     const paymentId = req.params.paymentId;
@@ -312,7 +308,6 @@ app.get('/api/asaas/status-pagamento/:paymentId', authenticateToken, async (req,
   }
 });
 
-// --- DADOS DO USUÁRIO EM TEMPO REAL ---
 app.get('/api/me', authenticateToken, async (req, res) => {
   try {
     const user = await prisma.user.findUnique({
@@ -324,7 +319,6 @@ app.get('/api/me', authenticateToken, async (req, res) => {
   } catch (e) { res.status(500).json({ error: 'Erro ao buscar dados.' }); }
 });
 
-// --- ROTA PÚBLICA DE REGISTRO E E-MAIL ---
 app.post('/api/register', async (req, res) => {
   const { name, email, phone, password } = req.body;
   try {
@@ -341,15 +335,14 @@ app.post('/api/register', async (req, res) => {
       data: { name, email: emailNormalizado, phone: phoneNormalizado, password: hashedPassword, role: 'ADMIN', status: 'Ativo', plano: 'GRATIS' },
     });
 
-    // --- DISPARO DE E-MAIL DE BOAS-VINDAS ---
     try {
       const transporter = nodemailer.createTransport({
         host: process.env.SMTP_HOST || 'smtp.hostinger.com',
         port: process.env.SMTP_PORT || 465,
         secure: true, 
         auth: {
-          user: process.env.SMTP_USER, // adminevotrainer@evotrainer.com.br
-          pass: process.env.SMTP_PASS, // A senha do email
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASS,
         },
       });
 
@@ -365,15 +358,12 @@ app.post('/api/register', async (req, res) => {
               <h2 style="color: #2563eb; font-style: italic; font-weight: 900; margin: 0; font-size: 28px; text-transform: uppercase;">EVOTRAINER</h2>
               <p style="color: #64748b; font-size: 12px; text-transform: uppercase; font-weight: bold; letter-spacing: 2px; margin-top: 5px;">Periodização de Elite</p>
             </div>
-            
             <p style="color: #1e293b; font-size: 16px;">Fala <strong>${primeiroNome}</strong>! Tudo bem?</p>
             <p style="color: #475569; font-size: 16px; line-height: 1.6;">Sua conta de Personal Trainer foi criada com sucesso e seu ambiente já está liberado. Estamos muito felizes em ter você com a gente!</p>
             <p style="color: #475569; font-size: 16px; line-height: 1.6;">Com nossa plataforma, você vai abandonar as planilhas manuais, gerar treinos com Inteligência Artificial Biomecânica e escalar o seu faturamento.</p>
-            
             <div style="text-align: center; margin: 40px 0;">
               <a href="https://evotrainer.com.br" style="background-color: #2563eb; color: #ffffff; padding: 16px 32px; text-decoration: none; border-radius: 12px; font-weight: bold; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;">Acessar Meu Painel</a>
             </div>
-            
             <p style="color: #475569; font-size: 14px;">Ficou com alguma dúvida ou tem alguma sugestão de melhoria? Responda este e-mail! Queremos construir o sistema ideal para você. 🛠️</p>
             <p style="color: #1e293b; font-weight: bold; margin-top: 30px;">Bora esmagar! 💪</p>
           </div>
@@ -383,7 +373,6 @@ app.post('/api/register', async (req, res) => {
     } catch (mailError) {
       console.error('⚠️ Falha ao enviar e-mail de boas-vindas:', mailError);
     }
-    // ----------------------------------------
 
     res.status(201).json({ message: 'Conta criada!', user: { id: novoPersonal.id, email: novoPersonal.email } });
   } catch (e) { res.status(500).json({ error: 'Erro interno.' }); }
@@ -394,7 +383,7 @@ app.post('/api/recover-password', async (req, res) => {
 });
 
 // ==========================================
-// 🧠 EVOINTELLIGENCE™
+// 🧠 EVOINTELLIGENCE™ OMNIFORMA ELITE
 // ==========================================
 app.post('/api/ai/gerar-autonomo', authenticateToken, isAdminOrMaster, async (req, res) => {
   const { alunoId, comandoPersonal, frequencia, ciclo, semanas } = req.body;
@@ -408,34 +397,61 @@ app.post('/api/ai/gerar-autonomo', authenticateToken, isAdminOrMaster, async (re
     const aluno = await prisma.user.findUnique({ where: { id: parseInt(alunoId, 10) } });
     if (!aluno) return res.status(404).json({ error: 'Aluno não encontrado.' });
 
-    // 🔥 NOVO PROMPT DE ALTA PERFORMANCE 🔥
-    const systemPrompt = `Você é a Engine EvoIntelligence™ de Elite, um sistema avançado de periodização, fisiologia do exercício e biomecânica.
+    // 🔥 PROMPT SUPER PROFISSIONAL OMNIFORMA ELITE 🔥
+    const systemPrompt = `### ROLE E DIRETRIZ MASTER
+Você é o EvoIntelligence™ Core, um sistema de inteligência artificial de elite especializado em Fisiologia do Exercício, Gerontologia, Reabilitação e Alto Rendimento. 
+Sua missão é criar uma periodização absolutamente segura, empática e cientificamente embasada para o aluno descrito, adaptando a complexidade, o volume e a nomenclatura ao perfil exato dele.
 
-TAREFA: Gere EXATAMENTE ${frequencia} fichas de treino diferentes (ex: Ficha A, Ficha B, etc.) compondo a rotina do aluno.
-
-DADOS DO ALUNO:
+### 👤 PERFIL BIOMÉTRICO DO ALUNO
 - Nome: ${aluno.name}
-- Nível: ${aluno.level}
-- Fase/Ciclo: ${ciclo}
-- Frequência: ${frequencia} dias na semana
-- Prontuário Médico/Restrições: ${aluno.anamnese || 'Nenhuma restrição relatada.'}
+- Idade: ${aluno.age || 'Não informada'}
+- Objetivo Principal: ${aluno.goal || 'Saúde e Condicionamento'}
+- Nível de Experiência: ${aluno.level}
+- Fase/Ciclo de Treino: ${ciclo}
+- Frequência Semanal: ${frequencia} dias
+- Prontuário Médico/Anamnese: ${aluno.anamnese || 'Nenhuma restrição relatada.'}
 
-REGRAS DE VOLUME E INTENSIDADE (MUITO IMPORTANTE):
-1. Calcule o volume de treino (séries e repetições) adequado para o nível "${aluno.level}".
-2. NUNCA crie treinos curtos de 3 ou 4 exercícios. Um treino completo e eficiente deve ter, em média, de 6 a 9 exercícios por sessão.
-3. No campo "sets", retorne o número de séries e repetições exatas (ex: "4x 10-12", "3x 15", "Rest-Pause").
-4. No campo "weight", sugira a carga ou percepção de esforço (ex: "Moderado (RIR 2)", "Pesado até a falha").
-5. Distribua os grupamentos musculares logicamente ao longo da frequência solicitada.
-6. Obedeça estritamente às restrições do prontuário médico.
+### 🧠 MOTOR DE ADAPTAÇÃO DINÂMICA (REGRA DE OURO)
+Antes de gerar o treino, classifique mentalmente o aluno em um destes 3 arquétipos e aplique as regras correspondentes:
 
-FORMATO JSON OBRIGATÓRIO:
+1. ARQUÉTIPO CLÍNICO/SÊNIOR (Idosos, Iniciantes Absolutos, Gestantes ou Pessoas com Lesões Graves):
+   - Foco: Funcionalidade, mobilidade, Atividades de Vida Diária (AVDs) e segurança articular.
+   - Vocabulário: Acolhedor e simples. Não use jargões complexos.
+   - Variável de Intensidade: Use a Escala de Borg (RPE 0-10) com descrições claras (ex: "Esforço leve", "Cansaço moderado").
+   - Seleção: Priorize máquinas seguras, isometria, elásticos e peso corporal apoiado. PROIBIDO exercícios de alto impacto ou compressão axial extrema.
+
+2. ARQUÉTIPO FITNESS/ESTÉTICA (Intermediários, Emagrecimento, Hipertrofia Padrão):
+   - Foco: Composição corporal, progressão de carga e volume adequado.
+   - Vocabulário: Motivador e instrutivo.
+   - Variável de Intensidade: Misture RPE com faixas de repetições claras (ex: "Moderado a Difícil - 3x 10 a 12").
+
+3. ARQUÉTIPO ALTO RENDIMENTO (Avançados, Atletas, Força Máxima):
+   - Foco: Sobrecarga progressiva, tempo sob tensão, controle de fadiga periférica.
+   - Vocabulário: Estritamente técnico.
+   - Variável de Intensidade: Exija RIR (Repetições em Reserva) e, se aplicável, cadência de execução.
+
+### 🛠 DIRETRIZES DE PRESCRIÇÃO
+- O treino DEVE conter exatamente ${frequencia} fichas bem distribuídas.
+- O volume e a escolha de exercícios DEVEM respeitar o nível "${aluno.level}" e a anamnese.
+- Adapte o tempo de descanso (rest). Idosos e iniciantes precisam de mais tempo de recuperação entre séries.
+
+### 📦 FORMATO DE SAÍDA EXIGIDO (JSON STRICT)
+Retorne APENAS um objeto JSON válido, seguindo o contrato abaixo. O campo "technical_tip" deve falar DIRETAMENTE com o aluno, no tom correto para o arquétipo dele.
+
 {
   "planilha": [
     {
-      "title": "Ficha A - Peito, Ombro e Tríceps",
+      "title": "Ficha [LETRA] - [Foco da Sessão] (Fase: ${ciclo})",
       "exercises": [
-        {"name": "Supino Reto com Barra", "sets": "4x 10-12", "weight": "Pesado (RIR 2)", "youtubeId": ""},
-        {"name": "Crucifixo Inclinado Halteres", "sets": "3x 12", "weight": "Moderado", "youtubeId": ""}
+        {
+          "name": "Nome Claro do Exercício",
+          "sets": "Número de Séries",
+          "reps": "Faixa de Repetições ou Tempo",
+          "weight_or_intensity": "Intensidade adaptada (Borg, RIR ou Descrição de Carga)",
+          "rest": "Descanso em segundos/minutos",
+          "technical_tip": "Dica de ouro focada em segurança ou postura para este perfil",
+          "youtubeId": ""
+        }
       ]
     }
   ]
@@ -444,7 +460,14 @@ FORMATO JSON OBRIGATÓRIO:
     const aiRes = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${OPENAI_API_KEY}` },
-      body: JSON.stringify({ model: 'gpt-4o-mini', messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: comandoPersonal }], response_format: { type: 'json_object' } }),
+      body: JSON.stringify({ 
+        model: 'gpt-4o-mini', 
+        messages: [
+          { role: 'system', content: systemPrompt }, 
+          { role: 'user', content: comandoPersonal }
+        ], 
+        response_format: { type: 'json_object' } 
+      }),
     });
 
     const aiData = await aiRes.json();
@@ -456,17 +479,36 @@ FORMATO JSON OBRIGATÓRIO:
     const result = JSON.parse(rawContent);
     if (!Array.isArray(result.planilha)) return res.status(500).json({ error: 'Formato inválido retornado pela IA.' });
 
+    // 🔥 MAPEMENTO ATUALIZADO PARA O NOVO MODELO 🔥
     const treinosSalvos = [];
     for (const ficha of result.planilha) {
       const novoTreino = await prisma.workoutTemplate.create({
-        data: { title: ficha.title, userId: aluno.id, duration: `${semanas} Semanas`, exercises: { create: Array.isArray(ficha.exercises) ? ficha.exercises : [] } },
+        data: { 
+          title: ficha.title, 
+          userId: aluno.id, 
+          duration: `${semanas} Semanas`, 
+          exercises: { 
+            create: Array.isArray(ficha.exercises) ? ficha.exercises.map(ex => ({
+              name: ex.name,
+              sets: String(ex.sets || ''),
+              reps: String(ex.reps || ''),
+              weight: String(ex.weight_or_intensity || ex.weight || ''), 
+              rest: String(ex.rest || ''),
+              technical_tip: String(ex.technical_tip || ''),
+              youtubeId: ex.youtubeId || null
+            })) : [] 
+          } 
+        },
       });
       treinosSalvos.push(novoTreino);
     }
 
     await prisma.user.update({ where: { id: req.user.id }, data: { iaUsadaMes: { increment: 1 } } });
     res.json({ message: 'Periodização salva!', treinos: treinosSalvos });
-  } catch (e) { res.status(500).json({ error: 'Falha na Engine IA.' }); }
+  } catch (e) { 
+    console.error('🔥 Erro na Engine:', e);
+    res.status(500).json({ error: 'Falha na Engine IA.' }); 
+  }
 });
 
 app.delete('/api/treinos/:id', authenticateToken, isAdminOrMaster, async (req, res) => {
@@ -478,7 +520,8 @@ app.delete('/api/treinos/:id', authenticateToken, isAdminOrMaster, async (req, r
 
 // --- GESTÃO DE ALUNOS ---
 app.post('/api/alunos', authenticateToken, isAdminOrMaster, async (req, res) => {
-  const { name, email, phone, weight, height, level, anamnese, price } = req.body;
+  // 🔥 ADICIONADO AGE E GOAL PARA PREPARAR O BACKEND PARA O NOVO FRONTEND
+  const { name, email, phone, age, goal, weight, height, level, anamnese, price } = req.body;
   try {
     const emailNormalizado = normalizeEmail(email);
     const emailExists = await prisma.user.findFirst({ where: { email: { equals: emailNormalizado, mode: 'insensitive' } } });
@@ -486,10 +529,25 @@ app.post('/api/alunos', authenticateToken, isAdminOrMaster, async (req, res) => 
 
     const hashed = await bcrypt.hash('123456', 10);
     const novo = await prisma.user.create({
-      data: { name, email: emailNormalizado, phone: String(phone || '').trim(), weight, height, level, anamnese, price, password: hashed, role: 'STUDENT', trainerId: req.user.id, status: 'Ativo' },
+      data: { 
+        name, 
+        email: emailNormalizado, 
+        phone: String(phone || '').trim(), 
+        age: age ? String(age) : null,
+        goal: goal || null,
+        weight, 
+        height, 
+        level, 
+        anamnese, 
+        price, 
+        password: hashed, 
+        role: 'STUDENT', 
+        trainerId: req.user.id, 
+        status: 'Ativo' 
+      },
     });
     res.status(201).json(novo);
-  } catch (e) { res.status(400).json({ error: 'E-mail duplicado.' }); }
+  } catch (e) { res.status(400).json({ error: 'Erro ao criar aluno.' }); }
 });
 
 app.get('/api/alunos', authenticateToken, isAdminOrMaster, async (req, res) => {
@@ -594,7 +652,7 @@ app.put('/api/perfil/senha', authenticateToken, async (req, res) => {
   }
 }); 
 
-// --- ROTA DE EDIÇÃO DE PLANILHA (AGORA LIVRE E CORRIGIDA PARA O PRISMA) ---
+// --- ROTA DE EDIÇÃO DE PLANILHA ---
 app.put('/api/treinos/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
@@ -604,7 +662,6 @@ app.put('/api/treinos/:id', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'ID do treino não fornecido.' });
     }
 
-    // Atualiza a ficha no banco de dados usando workoutTemplate
     const treinoAtualizado = await prisma.workoutTemplate.update({
       where: { 
         id: parseInt(id, 10) 
@@ -612,19 +669,22 @@ app.put('/api/treinos/:id', authenticateToken, async (req, res) => {
       data: {
         title,
         duration,
-        // Limpa os exercícios antigos da ficha e salva os novos editados
+        // 🔥 MAPEAMENTO ATUALIZADO PARA SUPORTAR EDIÇÃO DOS NOVOS CAMPOS 🔥
         exercises: {
           deleteMany: {}, 
           create: exercises.map(ex => ({
             name: ex.name,
-            sets: ex.sets,
-            weight: ex.weight,
+            sets: ex.sets || '',
+            reps: ex.reps || '',
+            weight: ex.weight || ex.weight_or_intensity || '',
+            rest: ex.rest || '',
+            technical_tip: ex.technical_tip || '',
             youtubeId: ex.youtubeId || null
           }))
         }
       },
       include: {
-        exercises: true // Retorna os exercícios novos para o frontend
+        exercises: true
       }
     });
 

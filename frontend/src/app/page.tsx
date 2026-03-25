@@ -171,7 +171,8 @@ export default function App() {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const [formAluno, setFormAluno] = useState({ name: '', email: '', phone: '', weight: '', height: '', level: 'Intermediário', anamnese: '', price: '' });
+  // 🎯 ATUALIZADO: Estado com Age e Goal
+  const [formAluno, setFormAluno] = useState({ name: '', email: '', phone: '', age: '', goal: 'Saúde e Condicionamento', weight: '', height: '', level: 'Intermediário', anamnese: '', price: '' });
   const [formTrainer, setFormTrainer] = useState({ name: '', email: '', phone: '', plano: '' });
   const [formReg, setFormReg] = useState({ name: '', email: '', phone: '', password: '' });
   const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '' });
@@ -510,7 +511,7 @@ export default function App() {
     }
   };
 
-  // --- FUNÇÕES DE EDIÇÃO DE PLANILHA ---
+  // --- FUNÇÕES DE EDIÇÃO DE PLANILHA (ATUALIZADAS) ---
   const openEditWorkout = (workout: any) => {
     setWorkoutEditForm({
       id: workout.id,
@@ -530,7 +531,8 @@ export default function App() {
   const addExerciseRow = () => {
     setWorkoutEditForm({
       ...workoutEditForm,
-      exercises: [...workoutEditForm.exercises, { name: '', sets: '', weight: '', youtubeId: '' }]
+      // 🎯 ATUALIZADO: Inclusão dos novos campos na matriz
+      exercises: [...workoutEditForm.exercises, { name: '', sets: '', reps: '', weight: '', rest: '', technical_tip: '', youtubeId: '' }]
     });
   };
 
@@ -631,18 +633,20 @@ export default function App() {
     const safeTreinoTitle = treino.title.trim().replace(/\s+/g, '_');
     const documentTitle = `EvoTrainer_${safeAlunoName}_${safeTreinoTitle}`;
 
+    // 🎯 ATUALIZADO: PDF com os novos campos (reps, descanso, dica técnica)
     const rows = treino.exercises?.map((ex: any, i: number) => {
       const youtubeLink = ex.youtubeId
         ? `https://www.youtube.com/watch?v=${ex.youtubeId}`
         : `https://www.youtube.com/results?search_query=${encodeURIComponent(ex.name + ' execução biomecânica')}`;
 
       return `<tr style="border-bottom: 1px solid #e2e8f0;">
-                <td style="padding: 16px; font-weight: 800; color: ${primaryColor}; font-size: 18px;">${String(i + 1).padStart(2, '0')}</td>
+                <td style="padding: 16px; font-weight: 800; color: ${primaryColor}; font-size: 18px; vertical-align: top;">${String(i + 1).padStart(2, '0')}</td>
                 <td style="padding: 16px;">
                   <div style="font-weight: 800; color: #1e293b; font-size: 16px; text-transform: uppercase;">${ex.name}</div>
-                  <div style="color: #64748b; font-size: 13px; margin-top: 4px;">Séries: ${ex.sets} | Carga: ${ex.weight}</div>
+                  <div style="color: #64748b; font-size: 13px; margin-top: 4px;">Séries: <b>${ex.sets}</b> | Reps: <b>${ex.reps || '--'}</b> | Carga: <b>${ex.weight}</b> | Rest: <b>${ex.rest || '--'}</b></div>
+                  ${ex.technical_tip ? `<div style="color: #059669; font-size: 11px; margin-top: 6px; font-weight: bold; background: #d1fae5; padding: 4px 8px; border-radius: 6px; display: inline-block;">💡 DICA: ${ex.technical_tip}</div>` : ''}
                 </td>
-                <td style="padding: 16px; text-align: right;">
+                <td style="padding: 16px; text-align: right; vertical-align: middle;">
                   <a href="${youtubeLink}" target="_blank" style="background: #ff0000; color: white; padding: 10px 15px; border-radius: 8px; text-decoration: none; font-weight: 900; font-size: 10px; display: inline-block;">VÍDEO 🎬</a>
                 </td>
               </tr>`;
@@ -682,6 +686,7 @@ export default function App() {
             <div style="text-align:right;">
               <div style="font-weight:900; font-size:20px;">${aluno.name.toUpperCase()}</div>
               <div style="font-size:12px;">Ficha: ${treino.title}</div>
+              <div style="font-size:12px; margin-top:4px;">Objetivo: ${aluno.goal || 'Saúde'}</div>
             </div>
           </div>
         </div>
@@ -1045,7 +1050,7 @@ export default function App() {
               {!isMaster && (
                 <button
                   onClick={() => {
-                    setFormAluno({ name: '', email: '', phone: '', weight: '', height: '', level: 'Intermediário', anamnese: '', price: '' });
+                    setFormAluno({ name: '', email: '', phone: '', age: '', goal: 'Saúde e Condicionamento', weight: '', height: '', level: 'Intermediário', anamnese: '', price: '' });
                     setShowAddAlunoModal(true);
                   }}
                   className="bg-blue-600 px-8 py-5 rounded-2xl font-black text-[10px] uppercase shadow-lg active:scale-95 transition-all"
@@ -1090,7 +1095,7 @@ export default function App() {
                     ) : (
                       <>
                         <button onClick={() => { setAlunoSelecionado(item); setShowGerenciarTreinosModal(true); }} className="flex-1 bg-blue-600 text-white p-5 rounded-2xl font-black text-[10px] uppercase shadow-xl active:scale-95 hover:bg-blue-500 transition-all">Gerenciar Treino</button>
-                        <button onClick={() => { setAlunoSelecionado(item); setFormAluno({ name: item.name, email: item.email, phone: item.phone || '', weight: item.weight || '', height: item.height || '', level: item.level || 'Intermediário', anamnese: item.anamnese || '', price: item.price || '' }); setShowEditAlunoModal(true); }} className="p-5 bg-blue-600/10 text-blue-500 rounded-2xl shadow-xl hover:bg-blue-600 hover:text-white transition-all"><Edit2 size={22} /></button>
+                        <button onClick={() => { setAlunoSelecionado(item); setFormAluno({ name: item.name, email: item.email, phone: item.phone || '', age: item.age || '', goal: item.goal || 'Saúde e Condicionamento', weight: item.weight || '', height: item.height || '', level: item.level || 'Intermediário', anamnese: item.anamnese || '', price: item.price || '' }); setShowEditAlunoModal(true); }} className="p-5 bg-blue-600/10 text-blue-500 rounded-2xl shadow-xl hover:bg-blue-600 hover:text-white transition-all"><Edit2 size={22} /></button>
                         <button onClick={() => deleteAluno(item.id)} className="p-5 bg-red-600/10 text-red-500 rounded-2xl shadow-xl hover:bg-red-600 hover:text-white transition-all"><Trash2 size={22} /></button>
                       </>
                     )}
@@ -1147,7 +1152,8 @@ export default function App() {
 
               <div className="space-y-4">
                 <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest ml-4">5. Comando da Periodização</label>
-                <textarea disabled={iaOffline} id="comandoIA" placeholder="Ex: Monte um ABCDE focado em hipertrofia máxima, priorizando ombros..." className="w-full p-8 bg-slate-950 border-2 border-slate-800 rounded-[3rem] text-white font-medium text-lg min-h-[200px] outline-none shadow-inner" />
+                {/* 🎯 ATUALIZADO: Placeholder dinâmico e focado */}
+                <textarea disabled={iaOffline} id="comandoIA" placeholder="Ex: Focar no fortalecimento de core e glúteos devido à dor lombar, evitar saltos. Priorizar mobilidade no final do treino." className="w-full p-8 bg-slate-950 border-2 border-slate-800 rounded-[3rem] text-white font-medium text-lg min-h-[200px] outline-none shadow-inner" />
               </div>
 
               <button
@@ -1333,7 +1339,7 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL: INCLUIR / EDITAR ALUNO */}
+      {/* MODAL: INCLUIR / EDITAR ALUNO (ATUALIZADO) */}
       {(showAddAlunoModal || showEditAlunoModal) && !isMaster && (
         <div className="fixed inset-0 bg-black/98 z-[600] flex items-center justify-center p-6 backdrop-blur-md animate-fade-in text-slate-50">
           <div className="bg-slate-900 border border-slate-800 p-10 rounded-[4rem] w-full max-w-3xl max-h-[90vh] overflow-y-auto custom-scrollbar shadow-2xl relative">
@@ -1352,6 +1358,25 @@ export default function App() {
                 <div>
                   <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4 mb-2 block">E-mail de Login</label>
                   <input type="email" required className="w-full p-6 rounded-3xl bg-slate-950 border border-slate-800 text-white font-bold outline-none focus:border-blue-500" value={formAluno.email} onChange={e => setFormAluno({ ...formAluno, email: e.target.value })} />
+                </div>
+              </div>
+
+              {/* 🎯 ATUALIZADO: Nova linha com Idade e Objetivo */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4 mb-2 block">Idade</label>
+                  <input type="number" placeholder="Ex: 35" className="w-full p-6 rounded-3xl bg-slate-950 border border-slate-800 text-white font-bold outline-none focus:border-blue-500" value={formAluno.age} onChange={e => setFormAluno({ ...formAluno, age: e.target.value })} />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4 mb-2 block">Objetivo Principal</label>
+                  <select className="w-full p-6 rounded-3xl bg-slate-950 border border-slate-800 text-white font-black outline-none focus:border-blue-500 appearance-none cursor-pointer" value={formAluno.goal} onChange={e => setFormAluno({ ...formAluno, goal: e.target.value })}>
+                    <option value="Saúde e Condicionamento">Saúde e Condicionamento</option>
+                    <option value="Emagrecimento">Emagrecimento</option>
+                    <option value="Hipertrofia">Hipertrofia</option>
+                    <option value="Força/Performance">Força/Performance</option>
+                    <option value="Reabilitação">Reabilitação</option>
+                  </select>
                 </div>
               </div>
 
@@ -1381,7 +1406,12 @@ export default function App() {
 
               <div>
                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4 mb-2 block">Prontuário Médico / Restrições (IA)</label>
-                <textarea className="w-full p-8 bg-slate-950 border border-slate-800 rounded-[2.5rem] text-white min-h-[150px] outline-none focus:border-blue-500 shadow-inner" value={formAluno.anamnese} onChange={e => setFormAluno({ ...formAluno, anamnese: e.target.value })} />
+                <textarea 
+                  placeholder="Ex: Condromalácia patelar grau 2, hipertensão controlada. Trabalha o dia todo sentado." 
+                  className="w-full p-8 bg-slate-950 border border-slate-800 rounded-[2.5rem] text-white min-h-[150px] outline-none focus:border-blue-500 shadow-inner" 
+                  value={formAluno.anamnese} 
+                  onChange={e => setFormAluno({ ...formAluno, anamnese: e.target.value })} 
+                />
               </div>
 
               <button type="submit" className="w-full py-8 bg-blue-600 text-white font-black rounded-[2.5rem] shadow-2xl uppercase tracking-widest text-[12px] active:scale-95 transition-all mt-4 hover:bg-blue-500">
@@ -1453,9 +1483,7 @@ export default function App() {
                       </div>
 
                       <div className="flex gap-2">
-                        {/* 🎯 AQUI: BOTÃO DE EDITAR ADICIONADO! */}
                         <button onClick={() => openEditWorkout(w)} className="p-4 bg-amber-600/20 text-amber-500 rounded-xl shadow-xl active:scale-90 hover:bg-amber-600 hover:text-white transition-all" title="Editar Manualmente"><Edit2 size={18} /></button>
-                        
                         <button onClick={() => exportarPDF(w, alunoSelecionado)} className="p-4 bg-blue-600 text-white rounded-xl shadow-xl active:scale-90 hover:bg-blue-500 transition-all" title="Baixar PDF"><Download size={18} /></button>
                         <button onClick={() => enviarWhatsApp(alunoSelecionado, w)} className="p-4 bg-emerald-600 text-white rounded-xl shadow-xl active:scale-90 hover:bg-emerald-500 transition-all" title="Avisar no WhatsApp"><MessageCircle size={18} /></button>
                         <button onClick={() => deletePlanilha(w.id)} className="p-4 bg-red-600/20 text-red-500 rounded-xl shadow-xl active:scale-90 hover:bg-red-600 hover:text-white transition-all" title="Excluir"><Trash2 size={18} /></button>
@@ -1501,14 +1529,14 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL: EDITAR PLANILHA MANUAL */}
+      {/* MODAL: EDITAR PLANILHA MANUAL (ATUALIZADO PARA SUPORTAR A ENGINE ELITE) */}
       {showEditWorkoutModal && (
         <div className="fixed inset-0 bg-black/98 z-[700] flex items-center justify-center p-6 backdrop-blur-md animate-fade-in text-slate-50">
-          <div className="bg-slate-900 border border-slate-800 p-8 md:p-12 rounded-[4rem] w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl relative">
+          <div className="bg-slate-900 border border-slate-800 p-8 md:p-12 rounded-[4rem] w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl relative">
             <div className="flex justify-between items-center mb-8 border-b border-slate-800 pb-6">
               <div>
                 <h3 className="text-2xl font-black text-white italic tracking-tighter uppercase">Editar Planilha Manual</h3>
-                <p className="text-[10px] text-amber-500 font-black uppercase mt-1 tracking-widest">Ajuste fino de exercícios</p>
+                <p className="text-[10px] text-amber-500 font-black uppercase mt-1 tracking-widest">Ajuste fino de exercícios (Engine Elite)</p>
               </div>
               <button onClick={() => setShowEditWorkoutModal(false)} className="p-3 bg-slate-800 rounded-2xl text-slate-400 hover:text-white transition-all"><X size={24} /></button>
             </div>
@@ -1533,23 +1561,38 @@ export default function App() {
                   </button>
                 </div>
 
+                {/* 🎯 ATUALIZADO: Renderizando os novos campos Reps, Rest e Technical Tip */}
                 {workoutEditForm.exercises.map((ex: any, idx: number) => (
-                  <div key={idx} className="bg-slate-950 p-4 rounded-3xl border border-slate-800 flex flex-wrap md:flex-nowrap items-end gap-3 animate-slide-up">
-                    <div className="flex-1 min-w-[150px]">
-                      <label className="text-[9px] font-black text-slate-600 uppercase mb-1 block">Nome do Exercício</label>
-                      <input className="w-full p-3 bg-slate-900 border border-slate-800 rounded-xl text-white text-sm outline-none" value={ex.name} onChange={e => handleExerciseChange(idx, 'name', e.target.value)} />
+                  <div key={idx} className="bg-slate-950 p-4 rounded-3xl border border-slate-800 flex flex-col gap-3 animate-slide-up">
+                    <div className="flex flex-wrap md:flex-nowrap items-end gap-3">
+                      <div className="flex-1 min-w-[150px]">
+                        <label className="text-[9px] font-black text-slate-600 uppercase mb-1 block">Exercício</label>
+                        <input className="w-full p-3 bg-slate-900 border border-slate-800 rounded-xl text-white text-sm outline-none" value={ex.name || ''} onChange={e => handleExerciseChange(idx, 'name', e.target.value)} />
+                      </div>
+                      <div className="w-16">
+                        <label className="text-[9px] font-black text-slate-600 uppercase mb-1 block">Séries</label>
+                        <input className="w-full p-3 bg-slate-900 border border-slate-800 rounded-xl text-white text-sm text-center outline-none" value={ex.sets || ''} onChange={e => handleExerciseChange(idx, 'sets', e.target.value)} />
+                      </div>
+                      <div className="w-20">
+                        <label className="text-[9px] font-black text-slate-600 uppercase mb-1 block">Reps</label>
+                        <input className="w-full p-3 bg-slate-900 border border-slate-800 rounded-xl text-white text-sm text-center outline-none" value={ex.reps || ''} onChange={e => handleExerciseChange(idx, 'reps', e.target.value)} />
+                      </div>
+                      <div className="w-28">
+                        <label className="text-[9px] font-black text-slate-600 uppercase mb-1 block">Intensidade</label>
+                        <input className="w-full p-3 bg-slate-900 border border-slate-800 rounded-xl text-white text-sm text-center outline-none" value={ex.weight || ''} onChange={e => handleExerciseChange(idx, 'weight', e.target.value)} />
+                      </div>
+                      <div className="w-24">
+                        <label className="text-[9px] font-black text-slate-600 uppercase mb-1 block">Descanso</label>
+                        <input className="w-full p-3 bg-slate-900 border border-slate-800 rounded-xl text-white text-sm text-center outline-none" value={ex.rest || ''} onChange={e => handleExerciseChange(idx, 'rest', e.target.value)} />
+                      </div>
+                      <button onClick={() => removeExerciseRow(idx)} className="p-3 bg-red-600/10 text-red-500 rounded-xl hover:bg-red-600 hover:text-white transition-all mb-[2px]">
+                        <Trash2 size={18} />
+                      </button>
                     </div>
-                    <div className="w-24">
-                      <label className="text-[9px] font-black text-slate-600 uppercase mb-1 block">Séries</label>
-                      <input className="w-full p-3 bg-slate-900 border border-slate-800 rounded-xl text-white text-sm text-center outline-none" value={ex.sets} onChange={e => handleExerciseChange(idx, 'sets', e.target.value)} />
+                    <div>
+                      <label className="text-[9px] font-black text-emerald-600 uppercase mb-1 block">Dica Técnica / Foco Biomecânico</label>
+                      <input className="w-full p-3 bg-emerald-900/10 border border-emerald-900/30 rounded-xl text-emerald-400 text-sm outline-none" placeholder="Ex: Mantenha as escápulas retraídas..." value={ex.technical_tip || ''} onChange={e => handleExerciseChange(idx, 'technical_tip', e.target.value)} />
                     </div>
-                    <div className="w-28">
-                      <label className="text-[9px] font-black text-slate-600 uppercase mb-1 block">Carga/Obs</label>
-                      <input className="w-full p-3 bg-slate-900 border border-slate-800 rounded-xl text-white text-sm text-center outline-none" value={ex.weight} onChange={e => handleExerciseChange(idx, 'weight', e.target.value)} />
-                    </div>
-                    <button onClick={() => removeExerciseRow(idx)} className="p-3 bg-red-600/10 text-red-500 rounded-xl hover:bg-red-600 hover:text-white transition-all mb-[2px]">
-                      <Trash2 size={18} />
-                    </button>
                   </div>
                 ))}
               </div>
