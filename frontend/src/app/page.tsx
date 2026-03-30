@@ -171,8 +171,7 @@ export default function App() {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // 🎯 ATUALIZADO: Estado com Age e Goal + Gender
-  const [formAluno, setFormAluno] = useState({ name: '', email: '', phone: '', age: '', gender: 'Feminino', goal: 'Saúde e Condicionamento', weight: '', height: '', level: 'Intermediário', anamnese: '', price: '' });
+  const [formAluno, setFormAluno] = useState({ name: '', email: '', phone: '', weight: '', height: '', level: 'Intermediário', anamnese: '', price: '' });
   const [formTrainer, setFormTrainer] = useState({ name: '', email: '', phone: '', plano: '' });
   const [formReg, setFormReg] = useState({ name: '', email: '', phone: '', password: '' });
   const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '' });
@@ -511,7 +510,7 @@ export default function App() {
     }
   };
 
-  // --- FUNÇÕES DE EDIÇÃO DE PLANILHA (ATUALIZADAS) ---
+  // --- FUNÇÕES DE EDIÇÃO DE PLANILHA ---
   const openEditWorkout = (workout: any) => {
     setWorkoutEditForm({
       id: workout.id,
@@ -531,7 +530,7 @@ export default function App() {
   const addExerciseRow = () => {
     setWorkoutEditForm({
       ...workoutEditForm,
-      exercises: [...workoutEditForm.exercises, { ficha: '', name: '', sets: '', reps: '', weight: '', rest: '', technical_tip: '', youtubeId: '' }]
+      exercises: [...workoutEditForm.exercises, { name: '', sets: '', weight: '', youtubeId: '' }]
     });
   };
 
@@ -623,70 +622,65 @@ export default function App() {
     return data.toLocaleDateString('pt-BR');
   };
 
+  // --- NOVA FUNÇÃO DE EXPORTAR PDF E FECHAR A ABA ---
   const exportarPDF = (treino: any, aluno: any) => {
     const primaryColor = "#2563eb";
     const dataCriado = new Date(treino.createdAt).toLocaleDateString('pt-BR');
     const dataRevisao = calcularDataRevisao(treino.createdAt, treino.duration || '4 Semanas');
 
+    // 1. GERA UM NOME DE ARQUIVO INTELIGENTE E SEM ESPAÇOS
     const safeAlunoName = aluno.name.trim().replace(/\s+/g, '_');
     const safeTreinoTitle = treino.title.trim().replace(/\s+/g, '_');
     const documentTitle = `EvoTrainer_${safeAlunoName}_${safeTreinoTitle}`;
 
-    // 🎯 SEPARA OS EXERCÍCIOS POR DIA/FICHA
-    const exerciciosPorFicha = treino.exercises?.reduce((acc: any, ex: any) => {
-      const fichaNome = ex.ficha || 'Treino Geral';
-      if (!acc[fichaNome]) acc[fichaNome] = [];
-      acc[fichaNome].push(ex);
-      return acc;
-    }, {});
+    // 2. RENDERIZAR LINHAS À PROVA DE FALHAS (Com Links Visíveis)
+    const rows = treino.exercises?.map((ex: any, i: number) => {
+      const youtubeLink = ex.youtubeId
+        ? `https://www.youtube.com/watch?v=${ex.youtubeId}`
+        : `https://www.youtube.com/results?search_query=${encodeURIComponent(ex.name + ' execução biomecânica')}`;
 
-    let rows = '';
-    if (exerciciosPorFicha) {
-      Object.entries(exerciciosPorFicha).forEach(([fichaNome, exs]: [string, any]) => {
-        // CABEÇALHO DIVISOR DO DIA
-        rows += `
-          <tr style="background-color: #1e293b;">
-            <td colspan="3" style="padding: 12px 20px; color: #ffffff; font-weight: 900; font-size: 13px; text-transform: uppercase; letter-spacing: 2px; border-top: 4px solid #fff;">
-              🏋️ ${fichaNome}
-            </td>
-          </tr>
-        `;
+      // Cria a string de detalhes condicionalmente
+      let detalhes = `<strong>Séries:</strong> ${ex.sets || '-'}`;
+      if (ex.reps) detalhes += ` &nbsp;|&nbsp; <strong>Reps:</strong> ${ex.reps}`;
+      detalhes += ` &nbsp;|&nbsp; <strong>Carga:</strong> ${ex.weight || '-'}`;
+      if (ex.rest) detalhes += ` &nbsp;|&nbsp; <strong>Pausa:</strong> ${ex.rest}`;
 
-        // LINHAS DOS EXERCÍCIOS DAQUELE DIA
-        exs.forEach((ex: any, i: number) => {
-          // OTIMIZAÇÃO DE BUSCA NO YOUTUBE
-          const searchQ = encodeURIComponent(ex.name + ' execução correta biomecânica');
-          const youtubeLink = ex.youtubeId
-            ? `https://www.youtube.com/watch?v=${ex.youtubeId}`
-            : `https://www.youtube.com/results?search_query=${searchQ}`;
+      // Cria a dica condicionalmente se existir
+      const dicaHtml = ex.dica || ex.tip ? `
+        <div style="background: #ecfdf5; border-left: 4px solid #10b981; padding: 8px 12px; margin-top: 8px; border-radius: 0 8px 8px 0;">
+          <span style="color: #065f46; font-size: 11px; font-weight: 700;">💡 DICA: ${ex.dica || ex.tip}</span>
+        </div>
+      ` : '';
 
-          rows += `
-            <tr style="border-bottom: 1px solid #e2e8f0; background-color: #ffffff;">
-              <td style="padding: 16px; font-weight: 900; color: ${primaryColor}; font-size: 16px; vertical-align: top; width: 40px; text-align: center;">${String(i + 1).padStart(2, '0')}</td>
-              <td style="padding: 16px;">
-                <div style="font-weight: 900; color: #0f172a; font-size: 15px; text-transform: uppercase;">${ex.name}</div>
-                <div style="color: #475569; font-size: 12px; margin-top: 4px; font-weight: 600;">Séries: <span style="color:#0f172a">${ex.sets}</span> | Reps: <span style="color:#0f172a">${ex.reps || '--'}</span> | Carga: <span style="color:#0f172a">${ex.weight}</span> | Rest: <span style="color:#0f172a">${ex.rest || '--'}</span></div>
-                ${ex.technical_tip ? `<div style="color: #059669; font-size: 11px; margin-top: 6px; font-weight: 800; background: #d1fae5; padding: 6px 10px; border-radius: 6px; display: inline-block;">💡 DICA: ${ex.technical_tip}</div>` : ''}
-              </td>
-              <td style="padding: 16px; text-align: right; vertical-align: middle; width: 90px;">
-                <a href="${youtubeLink}" target="_blank" style="background: #ef4444; color: white; padding: 8px 12px; border-radius: 8px; text-decoration: none; font-weight: 900; font-size: 10px; display: inline-block; text-transform: uppercase;">VÍDEO 🎬</a>
-              </td>
-            </tr>
-          `;
-        });
-      });
-    }
+      return `<tr style="border-bottom: 1px solid #e2e8f0; page-break-inside: avoid;">
+                <td style="padding: 16px; font-weight: 900; color: ${primaryColor}; font-size: 18px; width: 40px; vertical-align: top;">${String(i + 1).padStart(2, '0')}</td>
+                <td style="padding: 16px; vertical-align: top;">
+                  <div style="font-weight: 900; color: #1e293b; font-size: 14px; text-transform: uppercase; margin-bottom: 6px;">${ex.name}</div>
+                  <div style="color: #475569; font-size: 12px; line-height: 1.5;">
+                    ${detalhes}
+                  </div>
+                  ${dicaHtml}
+                </td>
+                <td style="padding: 16px; text-align: right; vertical-align: middle; width: 90px;">
+                  <a href="${youtubeLink}" target="_blank" style="background: #ef4444; color: #ffffff; padding: 8px 12px; border-radius: 6px; text-decoration: none; font-weight: 900; font-size: 10px; display: inline-block; border: 1px solid #dc2626;">▶ VÍDEO</a>
+                  <div style="margin-top: 6px;">
+                    <a href="${youtubeLink}" target="_blank" style="color: #2563eb; font-size: 9px; text-decoration: underline; font-weight: bold;">Link do YouTube</a>
+                  </div>
+                </td>
+              </tr>`;
+    }).join('');
 
     const html = `<html>
       <head>
         <title>${documentTitle}</title>
         <style>
           @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap'); 
-          body { font-family: 'Inter', sans-serif; margin: 0; background: #f8fafc; } 
+          body { font-family: 'Inter', sans-serif; margin: 0; background: #f8fafc; -webkit-print-color-adjust: exact; print-color-adjust: exact; } 
           .header { background: ${primaryColor}; color: white; padding: 40px; border-bottom-left-radius: 40px; border-bottom-right-radius: 40px; } 
           .container { max-width: 800px; margin: -20px auto 40px; background: white; border-radius: 30px; box-shadow: 0 20px 25px rgba(0,0,0,0.1); overflow: hidden; } 
           table { width: 100%; border-collapse: collapse; }
           
+          /* Esconde a barra de navegação quando for salvar o PDF de fato */
           @media print {
             .no-print { display: none !important; }
             .container { box-shadow: none; margin-top: 20px; }
@@ -711,7 +705,6 @@ export default function App() {
             <div style="text-align:right;">
               <div style="font-weight:900; font-size:20px;">${aluno.name.toUpperCase()}</div>
               <div style="font-size:12px;">Ficha: ${treino.title}</div>
-              <div style="font-size:12px; margin-top:4px;">${aluno.gender || 'Sexo M/F'} | ${aluno.goal || 'Saúde'}</div>
             </div>
           </div>
         </div>
@@ -746,6 +739,7 @@ export default function App() {
     const cleanPhone = aluno.phone?.replace(/\D/g, '');
     const dataRev = calcularDataRevisao(treino.createdAt, treino.duration || '4 Semanas');
     
+    // TEXTO ADAPTADO PARA O FLUXO DO WHATSAPP (SEM EMOJIS PARA EVITAR BUG DE LOSANGO)
     const msg = encodeURIComponent(`Fala ${aluno.name.split(' ')[0]}! Seu novo protocolo "${treino.title}" ja esta disponivel.\n\nEstou enviando o seu PDF logo abaixo!\n\nNossa proxima revisao de treino sera em: ${dataRev}.\nBora esmagar!`);
     
     window.open(`https://wa.me/55${cleanPhone}?text=${msg}`, '_blank');
@@ -1075,7 +1069,7 @@ export default function App() {
               {!isMaster && (
                 <button
                   onClick={() => {
-                    setFormAluno({ name: '', email: '', phone: '', age: '', gender: 'Feminino', goal: 'Saúde e Condicionamento', weight: '', height: '', level: 'Intermediário', anamnese: '', price: '' });
+                    setFormAluno({ name: '', email: '', phone: '', weight: '', height: '', level: 'Intermediário', anamnese: '', price: '' });
                     setShowAddAlunoModal(true);
                   }}
                   className="bg-blue-600 px-8 py-5 rounded-2xl font-black text-[10px] uppercase shadow-lg active:scale-95 transition-all"
@@ -1107,9 +1101,6 @@ export default function App() {
                           <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Alunos: {item._count?.alunos || 0}</p>
                         </div>
                       )}
-                      {!isMaster && (
-                        <p className="text-xs text-slate-500 mt-1">{item.gender || 'Não informado'} | {item.goal}</p>
-                      )}
                     </div>
                   </div>
 
@@ -1123,7 +1114,7 @@ export default function App() {
                     ) : (
                       <>
                         <button onClick={() => { setAlunoSelecionado(item); setShowGerenciarTreinosModal(true); }} className="flex-1 bg-blue-600 text-white p-5 rounded-2xl font-black text-[10px] uppercase shadow-xl active:scale-95 hover:bg-blue-500 transition-all">Gerenciar Treino</button>
-                        <button onClick={() => { setAlunoSelecionado(item); setFormAluno({ name: item.name, email: item.email, phone: item.phone || '', age: item.age || '', gender: item.gender || 'Feminino', goal: item.goal || 'Saúde e Condicionamento', weight: item.weight || '', height: item.height || '', level: item.level || 'Intermediário', anamnese: item.anamnese || '', price: item.price || '' }); setShowEditAlunoModal(true); }} className="p-5 bg-blue-600/10 text-blue-500 rounded-2xl shadow-xl hover:bg-blue-600 hover:text-white transition-all"><Edit2 size={22} /></button>
+                        <button onClick={() => { setAlunoSelecionado(item); setFormAluno({ name: item.name, email: item.email, phone: item.phone || '', weight: item.weight || '', height: item.height || '', level: item.level || 'Intermediário', anamnese: item.anamnese || '', price: item.price || '' }); setShowEditAlunoModal(true); }} className="p-5 bg-blue-600/10 text-blue-500 rounded-2xl shadow-xl hover:bg-blue-600 hover:text-white transition-all"><Edit2 size={22} /></button>
                         <button onClick={() => deleteAluno(item.id)} className="p-5 bg-red-600/10 text-red-500 rounded-2xl shadow-xl hover:bg-red-600 hover:text-white transition-all"><Trash2 size={22} /></button>
                       </>
                     )}
@@ -1148,7 +1139,7 @@ export default function App() {
                   <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest ml-4">1. Selecionar Aluno</label>
                   <select disabled={iaOffline} value={iaAlunoId} onChange={e => setIaAlunoId(e.target.value)} className="w-full p-8 bg-slate-950 border-2 border-slate-800 rounded-[2rem] text-white font-black text-xl outline-none focus:border-blue-500 cursor-pointer appearance-none">
                     <option value="">Acessar lista...</option>
-                    {alunos.map(a => <option key={a.id} value={a.id}>{a.name} ({a.gender || 'Não informado'})</option>)}
+                    {alunos.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
                   </select>
                 </div>
 
@@ -1180,7 +1171,7 @@ export default function App() {
 
               <div className="space-y-4">
                 <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest ml-4">5. Comando da Periodização</label>
-                <textarea disabled={iaOffline} id="comandoIA" placeholder="Ex: Focar no fortalecimento de core e glúteos devido à dor lombar, evitar saltos. Priorizar mobilidade no final do treino." className="w-full p-8 bg-slate-950 border-2 border-slate-800 rounded-[3rem] text-white font-medium text-lg min-h-[200px] outline-none shadow-inner" />
+                <textarea disabled={iaOffline} id="comandoIA" placeholder="Ex: Monte um ABCDE focado em hipertrofia máxima, priorizando ombros..." className="w-full p-8 bg-slate-950 border-2 border-slate-800 rounded-[3rem] text-white font-medium text-lg min-h-[200px] outline-none shadow-inner" />
               </div>
 
               <button
@@ -1390,32 +1381,6 @@ export default function App() {
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4 mb-2 block">Idade</label>
-                  <input type="number" placeholder="Ex: 35" className="w-full p-6 rounded-3xl bg-slate-950 border border-slate-800 text-white font-bold outline-none focus:border-blue-500" value={formAluno.age} onChange={e => setFormAluno({ ...formAluno, age: e.target.value })} />
-                </div>
-
-                <div>
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4 mb-2 block">Sexo</label>
-                  <select className="w-full p-6 rounded-3xl bg-slate-950 border border-slate-800 text-white font-black outline-none focus:border-blue-500 appearance-none cursor-pointer" value={formAluno.gender} onChange={e => setFormAluno({ ...formAluno, gender: e.target.value })}>
-                    <option value="Feminino">Feminino</option>
-                    <option value="Masculino">Masculino</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4 mb-2 block">Objetivo Principal</label>
-                  <select className="w-full p-6 rounded-3xl bg-slate-950 border border-slate-800 text-white font-black outline-none focus:border-blue-500 appearance-none cursor-pointer" value={formAluno.goal} onChange={e => setFormAluno({ ...formAluno, goal: e.target.value })}>
-                    <option value="Saúde e Condicionamento">Saúde e Condicionamento</option>
-                    <option value="Emagrecimento">Emagrecimento</option>
-                    <option value="Hipertrofia">Hipertrofia</option>
-                    <option value="Força/Performance">Força/Performance</option>
-                    <option value="Reabilitação">Reabilitação</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div>
                   <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4 mb-2 block">WhatsApp</label>
                   <input type="tel" required className="w-full p-6 rounded-3xl bg-slate-950 border border-slate-800 text-white font-bold outline-none focus:border-blue-500" value={formAluno.phone} onChange={e => setFormAluno({ ...formAluno, phone: e.target.value })} />
                 </div>
@@ -1440,12 +1405,7 @@ export default function App() {
 
               <div>
                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4 mb-2 block">Prontuário Médico / Restrições (IA)</label>
-                <textarea 
-                  placeholder="Ex: Condromalácia patelar grau 2, hipertensão controlada. Trabalha o dia todo sentado." 
-                  className="w-full p-8 bg-slate-950 border border-slate-800 rounded-[2.5rem] text-white min-h-[150px] outline-none focus:border-blue-500 shadow-inner" 
-                  value={formAluno.anamnese} 
-                  onChange={e => setFormAluno({ ...formAluno, anamnese: e.target.value })} 
-                />
+                <textarea className="w-full p-8 bg-slate-950 border border-slate-800 rounded-[2.5rem] text-white min-h-[150px] outline-none focus:border-blue-500 shadow-inner" value={formAluno.anamnese} onChange={e => setFormAluno({ ...formAluno, anamnese: e.target.value })} />
               </div>
 
               <button type="submit" className="w-full py-8 bg-blue-600 text-white font-black rounded-[2.5rem] shadow-2xl uppercase tracking-widest text-[12px] active:scale-95 transition-all mt-4 hover:bg-blue-500">
@@ -1518,6 +1478,7 @@ export default function App() {
 
                       <div className="flex gap-2">
                         <button onClick={() => openEditWorkout(w)} className="p-4 bg-amber-600/20 text-amber-500 rounded-xl shadow-xl active:scale-90 hover:bg-amber-600 hover:text-white transition-all" title="Editar Manualmente"><Edit2 size={18} /></button>
+                        
                         <button onClick={() => exportarPDF(w, alunoSelecionado)} className="p-4 bg-blue-600 text-white rounded-xl shadow-xl active:scale-90 hover:bg-blue-500 transition-all" title="Baixar PDF"><Download size={18} /></button>
                         <button onClick={() => enviarWhatsApp(alunoSelecionado, w)} className="p-4 bg-emerald-600 text-white rounded-xl shadow-xl active:scale-90 hover:bg-emerald-500 transition-all" title="Avisar no WhatsApp"><MessageCircle size={18} /></button>
                         <button onClick={() => deletePlanilha(w.id)} className="p-4 bg-red-600/20 text-red-500 rounded-xl shadow-xl active:scale-90 hover:bg-red-600 hover:text-white transition-all" title="Excluir"><Trash2 size={18} /></button>
@@ -1566,11 +1527,11 @@ export default function App() {
       {/* MODAL: EDITAR PLANILHA MANUAL */}
       {showEditWorkoutModal && (
         <div className="fixed inset-0 bg-black/98 z-[700] flex items-center justify-center p-6 backdrop-blur-md animate-fade-in text-slate-50">
-          <div className="bg-slate-900 border border-slate-800 p-8 md:p-12 rounded-[4rem] w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl relative">
+          <div className="bg-slate-900 border border-slate-800 p-8 md:p-12 rounded-[4rem] w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl relative">
             <div className="flex justify-between items-center mb-8 border-b border-slate-800 pb-6">
               <div>
                 <h3 className="text-2xl font-black text-white italic tracking-tighter uppercase">Editar Planilha Manual</h3>
-                <p className="text-[10px] text-amber-500 font-black uppercase mt-1 tracking-widest">Ajuste fino de exercícios (Engine Elite)</p>
+                <p className="text-[10px] text-amber-500 font-black uppercase mt-1 tracking-widest">Ajuste fino de exercícios</p>
               </div>
               <button onClick={() => setShowEditWorkoutModal(false)} className="p-3 bg-slate-800 rounded-2xl text-slate-400 hover:text-white transition-all"><X size={24} /></button>
             </div>
@@ -1596,40 +1557,22 @@ export default function App() {
                 </div>
 
                 {workoutEditForm.exercises.map((ex: any, idx: number) => (
-                  <div key={idx} className="bg-slate-950 p-4 rounded-3xl border border-slate-800 flex flex-col gap-3 animate-slide-up relative">
-                    <div className="flex flex-wrap md:flex-nowrap items-end gap-3">
-                      <div className="w-24">
-                        <label className="text-[9px] font-black text-slate-600 uppercase mb-1 block">Ficha/Dia</label>
-                        <input className="w-full p-3 bg-slate-900 border border-slate-800 rounded-xl text-white text-sm outline-none" placeholder="Ex: Treino A" value={ex.ficha || ''} onChange={e => handleExerciseChange(idx, 'ficha', e.target.value)} />
-                      </div>
-                      <div className="flex-1 min-w-[120px]">
-                        <label className="text-[9px] font-black text-slate-600 uppercase mb-1 block">Exercício</label>
-                        <input className="w-full p-3 bg-slate-900 border border-slate-800 rounded-xl text-white text-sm outline-none" value={ex.name || ''} onChange={e => handleExerciseChange(idx, 'name', e.target.value)} />
-                      </div>
-                      <div className="w-16">
-                        <label className="text-[9px] font-black text-slate-600 uppercase mb-1 block">Séries</label>
-                        <input className="w-full p-3 bg-slate-900 border border-slate-800 rounded-xl text-white text-sm text-center outline-none" value={ex.sets || ''} onChange={e => handleExerciseChange(idx, 'sets', e.target.value)} />
-                      </div>
-                      <div className="w-20">
-                        <label className="text-[9px] font-black text-slate-600 uppercase mb-1 block">Reps</label>
-                        <input className="w-full p-3 bg-slate-900 border border-slate-800 rounded-xl text-white text-sm text-center outline-none" value={ex.reps || ''} onChange={e => handleExerciseChange(idx, 'reps', e.target.value)} />
-                      </div>
-                      <div className="w-28">
-                        <label className="text-[9px] font-black text-slate-600 uppercase mb-1 block">Intensidade</label>
-                        <input className="w-full p-3 bg-slate-900 border border-slate-800 rounded-xl text-white text-sm text-center outline-none" value={ex.weight || ''} onChange={e => handleExerciseChange(idx, 'weight', e.target.value)} />
-                      </div>
-                      <div className="w-24">
-                        <label className="text-[9px] font-black text-slate-600 uppercase mb-1 block">Descanso</label>
-                        <input className="w-full p-3 bg-slate-900 border border-slate-800 rounded-xl text-white text-sm text-center outline-none" value={ex.rest || ''} onChange={e => handleExerciseChange(idx, 'rest', e.target.value)} />
-                      </div>
-                      <button onClick={() => removeExerciseRow(idx)} className="p-3 bg-red-600/10 text-red-500 rounded-xl hover:bg-red-600 hover:text-white transition-all mb-[2px]">
-                        <Trash2 size={18} />
-                      </button>
+                  <div key={idx} className="bg-slate-950 p-4 rounded-3xl border border-slate-800 flex flex-wrap md:flex-nowrap items-end gap-3 animate-slide-up">
+                    <div className="flex-1 min-w-[150px]">
+                      <label className="text-[9px] font-black text-slate-600 uppercase mb-1 block">Nome do Exercício</label>
+                      <input className="w-full p-3 bg-slate-900 border border-slate-800 rounded-xl text-white text-sm outline-none" value={ex.name} onChange={e => handleExerciseChange(idx, 'name', e.target.value)} />
                     </div>
-                    <div>
-                      <label className="text-[9px] font-black text-emerald-600 uppercase mb-1 block">Dica Técnica / Foco Biomecânico</label>
-                      <input className="w-full p-3 bg-emerald-900/10 border border-emerald-900/30 rounded-xl text-emerald-400 text-sm outline-none" placeholder="Ex: Mantenha as escápulas retraídas..." value={ex.technical_tip || ''} onChange={e => handleExerciseChange(idx, 'technical_tip', e.target.value)} />
+                    <div className="w-24">
+                      <label className="text-[9px] font-black text-slate-600 uppercase mb-1 block">Séries</label>
+                      <input className="w-full p-3 bg-slate-900 border border-slate-800 rounded-xl text-white text-sm text-center outline-none" value={ex.sets} onChange={e => handleExerciseChange(idx, 'sets', e.target.value)} />
                     </div>
+                    <div className="w-28">
+                      <label className="text-[9px] font-black text-slate-600 uppercase mb-1 block">Carga/Obs</label>
+                      <input className="w-full p-3 bg-slate-900 border border-slate-800 rounded-xl text-white text-sm text-center outline-none" value={ex.weight} onChange={e => handleExerciseChange(idx, 'weight', e.target.value)} />
+                    </div>
+                    <button onClick={() => removeExerciseRow(idx)} className="p-3 bg-red-600/10 text-red-500 rounded-xl hover:bg-red-600 hover:text-white transition-all mb-[2px]">
+                      <Trash2 size={18} />
+                    </button>
                   </div>
                 ))}
               </div>
