@@ -633,17 +633,22 @@ export default function App() {
     const safeTreinoTitle = treino.title.trim().replace(/\s+/g, '_');
     const documentTitle = `EvoTrainer_${safeAlunoName}_${safeTreinoTitle}`;
 
-    // 2. RENDERIZAR LINHAS À PROVA DE FALHAS (Com Links Visíveis)
+    // 2. RENDERIZAR LINHAS À PROVA DE FALHAS (Com URL nua pro iOS ler)
     const rows = treino.exercises?.map((ex: any, i: number) => {
-      const youtubeLink = ex.youtubeId
+      const actualLink = ex.youtubeId
         ? `https://www.youtube.com/watch?v=${ex.youtubeId}`
         : `https://www.youtube.com/results?search_query=${encodeURIComponent(ex.name + ' execução biomecânica')}`;
+
+      // Encurta a string da pesquisa para ficar bonitinho no PDF
+      const rawVisualUrl = ex.youtubeId
+        ? `https://youtu.be/${ex.youtubeId}`
+        : `https://youtube.com/results?q=${ex.name.trim().replace(/\s+/g, '+').toLowerCase()}`;
 
       // Cria a string de detalhes condicionalmente
       let detalhes = `<strong>Séries:</strong> ${ex.sets || '-'}`;
       if (ex.reps) detalhes += ` &nbsp;|&nbsp; <strong>Reps:</strong> ${ex.reps}`;
       detalhes += ` &nbsp;|&nbsp; <strong>Carga:</strong> ${ex.weight || '-'}`;
-      if (ex.rest) detalhes += ` &nbsp;|&nbsp; <strong>Pausa:</strong> ${ex.rest}`;
+      if (ex.rest || ex.pausa) detalhes += ` &nbsp;|&nbsp; <strong>Pausa:</strong> ${ex.rest || ex.pausa}`;
 
       // Cria a dica condicionalmente se existir
       const dicaHtml = ex.dica || ex.tip ? `
@@ -661,10 +666,10 @@ export default function App() {
                   </div>
                   ${dicaHtml}
                 </td>
-                <td style="padding: 16px; text-align: right; vertical-align: middle; width: 90px;">
-                  <a href="${youtubeLink}" target="_blank" style="background: #ef4444; color: #ffffff; padding: 8px 12px; border-radius: 6px; text-decoration: none; font-weight: 900; font-size: 10px; display: inline-block; border: 1px solid #dc2626;">▶ VÍDEO</a>
-                  <div style="margin-top: 6px;">
-                    <a href="${youtubeLink}" target="_blank" style="color: #2563eb; font-size: 9px; text-decoration: underline; font-weight: bold;">Link do YouTube</a>
+                <td style="padding: 16px; text-align: right; vertical-align: middle; width: 120px;">
+                  <a href="${actualLink}" style="background: #ef4444; color: #ffffff; padding: 8px 12px; border-radius: 6px; text-decoration: none; font-weight: 900; font-size: 10px; display: inline-block; border: 1px solid #dc2626;">▶ VÍDEO</a>
+                  <div style="margin-top: 6px; line-height: 1.2;">
+                    <a href="${actualLink}" style="color: #2563eb; font-size: 7px; text-decoration: underline; font-weight: bold; word-break: break-all; display: inline;">${rawVisualUrl}</a>
                   </div>
                 </td>
               </tr>`;
@@ -1477,6 +1482,7 @@ export default function App() {
                       </div>
 
                       <div className="flex gap-2">
+                        {/* 🎯 AQUI: BOTÃO DE EDITAR ADICIONADO! */}
                         <button onClick={() => openEditWorkout(w)} className="p-4 bg-amber-600/20 text-amber-500 rounded-xl shadow-xl active:scale-90 hover:bg-amber-600 hover:text-white transition-all" title="Editar Manualmente"><Edit2 size={18} /></button>
                         
                         <button onClick={() => exportarPDF(w, alunoSelecionado)} className="p-4 bg-blue-600 text-white rounded-xl shadow-xl active:scale-90 hover:bg-blue-500 transition-all" title="Baixar PDF"><Download size={18} /></button>
