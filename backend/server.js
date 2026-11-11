@@ -688,5 +688,246 @@ app.put('/api/treinos/:id', authenticateToken, async (req, res) => {
   }
 });
 
+// ==========================================
+// 🛒 LOJA DE PLANILHAS (Mercado Pago + Pix)
+// ==========================================
+const crypto = require('crypto');
+const MP_API = 'https://api.mercadopago.com';
+const FRONTEND_URL = process.env.FRONTEND_URL || 'https://www.evotrainer.com.br';
+const MAX_DOWNLOADS = 5;
+const DOWNLOAD_DAYS = 30;
+
+const publicProduct = (p) => ({
+  id: p.id, title: p.title, description: p.description,
+  priceCents: p.priceCents, coverUrl: p.coverUrl,
+});
+
+async function sendDownloadEmail(order, product) {
+  const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST || 'smtp.hostinger.com',
+    port: Number(process.env.SMTP_PORT) || 465,
+    secure: true,
+    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+  });
+  const link = `${process.env.API_URL || ''}/api/download/${order.downloadToken}`;
+  const esc = (t) => String(t).replace(/[<>&"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]));
+  await transporter.sendMail({
+    from: '"Equipe EvoTrainer" <adminevotrainer@evotrainer.com.br>',
+    to: order.buyerEmail,
+    subject: `Seu download: ${product.title}`,
+    html: `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px">
+      <h2 style="color:#2563eb">EVOTRAINER</h2>
+      <p>Olá, <strong>${esc(order.buyerName.split(' ')[0])}</strong>! Pagamento confirmado. 🎉</p>
+      <p>Sua planilha <strong>${esc(product.title)}</strong> está pronta:</p>
+      <p><a href="${link}" style="background:#2563eb;color:#fff;padding:14px 28px;border-radius:10px;text-decoration:none;font-weight:bold">BAIXAR PLANILHA</a></p>
+      <p style="color:#64748b;font-size:13px">O link vale por ${DOWNLOAD_DAYS} dias e até ${MAX_DOWNLOADS} downloads.</p></div>`,
+  });
+}
+
+// Confirma o pagamento direto na API do MP (nunca confia só no corpo do webhook)
+async function settleMpPayment(mpPaymentId) {
+  const r = await fetch(`${MP_API}/v1/payments/${encodeURIComponent(mpPaymentId)}`, {
+    headers: { Authorization: `Bearer ${process.env.MP_ACCESS_TOKEN}` },
+  });
+  if (!r.ok) return { ok: false, reason: `mp_${r.status}` };
+  const pay = await r.json();
+  const order = await prisma.order.findUnique({
+    where: { mpPaymentId: String(pay.id) }, include: { product: true },
+  });
+  if (!order) return { ok: false, reason: 'order_not_found' };
+  if (pay.status === 'approved' && order.status !== 'PAID') {
+    if (Math.round(Number(pay.transaction_amount) * 100) !== order.amountCents) {
+      return { ok: false, reason: 'amount_mismatch' };
+    }
+    // updateMany condicional evita e-mail duplicado em webhooks repetidos
+    const upd = await prisma.order.updateMany({
+      where: { id: order.id, status: { not: 'PAID' } },
+      data: { status: 'PAID', paidAt: new Date() },
+    });
+    if (upd.count === 1) {
+      try { await sendDownloadEmail(order, order.product); }
+      catch (e) { console.error('⚠️ Falha ao enviar e-mail de download:', e); }
+    }
+    return { ok: true, status: 'PAID' };
+  }
+  if (['cancelled', 'rejected', 'expired'].includes(pay.status) && order.status === 'PENDING') {
+    await prisma.order.update({ where: { id: order.id }, data: { status: 'CANCELLED' } });
+    return { ok: true, status: 'CANCELLED' };
+  }
+  return { ok: true, status: order.status };
+}
+
+// --- Vitrine pública ---
+app.get('/api/produtos', async (req, res) => {
+  try {
+    const list = await prisma.product.findMany({ where: { active: true }, orderBy: { createdAt: 'desc' } });
+    res.json(list.map(publicProduct));
+  } catch (e) { res.status(500).json({ error: 'Erro ao listar produtos.' }); }
+});
+
+app.get('/api/produtos/:id', async (req, res) => {
+  try {
+    const p = await prisma.product.findUnique({ where: { id: parseInt(req.params.id, 10) || 0 } });
+    if (!p || !p.active) return res.status(404).json({ error: 'Produto não encontrado.' });
+    res.json(publicProduct(p));
+  } catch (e) { res.status(500).json({ error: 'Erro interno.' }); }
+});
+
+// --- Admin (SUPERADMIN): CRUD de produtos ---
+app.get('/api/admin/produtos', authenticateToken, isSuperAdmin, async (req, res) => {
+  res.json(await prisma.product.findMany({ orderBy: { createdAt: 'desc' } }));
+});
+
+app.post('/api/admin/produtos', authenticateToken, isSuperAdmin, async (req, res) => {
+  try {
+    const { title, description, priceCents, coverUrl, fileUrl, active } = req.body;
+    const price = parseInt(priceCents, 10);
+    if (!title || !fileUrl || !Number.isInteger(price) || price < 100) {
+      return res.status(400).json({ error: 'Informe título, fileUrl e priceCents (mínimo 100).' });
+    }
+    if (!/^https:\/\//i.test(fileUrl)) return res.status(400).json({ error: 'fileUrl deve ser https.' });
+    const p = await prisma.product.create({
+      data: { title, description, priceCents: price, coverUrl, fileUrl, active: active !== false },
+    });
+    res.status(201).json(p);
+  } catch (e) { res.status(500).json({ error: 'Erro ao criar produto.' }); }
+});
+
+app.put('/api/admin/produtos/:id', authenticateToken, isSuperAdmin, async (req, res) => {
+  try {
+    const { title, description, priceCents, coverUrl, fileUrl, active } = req.body;
+    const data = { title, description, coverUrl, fileUrl, active };
+    if (priceCents !== undefined) data.priceCents = parseInt(priceCents, 10);
+    if (fileUrl && !/^https:\/\//i.test(fileUrl)) return res.status(400).json({ error: 'fileUrl deve ser https.' });
+    Object.keys(data).forEach((k) => data[k] === undefined && delete data[k]);
+    res.json(await prisma.product.update({ where: { id: parseInt(req.params.id, 10) }, data }));
+  } catch (e) { res.status(500).json({ error: 'Erro ao atualizar produto.' }); }
+});
+
+app.get('/api/admin/pedidos', authenticateToken, isSuperAdmin, async (req, res) => {
+  const list = await prisma.order.findMany({
+    orderBy: { createdAt: 'desc' }, take: 200,
+    select: { id: true, buyerName: true, buyerEmail: true, amountCents: true, status: true, paidAt: true, createdAt: true, product: { select: { title: true } } },
+  });
+  res.json(list);
+});
+
+// --- Checkout: cria pagamento Pix (compra como convidado) ---
+app.post('/api/checkout', async (req, res) => {
+  try {
+    if (!process.env.MP_ACCESS_TOKEN) return res.status(500).json({ error: 'Pagamento indisponível.' });
+    const { productId, name, email, cpf } = req.body;
+    const doc = String(cpf || '').replace(/\D/g, '');
+    const mail = normalizeEmail(email);
+    if (!name || !/^\S+@\S+\.\S+$/.test(mail) || doc.length !== 11) {
+      return res.status(400).json({ error: 'Informe nome, e-mail válido e CPF (11 dígitos).' });
+    }
+    const product = await prisma.product.findUnique({ where: { id: parseInt(productId, 10) || 0 } });
+    if (!product || !product.active) return res.status(404).json({ error: 'Produto não encontrado.' });
+
+    const order = await prisma.order.create({
+      data: {
+        productId: product.id, buyerName: String(name).trim(), buyerEmail: mail, buyerCpf: doc,
+        amountCents: product.priceCents, downloadToken: crypto.randomBytes(32).toString('hex'),
+      },
+    });
+
+    const [first, ...rest] = String(name).trim().split(/\s+/);
+    const mpRes = await fetch(`${MP_API}/v1/payments`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${process.env.MP_ACCESS_TOKEN}`,
+        'Content-Type': 'application/json',
+        'X-Idempotency-Key': `order-${order.id}`,
+      },
+      body: JSON.stringify({
+        transaction_amount: product.priceCents / 100,
+        description: product.title.slice(0, 200),
+        payment_method_id: 'pix',
+        external_reference: String(order.id),
+        notification_url: `${process.env.API_URL || ''}/api/webhook/mercadopago`,
+        date_of_expiration: new Date(Date.now() + 30 * 60 * 1000).toISOString().replace('Z', '-00:00'),
+        payer: { email: mail, first_name: first, last_name: rest.join(' ') || first, identification: { type: 'CPF', number: doc } },
+      }),
+    });
+    const pay = await mpRes.json();
+    if (!mpRes.ok) {
+      console.error('🔥 MP checkout:', mpRes.status, JSON.stringify(pay));
+      await prisma.order.update({ where: { id: order.id }, data: { status: 'CANCELLED' } });
+      return res.status(502).json({ error: 'Não foi possível gerar o Pix. Tente novamente.' });
+    }
+    const td = pay.point_of_interaction?.transaction_data || {};
+    await prisma.order.update({
+      where: { id: order.id },
+      data: { mpPaymentId: String(pay.id), pixQrCode: td.qr_code, pixQrBase64: td.qr_code_base64 },
+    });
+    res.status(201).json({
+      orderId: order.id, accessKey: order.downloadToken,
+      pixCopiaECola: td.qr_code, pixQrBase64: td.qr_code_base64, amountCents: order.amountCents,
+    });
+  } catch (e) {
+    console.error('🔥 /api/checkout:', e);
+    res.status(500).json({ error: 'Erro interno.' });
+  }
+});
+
+// Polling da tela de espera (autorizado pela chave do pedido)
+app.get('/api/pedidos/:id/status', async (req, res) => {
+  try {
+    const order = await prisma.order.findUnique({ where: { id: parseInt(req.params.id, 10) || 0 } });
+    const key = String(req.query.key || '');
+    if (!order || key.length !== order.downloadToken.length ||
+        !crypto.timingSafeEqual(Buffer.from(key), Buffer.from(order.downloadToken))) {
+      return res.status(404).json({ error: 'Pedido não encontrado.' });
+    }
+    if (order.status === 'PENDING' && order.mpPaymentId && process.env.MP_ACCESS_TOKEN) {
+      await settleMpPayment(order.mpPaymentId).catch(() => {});
+      const fresh = await prisma.order.findUnique({ where: { id: order.id } });
+      return res.json({ status: fresh.status });
+    }
+    res.json({ status: order.status });
+  } catch (e) { res.status(500).json({ error: 'Erro interno.' }); }
+});
+
+// --- Webhook Mercado Pago (valida x-signature quando MP_WEBHOOK_SECRET existe) ---
+app.post('/api/webhook/mercadopago', async (req, res) => {
+  try {
+    const dataId = String(req.query['data.id'] || req.body?.data?.id || '');
+    const secret = process.env.MP_WEBHOOK_SECRET;
+    if (secret) {
+      const sig = String(req.headers['x-signature'] || '');
+      const ts = /ts=([^,]+)/.exec(sig)?.[1];
+      const v1 = /v1=([^,]+)/.exec(sig)?.[1];
+      const manifest = `id:${dataId.toLowerCase()};request-id:${req.headers['x-request-id'] || ''};ts:${ts};`;
+      const expected = crypto.createHmac('sha256', secret).update(manifest).digest('hex');
+      if (!ts || !v1 || v1.length !== expected.length ||
+          !crypto.timingSafeEqual(Buffer.from(v1), Buffer.from(expected))) {
+        return res.status(401).json({ error: 'assinatura inválida' });
+      }
+    }
+    const type = req.query.type || req.body?.type;
+    if (dataId && (type === 'payment' || !type)) await settleMpPayment(dataId);
+    res.status(200).json({ ok: true });
+  } catch (e) {
+    console.error('🔥 webhook MP:', e);
+    res.status(500).json({ error: 'retry' }); // MP reenvia em caso de erro
+  }
+});
+
+// --- Entrega: valida token e redireciona para o arquivo ---
+app.get('/api/download/:token', async (req, res) => {
+  try {
+    const order = await prisma.order.findUnique({
+      where: { downloadToken: String(req.params.token) }, include: { product: true },
+    });
+    if (!order || order.status !== 'PAID') return res.status(404).send('Link inválido.');
+    if (Date.now() - new Date(order.paidAt).getTime() > DOWNLOAD_DAYS * 86400000 || order.downloadCount >= MAX_DOWNLOADS) {
+      return res.status(410).send('Link expirado. Fale com o suporte.');
+    }
+    await prisma.order.update({ where: { id: order.id }, data: { downloadCount: { increment: 1 } } });
+    res.redirect(302, order.product.fileUrl);
+  } catch (e) { res.status(500).send('Erro interno.'); }
+});
+
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => { console.log(`🚀 EvoCore operante na porta ${PORT}`); });

@@ -116,3 +116,40 @@ model SystemConfig {
   proPrice     String   @default("60")
   elitePrice   String   @default("100")
 }
+
+// ==========================================
+// LOJA DE PLANILHAS (Mercado Pago / Pix)
+// ==========================================
+model Product {
+  id           Int      @id @default(autoincrement())
+  title        String
+  description  String?  @db.Text
+  priceCents   Int
+  coverUrl     String?  @db.Text
+  fileUrl      String   @db.Text // link privado do arquivo (R2/S3/Drive); nunca exposto na vitrine
+  active       Boolean  @default(true)
+  orders       Order[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Order {
+  id            Int       @id @default(autoincrement())
+  productId     Int
+  product       Product   @relation(fields: [productId], references: [id])
+  buyerName     String
+  buyerEmail    String
+  buyerCpf      String
+  amountCents   Int
+  status        String    @default("PENDING") // PENDING | PAID | CANCELLED
+  mpPaymentId   String?   @unique
+  pixQrCode     String?   @db.Text // copia e cola
+  pixQrBase64   String?   @db.Text
+  downloadToken String    @unique
+  downloadCount Int       @default(0)
+  paidAt        DateTime?
+  createdAt     DateTime  @default(now())
+
+  @@index([buyerEmail])
+  @@index([productId])
+}
