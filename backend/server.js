@@ -385,17 +385,29 @@ app.post('/api/recover-password', async (req, res) => {
 // ==========================================
 // 🧠 EVOINTELLIGENCE™ OMNIFORMA ELITE
 // ==========================================
-app.post('/api/ai/gerar-autonomo', authenticateToken, isAdminOrMaster, async (req, res) => {
-  const { alunoId, comandoPersonal, frequencia, ciclo, semanas } = req.body;
-  try {
-    const personal = await prisma.user.findUnique({ where: { id: req.user.id } });
-    if (!personal) return res.status(404).json({ error: 'Usuário não encontrado.' });
-    if (personal.role !== 'SUPERADMIN' && personal.plano === 'GRATIS' && personal.iaUsadaMes >= 5) {
-      return res.status(403).json({ error: 'Limite de 5 treinos atingido. Faça o upgrade!' });
-    }
+const iaError = (message, status = 500) => Object.assign(new Error(message), { status });
 
-    const aluno = await prisma.user.findUnique({ where: { id: parseInt(alunoId, 10) } });
-    if (!aluno) return res.status(404).json({ error: 'Aluno não encontrado.' });
+// Deduz frequência/ciclo/semanas/comando a partir do cadastro do aluno (anamnese, nível, objetivo)
+function resolverParametrosIA(aluno, opts = {}) {
+  const porNivel = { 'Iniciante': 3, 'Intermediário': 4, 'Avançado': 5 };
+  const freq = parseInt(opts.frequencia, 10);
+  const sem = parseInt(opts.semanas, 10);
+  return {
+    frequencia: freq >= 1 && freq <= 7 ? freq : (porNivel[aluno.level] || 4),
+    semanas: sem >= 1 && sem <= 52 ? sem : 4,
+    ciclo: String(opts.ciclo || aluno.goal || 'Adaptação e Condicionamento'),
+    comandoPersonal: String(opts.comandoPersonal || '').trim() ||
+      'Monte o protocolo ideal para este aluno com base no objetivo, nível, sexo e idade, respeitando rigorosamente todas as restrições e lesões descritas na anamnese.',
+  };
+}
+
+// Gera e salva a planilha do aluno via IA. Lança erro com .status em caso de falha.
+async function gerarTreinoIA(personal, aluno, opts = {}) {
+  if (!OPENAI_API_KEY) throw iaError('OPENAI_API_KEY não configurada.');
+  if (personal.role !== 'SUPERADMIN' && personal.plano === 'GRATIS' && personal.iaUsadaMes >= 5) {
+    throw iaError('Limite de 5 treinos atingido. Faça o upgrade!', 403);
+  }
+  const { frequencia, ciclo, semanas, comandoPersonal } = resolverParametrosIA(aluno, opts);
 
     // 🔥 PROMPT SUPER PROFISSIONAL OMNIFORMA ELITE COM DIRETRIZ DE GÊNERO 🔥
     const systemPrompt = `Vocę é o EvoIntelligence™ Core, Diretor Técnico de Alto Rendimento. Sua missāo é gerar UM ÚNICO PROTOCOLO DE TREINO COMPLETO (planilha única) contendo todos os dias de treino da semana.
@@ -452,10 +464,10 @@ EXEMPLOS CORRETOS: "Puxada Frontal na Polia Alta", "Crucifixo Invertido na Máqu
     });
 
     const aiData = await aiRes.json();
-    if (!aiRes.ok) return res.status(500).json({ error: 'Falha na Engine IA.' });
+    if (!aiRes.ok) throw iaError('Falha na Engine IA.');
 
     const rawContent = aiData?.choices?.[0]?.message?.content;
-    if (!rawContent) return res.status(500).json({ error: 'Resposta inválida da Engine IA.' });
+    if (!rawContent) throw iaError('Resposta inválida da Engine IA.');
 
     const result = JSON.parse(rawContent);
 
@@ -479,7 +491,7 @@ EXEMPLOS CORRETOS: "Puxada Frontal na Polia Alta", "Crucifixo Invertido na Máqu
       });
     }
 
-    if (todosExercicios.length === 0) return res.status(500).json({ error: 'Erro de parse da IA.' });
+    if (todosExercicios.length === 0) throw iaError('Erro de parse da IA.');
 
     // Cria UMA planilha e insere todos os exercícios
     const novoTreino = await prisma.workoutTemplate.create({
@@ -492,11 +504,21 @@ EXEMPLOS CORRETOS: "Puxada Frontal na Polia Alta", "Crucifixo Invertido na Máqu
       include: { exercises: true }
     });
 
-    await prisma.user.update({ where: { id: req.user.id }, data: { iaUsadaMes: { increment: 1 } } });
+    await prisma.user.update({ where: { id: personal.id }, data: { iaUsadaMes: { increment: 1 } } });
+  return novoTreino;
+}
+
+app.post('/api/ai/gerar-autonomo', authenticateToken, isAdminOrMaster, async (req, res) => {
+  try {
+    const personal = await prisma.user.findUnique({ where: { id: req.user.id } });
+    if (!personal) return res.status(404).json({ error: 'Usuário não encontrado.' });
+    const aluno = await prisma.user.findUnique({ where: { id: parseInt(req.body.alunoId, 10) || 0 } });
+    if (!aluno) return res.status(404).json({ error: 'Aluno não encontrado.' });
+    const novoTreino = await gerarTreinoIA(personal, aluno, req.body);
     res.json({ message: 'Periodização salva!', treinos: [novoTreino] });
-  } catch (e) { 
+  } catch (e) {
     console.error('🔥 Erro na Engine:', e);
-    res.status(500).json({ error: 'Falha na Engine IA.' }); 
+    res.status(e.status || 500).json({ error: e.status ? e.message : 'Falha na Engine IA.' });
   }
 });
 
@@ -535,7 +557,18 @@ app.post('/api/alunos', authenticateToken, isAdminOrMaster, async (req, res) => 
         status: 'Ativo' 
       },
     });
-    res.status(201).json(novo);
+    // gerarTreino: true -> cria a planilha automaticamente a partir da anamnese/cadastro
+    let treinoGerado = null, avisoTreino = null;
+    if (req.body.gerarTreino) {
+      try {
+        const personal = await prisma.user.findUnique({ where: { id: req.user.id } });
+        treinoGerado = await gerarTreinoIA(personal, novo, req.body);
+      } catch (iaErr) {
+        console.error('⚠️ Auto-geração de treino falhou:', iaErr);
+        avisoTreino = iaErr.status ? iaErr.message : 'Aluno criado, mas o treino automático falhou. Gere manualmente.';
+      }
+    }
+    res.status(201).json({ ...novo, treinoGerado, avisoTreino });
   } catch (e) { res.status(400).json({ error: 'Erro ao criar aluno.' }); }
 });
 
