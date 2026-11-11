@@ -4,6 +4,7 @@ const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
+const Anthropic = require('@anthropic-ai/sdk');
 
 const prisma = new PrismaClient();
 const app = express();
@@ -15,7 +16,52 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 const JWT_SECRET = process.env.JWT_SECRET || 'secreto-evotrainer-2026';
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || '';
+const CLAUDE_MODEL = 'claude-sonnet-5-5';
+const anthropic = new Anthropic({ apiKey: ANTHROPIC_API_KEY || 'sem-chave' });
+
+const PROTOCOLO_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['protocolo'],
+  properties: {
+    protocolo: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['title', 'dias'],
+      properties: {
+        title: { type: 'string' },
+        dias: {
+          type: 'array',
+          items: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['nome_dia', 'exercicios'],
+            properties: {
+              nome_dia: { type: 'string' },
+              exercicios: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  additionalProperties: false,
+                  required: ['name', 'sets', 'reps', 'weight_or_intensity', 'rest', 'technical_tip'],
+                  properties: {
+                    name: { type: 'string' },
+                    sets: { type: 'string' },
+                    reps: { type: 'string' },
+                    weight_or_intensity: { type: 'string' },
+                    rest: { type: 'string' },
+                    technical_tip: { type: 'string' },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+};
 
 const normalizeEmail = (value = '') => String(value).trim().toLowerCase();
 const normalizePhone = (value = '') => String(value).replace(/\D/g, '');
@@ -403,14 +449,14 @@ function resolverParametrosIA(aluno, opts = {}) {
 
 // Gera e salva a planilha do aluno via IA. Lança erro com .status em caso de falha.
 async function gerarTreinoIA(personal, aluno, opts = {}) {
-  if (!OPENAI_API_KEY) throw iaError('OPENAI_API_KEY não configurada.');
+  if (!ANTHROPIC_API_KEY) throw iaError('ANTHROPIC_API_KEY não configurada.');
   if (personal.role !== 'SUPERADMIN' && personal.plano === 'GRATIS' && personal.iaUsadaMes >= 5) {
     throw iaError('Limite de 5 treinos atingido. Faça o upgrade!', 403);
   }
   const { frequencia, ciclo, semanas, comandoPersonal } = resolverParametrosIA(aluno, opts);
 
     // 🔥 PROMPT SUPER PROFISSIONAL OMNIFORMA ELITE COM DIRETRIZ DE GÊNERO 🔥
-    const systemPrompt = `Vocę é o EvoIntelligence™ Core, Diretor Técnico de Alto Rendimento. Sua missāo é gerar UM ÚNICO PROTOCOLO DE TREINO COMPLETO (planilha única) contendo todos os dias de treino da semana.
+    const systemPrompt = `Você é o EvoIntelligence™ Core, Diretor Técnico de Alto Rendimento. Sua missão é gerar UM ÚNICO PROTOCOLO DE TREINO COMPLETO (planilha única) contendo todos os dias de treino da semana.
 
 👤 ALUNO: ${aluno.name} | Sexo: ${aluno.gender || 'Não informado'} | Idade: ${aluno.age || 'N/A'} | Objetivo: ${aluno.goal || 'Saúde'} | Nível: ${aluno.level} | Frequência: ${frequencia} dias | Fase: ${ciclo}
 Prontuário/Restrições: ${aluno.anamnese || 'Nenhuma'}
@@ -449,27 +495,30 @@ EXEMPLOS CORRETOS: "Puxada Frontal na Polia Alta", "Crucifixo Invertido na Máqu
   }
 }`;
 
-    const aiRes = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${OPENAI_API_KEY}` },
-      body: JSON.stringify({ 
-        model: 'gpt-4o-mini', 
-        messages: [
-          { role: 'system', content: systemPrompt }, 
-          { role: 'user', content: comandoPersonal }
-        ], 
-        response_format: { type: 'json_object' },
-        temperature: 0.6
-      }),
-    });
+    // Claude Sonnet 5.5: JSON garantido por schema (structured outputs) e fallback server-side em caso de recusa
+    let msg;
+    try {
+      msg = await anthropic.beta.messages.create({
+        model: CLAUDE_MODEL,
+        max_tokens: 16000,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: comandoPersonal }],
+        output_config: { effort: 'medium', format: { type: 'json_schema', schema: PROTOCOLO_SCHEMA } },
+        betas: ['server-side-fallback-2026-07-01'],
+        fallbacks: 'default',
+      });
+    } catch (apiErr) {
+      console.error('🔥 Claude API:', apiErr.status, apiErr.message);
+      throw iaError('Falha na Engine IA.');
+    }
+    if (msg.stop_reason === 'refusal') throw iaError('A IA não pôde gerar este treino. Revise o prontuário e tente novamente.');
+    if (msg.stop_reason === 'max_tokens') throw iaError('Resposta da IA truncada. Reduza a frequência semanal.');
 
-    const aiData = await aiRes.json();
-    if (!aiRes.ok) throw iaError('Falha na Engine IA.');
-
-    const rawContent = aiData?.choices?.[0]?.message?.content;
+    const rawContent = msg.content.find((b) => b.type === 'text')?.text;
     if (!rawContent) throw iaError('Resposta inválida da Engine IA.');
 
-    const result = JSON.parse(rawContent);
+    let result;
+    try { result = JSON.parse(rawContent); } catch { throw iaError('Erro de parse da IA.'); }
 
     // Achatar (Flatten) todos os dias em uma única Array de Exercícios
     const todosExercicios = [];
