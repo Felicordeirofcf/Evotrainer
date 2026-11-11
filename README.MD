@@ -49,7 +49,7 @@ Abaixo está o registo de todas as atualizações (Changelog) implementadas na v
 * **Back-end:** Node.js, Express.js.
 * **Base de Dados:** Prisma ORM, PostgreSQL.
 * **Autenticação:** JWT (JSON Web Tokens), Bcryptjs.
-* **Integrações Externas:** * OpenAI API (GPT-4o-mini) para geração de treinos.
+* **Integrações Externas:** * Anthropic API (Claude Sonnet 5.5) para geração de treinos.
   * Asaas API para gateway de pagamentos PIX/Cartão.
   * Nodemailer para automação de e-mails SMTP.
   * Meta Pixel & Google Ads (Eventos e Captação de Leads).
@@ -65,7 +65,7 @@ Para que o projeto funcione a 100% em produção (Render/Vercel), certifique-se 
 PORT=3001
 DATABASE_URL="postgres://user:password@host:port/database"
 JWT_SECRET="sua-chave-secreta-jwt"
-OPENAI_API_KEY="sk-sua-chave-openai"
+ANTHROPIC_API_KEY="sk-ant-sua-chave-anthropic"
 ASAAS_API_KEY="sua-chave-api-do-asaas"
 SMTP_HOST="smtp.hostinger.com"
 SMTP_PORT=465
