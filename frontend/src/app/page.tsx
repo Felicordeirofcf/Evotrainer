@@ -144,6 +144,7 @@ export default function App() {
   const paymentPollingRef = useRef<number | null>(null);
 
   const [showAddAlunoModal, setShowAddAlunoModal] = useState(false);
+  const [gerarTreinoAuto, setGerarTreinoAuto] = useState(false);
   const [showEditAlunoModal, setShowEditAlunoModal] = useState(false);
   const [showGerenciarTreinosModal, setShowGerenciarTreinosModal] = useState(false);
   const [alunoSelecionado, setAlunoSelecionado] = useState<any>(null);
@@ -414,11 +415,14 @@ export default function App() {
     const res = await fetch(`${API_URL}/alunos`, {
       method: 'POST',
       headers: getAuthHeaders(),
-      body: JSON.stringify(formAluno)
+      body: JSON.stringify({ ...formAluno, gerarTreino: gerarTreinoAuto })
     });
 
     if (res.ok) {
-      showToast("Aluno Incluído!");
+      const data = await res.json().catch(() => ({}));
+      if (gerarTreinoAuto && data.treinoGerado) showToast("Aluno incluído e treino gerado pela IA!");
+      else if (gerarTreinoAuto && data.avisoTreino) showToast(`Aluno incluído. ${data.avisoTreino}`);
+      else showToast("Aluno Incluído!");
       setShowAddAlunoModal(false);
       fetchData();
     }
@@ -1075,6 +1079,7 @@ export default function App() {
                 <button
                   onClick={() => {
                     setFormAluno({ name: '', email: '', phone: '', weight: '', height: '', level: 'Intermediário', anamnese: '', price: '' });
+                    setGerarTreinoAuto(false);
                     setShowAddAlunoModal(true);
                   }}
                   className="bg-blue-600 px-8 py-5 rounded-2xl font-black text-[10px] uppercase shadow-lg active:scale-95 transition-all"
@@ -1412,6 +1417,16 @@ export default function App() {
                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4 mb-2 block">Prontuário Médico / Restrições (IA)</label>
                 <textarea className="w-full p-8 bg-slate-950 border border-slate-800 rounded-[2.5rem] text-white min-h-[150px] outline-none focus:border-blue-500 shadow-inner" value={formAluno.anamnese} onChange={e => setFormAluno({ ...formAluno, anamnese: e.target.value })} />
               </div>
+
+              {showAddAlunoModal && (
+                <label className="flex items-start gap-4 p-6 bg-slate-950 border border-slate-800 rounded-3xl cursor-pointer">
+                  <input type="checkbox" className="mt-1 w-5 h-5 accent-blue-600" checked={gerarTreinoAuto} onChange={e => setGerarTreinoAuto(e.target.checked)} />
+                  <span>
+                    <span className="block text-white font-black text-sm uppercase">Gerar treino automático com IA</span>
+                    <span className="block text-slate-500 text-xs mt-1">Cria a planilha na hora com base no nível, objetivo e prontuário acima. Conta 1 uso do limite mensal de IA.</span>
+                  </span>
+                </label>
+              )}
 
               <button type="submit" className="w-full py-8 bg-blue-600 text-white font-black rounded-[2.5rem] shadow-2xl uppercase tracking-widest text-[12px] active:scale-95 transition-all mt-4 hover:bg-blue-500">
                 {showAddAlunoModal ? 'Salvar e Integrar IA' : 'Atualizar Dados do Aluno'}
